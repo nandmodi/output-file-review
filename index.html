@@ -1,1 +1,349 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spyne Image Review Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f7ff;
+        }
+        .spyne-blue { background-color: #2b6cb0; }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 10px; }
+        
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+        }
+
+        .loading-spinner {
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top: 2px solid #fff;
+            width: 16px;
+            height: 16px;
+            animation: spin 0.8s linear infinite;
+        }
+
+        .spinner-blue {
+            border: 2px solid rgba(43, 108, 176, 0.2);
+            border-top: 2px solid #2b6cb0;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* Page View Logic */
+        .page-view { display: none; min-height: 100vh; }
+        .page-view.active { display: flex; flex-direction: column; }
+
+        /* Specific Badge Style from Reference Image */
+        .badge-vauto {
+            background-color: #eef7ff;
+            color: #4a86c4;
+            padding: 2px 12px;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body class="text-slate-800">
+
+    <!-- Header (Used on all screens but logic handles visibility if needed) -->
+    <header id="main-header" class="spyne-blue text-white px-6 py-3 flex justify-between items-center shadow-md sticky top-0 z-50">
+        <div class="flex items-center space-x-2 cursor-pointer" onclick="location.reload()">
+            <svg class="w-8 h-8" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="20" cy="20" r="18" stroke="white" stroke-width="2"/>
+                <circle cx="20" cy="20" r="6" fill="#F6AD55"/>
+            </svg>
+            <span class="text-xl font-bold tracking-tight">spyne</span>
+        </div>
+        
+        <div class="flex items-center space-x-4">
+            <button id="refresh-data-btn" class="hidden flex items-center space-x-1.5 bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1.5 rounded-md text-[11px] font-bold text-white transition active:scale-95 uppercase tracking-wider">
+                <svg id="refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                <div id="refresh-loader" class="loading-spinner hidden" style="border-top-color: white;"></div>
+                <span>Refresh</span>
+            </button>
+            <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 rounded-full bg-blue-800 flex items-center justify-center text-xs font-bold">WA</div>
+                <span class="text-sm hidden sm:inline">Work</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Page 1: Enterprise Selection (Login) -->
+    <div id="page-login" class="page-view active items-center justify-center p-4">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100">
+            <div class="flex justify-center mb-6">
+                 <div class="flex items-center space-x-2">
+                    <div class="w-10 h-10 rounded-full spyne-blue flex items-center justify-center">
+                        <div class="w-4 h-4 rounded-full bg-orange-400"></div>
+                    </div>
+                    <span class="text-2xl font-bold text-slate-700">spyne</span>
+                </div>
+            </div>
+            <h1 class="text-xl font-bold text-slate-800 mb-2">Image review</h1>
+            <p class="text-slate-500 text-sm mb-6 leading-snug">Enter your Enterprise ID to load your dealers and begin reviewing vehicle images.</p>
+            
+            <div class="space-y-4">
+                <div class="relative">
+                    <select id="enterprise-select" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none appearance-none bg-white pr-10">
+                        <option value="" disabled selected>Loading enterprises...</option>
+                    </select>
+                    <div class="absolute inset-y-0 right-0 flex items-center px-2 pointer-events-none text-slate-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </div>
+                </div>
+                <button id="load-dealers-btn" class="w-full spyne-blue text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center space-x-2 disabled:opacity-70">
+                    <span id="btn-text">Load dealers →</span>
+                    <div id="btn-loader" class="loading-spinner hidden"></div>
+                </button>
+            </div>
+            
+            <div class="mt-8 text-center text-[11px] text-slate-400 leading-relaxed">
+                <p>Dealer data is embedded — works offline.</p>
+                <p>Images load live from S3 when you open a dealer.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 2: Dealer Dashboard (Thumbnail Grid) -->
+    <div id="page-dashboard" class="page-view p-6 md:p-8 bg-[#f8fbff]">
+        <div class="max-w-7xl mx-auto w-full">
+            <!-- Header/Breadcrumb as per Image 2 -->
+            <div class="flex flex-row items-center justify-between mb-8">
+                <div class="flex items-center space-x-3">
+                    <span class="text-slate-500 font-medium text-[13px]">Select a dealer</span>
+                    <span id="current-enterprise-tag" class="text-slate-500 font-medium text-[13px]"></span>
+                    <span id="enterprise-id-tag" class="bg-slate-200 px-3 py-0.5 rounded-full text-[11px] font-bold text-slate-600"></span>
+                    <button onclick="showPage('page-login')" class="bg-blue-800 text-white text-[10px] px-2 py-0.5 rounded-md font-bold hover:bg-blue-900 transition flex items-center space-x-1">
+                        <span>← Change ID</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard Grid -->
+            <div id="dealer-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <!-- Unique Dealer Thumbnails Injected Here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Page 3: Review Interface -->
+    <div id="page-review" class="page-view h-[calc(100vh-64px)] overflow-hidden">
+        <div class="bg-white border-b px-6 py-2 flex items-center justify-between shadow-sm">
+            <div class="flex items-center space-x-4">
+                <button onclick="showPage('page-dashboard')" class="text-slate-400 hover:text-slate-600 transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></button>
+                <div class="relative">
+                    <input type="text" placeholder="Search VIN..." class="pl-3 pr-8 py-1.5 border border-slate-200 rounded-lg text-sm w-48 focus:ring-1 focus:ring-blue-500 outline-none transition">
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <button id="summary-btn" class="bg-blue-600 text-white px-3 py-1 rounded text-[11px] font-bold hover:bg-blue-700">Summary →</button>
+                <span class="bg-orange-100 text-orange-600 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider">pending</span>
+            </div>
+        </div>
+
+        <div class="flex-1 flex overflow-hidden">
+            <div class="flex-1 bg-[#f8fbff] flex flex-col">
+                <div class="flex-1 flex items-center justify-center p-8 text-center">
+                    <div>
+                        <div class="w-20 h-20 bg-slate-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                            <svg class="w-10 h-10 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                        </div>
+                        <h2 id="reviewing-dealer-name" class="text-slate-700 font-bold text-lg mb-1"></h2>
+                        <p class="text-slate-400 text-sm">Select a VIN from the spreadsheet to start</p>
+                    </div>
+                </div>
+                <div class="p-4 bg-white border-t space-y-3">
+                    <input type="text" placeholder="Optional comment for this VIN..." class="w-full p-2.5 border rounded-lg text-sm outline-none focus:border-blue-400">
+                    <div class="flex space-x-2">
+                        <button class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                            <span>Approve & next</span>
+                        </button>
+                        <button class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            <span>Reject & next</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Notification -->
+    <div id="error-toast" class="fixed bottom-4 right-4 bg-red-600 text-white px-5 py-3 rounded-lg shadow-2xl transform translate-y-20 transition-transform duration-300 flex items-center space-x-3 z-[100]">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <span id="error-message" class="text-sm font-medium"></span>
+    </div>
+
+    <script>
+        const ENTERPRISE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbegWrxVDOVFjNCO_YYJZlTH4qz2qMjFNQy--nmGs8EghSyRVSRYjhihptVco3u8FzMIpJnFf8OUVJ/pub?gid=1308385365&single=true&output=csv";
+        const DEALERS_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbegWrxVDOVFjNCO_YYJZlTH4qz2qMjFNQy--nmGs8EghSyRVSRYjhihptVco3u8FzMIpJnFf8OUVJ/pub?gid=2093949532&single=true&output=csv";
+        
+        const GOOGLE_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLScVlcfx6cSrfTohohTJY9zOv4GTiKQf5d0CmLHkPEWg8VMLgA/formResponse";
+        const CLIENT_NAME_ENTRY_ID = "entry.371922314";
+
+        let allDealers = [];
+        let selectedEnterprise = "";
+
+        // Separate page visibility logic
+        function showPage(pageId) {
+            document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
+            document.getElementById(pageId).classList.add('active');
+            
+            const refreshBtn = document.getElementById('refresh-data-btn');
+            if (pageId === 'page-dashboard' || pageId === 'page-review') {
+                refreshBtn.classList.remove('hidden');
+            } else {
+                refreshBtn.classList.add('hidden');
+            }
+        }
+
+        function showError(msg) {
+            const toast = document.getElementById('error-toast');
+            document.getElementById('error-message').innerText = msg;
+            toast.classList.remove('translate-y-20');
+            setTimeout(() => toast.classList.add('translate-y-20'), 5000);
+        }
+
+        async function submitToForm(name) {
+            const formData = new FormData();
+            formData.append(CLIENT_NAME_ENTRY_ID, name);
+            try {
+                await fetch(GOOGLE_FORM_ACTION_URL, { method: 'POST', mode: 'no-cors', body: formData });
+            } catch (e) { console.warn("Background form sync failed (normal CORS behavior):", e); }
+        }
+
+        function parseCSV(text) {
+            const lines = text.split('\n').filter(l => l.trim().length > 0);
+            if (lines.length < 1) return [];
+            const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+            return lines.slice(1).map(line => {
+                const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+                const obj = {};
+                headers.forEach((h, i) => obj[h] = values[i]);
+                return obj;
+            });
+        }
+
+        async function init() {
+            try {
+                const response = await fetch(ENTERPRISE_CSV_URL);
+                const text = await response.text();
+                const data = parseCSV(text);
+                const select = document.getElementById('enterprise-select');
+                select.innerHTML = '<option value="" disabled selected>Select an Enterprise</option>';
+                const enterprises = [...new Set(data.map(item => item.enterprise_name))].filter(Boolean).sort();
+                enterprises.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name; opt.textContent = name;
+                    select.appendChild(opt);
+                });
+                fetchDealers();
+            } catch (err) { showError("Failed to connect to spreadsheet data."); }
+        }
+
+        async function fetchDealers() {
+            try {
+                const response = await fetch(DEALERS_CSV_URL);
+                const text = await response.text();
+                allDealers = parseCSV(text);
+                return allDealers;
+            } catch (err) { return []; }
+        }
+
+        document.getElementById('refresh-data-btn').addEventListener('click', async () => {
+            const icon = document.getElementById('refresh-icon');
+            const loader = document.getElementById('refresh-loader');
+            const btn = document.getElementById('refresh-data-btn');
+            btn.disabled = true;
+            icon.classList.add('hidden');
+            loader.classList.remove('hidden');
+            await fetchDealers();
+            renderDashboard();
+            setTimeout(() => {
+                btn.disabled = false;
+                icon.classList.remove('hidden');
+                loader.classList.add('hidden');
+            }, 600);
+        });
+
+        document.getElementById('load-dealers-btn').addEventListener('click', async () => {
+            const select = document.getElementById('enterprise-select');
+            if (!select.value) { showError("Please select an enterprise."); return; }
+            const btn = document.getElementById('load-dealers-btn');
+            const bText = document.getElementById('btn-text');
+            const bLoader = document.getElementById('btn-loader');
+            selectedEnterprise = select.value;
+            btn.disabled = true;
+            bText.innerText = "Connecting...";
+            bLoader.classList.remove('hidden');
+
+            await submitToForm(selectedEnterprise);
+            renderDashboard();
+            showPage('page-dashboard');
+            
+            btn.disabled = false;
+            bText.innerText = "Load dealers →";
+            bLoader.classList.add('hidden');
+        });
+
+        function renderDashboard() {
+            const grid = document.getElementById('dealer-grid');
+            document.getElementById('current-enterprise-tag').innerText = selectedEnterprise;
+            // Dummy Enterprise ID as seen in Image 2
+            document.getElementById('enterprise-id-tag').innerText = "10bb841f8"; 
+            grid.innerHTML = '';
+
+            const rawSource = allDealers.length > 0 ? allDealers : [
+                { "ow.name": "Toyota of Bradenton", "teamId": "MP9646", "VIN": "241" },
+                { "ow.name": "Genesis Sarasota", "teamId": "MP8022G", "VIN": "508" },
+                { "ow.name": "Hyundai Sarasota", "teamId": "MP8022H", "VIN": "508" },
+                { "ow.name": "Gettel Acura", "teamId": "MP7791", "VIN": "302" }
+            ];
+
+            const uniqueTeamIds = new Set();
+            const source = rawSource.filter(item => {
+                const id = item.teamId;
+                if (!id || uniqueTeamIds.has(id)) return false;
+                uniqueTeamIds.add(id);
+                return true;
+            });
+
+            source.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-hover transition cursor-pointer flex flex-col justify-between h-32";
+                card.innerHTML = `
+                    <div class="flex flex-col space-y-0.5">
+                        <h3 class="font-bold text-[#1a202c] text-[15px] leading-tight truncate">${item["ow.name"] || 'Unknown'}</h3>
+                        <p class="text-[12px] font-medium text-slate-400 mt-0.5 uppercase tracking-wide">${item["teamId"] || 'N/A'}</p>
+                    </div>
+                    <div class="flex items-center justify-between mt-auto">
+                        <span class="badge-vauto">VAuto</span>
+                        <span class="text-[12px] font-medium text-slate-400 tracking-tight">${item["VIN"] || '0'} VINs</span>
+                    </div>
+                `;
+                card.onclick = () => {
+                    document.getElementById('reviewing-dealer-name').innerText = item["ow.name"];
+                    showPage('page-review');
+                };
+                grid.appendChild(card);
+            });
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
