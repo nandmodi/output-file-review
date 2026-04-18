@@ -134,6 +134,41 @@
             letter-spacing: 0.08em; text-transform: uppercase;
         }
         .stat-card .value { font-size: 24px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: 2px; }
+
+        /* Issue chips */
+        .issue-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 10px 5px 6px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            user-select: none;
+            font-size: 12px;
+            font-weight: 500;
+            color: #475569;
+            transition: all 0.15s;
+        }
+        .issue-chip:hover { border-color: #cbd5e1; background: #f8fafc; }
+        .issue-chip .issue-cb {
+            position: absolute; opacity: 0; pointer-events: none;
+        }
+        .issue-chip .issue-kbd {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px;
+            background: #f1f5f9; color: #64748b;
+            font-family: ui-monospace, monospace;
+            font-size: 10px; font-weight: 700;
+            border-radius: 4px;
+        }
+        .issue-chip.checked {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #b91c1c;
+        }
+        .issue-chip.checked .issue-kbd {
+            background: #dc2626; color: white;
+        }
     </style>
 </head>
 <body class="text-slate-800">
@@ -291,9 +326,15 @@
 
             <main class="flex-1 flex flex-col bg-[#f8fbff] overflow-hidden">
                 <div id="current-vin-header" class="bg-white px-6 py-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
-                    <div>
+                    <div class="min-w-0">
                         <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Reviewing VIN</p>
-                        <h2 id="current-vin-text" class="text-slate-800 font-bold text-[16px] font-mono tracking-tight">—</h2>
+                        <div class="flex items-center space-x-2 mt-0.5">
+                            <h2 id="current-vin-text" class="text-slate-800 font-bold text-[16px] font-mono tracking-tight">—</h2>
+                            <button id="copy-vin-btn" class="text-slate-400 hover:text-blue-600 transition p-1 rounded hover:bg-slate-100" title="Copy VIN">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+                            </button>
+                            <span id="copy-vin-feedback" class="text-[10px] font-semibold text-emerald-600 opacity-0 transition-opacity">Copied!</span>
+                        </div>
                     </div>
                     <div class="flex items-center space-x-2">
                         <span id="current-vin-image-count" class="text-[11px] text-slate-500"></span>
@@ -324,16 +365,44 @@
                     </div>
                 </div>
 
-                <div id="review-footer" class="p-4 bg-white border-t border-slate-200 space-y-3 flex-shrink-0 hidden">
-                    <input id="review-comment" type="text" placeholder="Optional comment for this VIN..." class="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition">
-                    <div class="flex space-x-2">
-                        <button id="approve-btn" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]">
+                <div id="review-footer" class="bg-white border-t border-slate-200 flex-shrink-0 hidden">
+                    <div class="px-4 pt-3 pb-2">
+                        <div class="flex items-center flex-wrap gap-2 mb-2">
+                            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Issues:</span>
+                            <label class="issue-chip" data-issue="Sequence" data-key="1">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">1</span>
+                                <span>Sequence</span>
+                            </label>
+                            <label class="issue-chip" data-issue="Banner" data-key="2">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">2</span>
+                                <span>Banner</span>
+                            </label>
+                            <label class="issue-chip" data-issue="Background" data-key="3">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">3</span>
+                                <span>Background</span>
+                            </label>
+                            <label class="issue-chip" data-issue="Quality" data-key="4">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">4</span>
+                                <span>Quality</span>
+                            </label>
+                            <span class="text-[10px] text-slate-400 ml-auto" id="review-hint">Enter to approve · R to reject · 1-4 for issues</span>
+                        </div>
+                        <input id="review-comment" type="text" placeholder="Additional comments..." class="w-full p-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition">
+                    </div>
+                    <div class="px-4 pb-3 flex space-x-2">
+                        <button id="submit-btn" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>Approve & next</span>
+                            <span id="submit-btn-text">Approve & next</span>
+                            <kbd class="ml-1 bg-white/20 text-[9px] px-1.5 py-0.5 rounded font-mono">Enter</kbd>
                         </button>
-                        <button id="reject-btn" class="flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-3 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]">
+                        <button id="reject-btn" class="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 px-5 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span>Reject & next</span>
+                            <span>Reject</span>
+                            <kbd class="ml-1 bg-white/20 text-[9px] px-1.5 py-0.5 rounded font-mono">R</kbd>
                         </button>
                     </div>
                 </div>
@@ -381,6 +450,7 @@
                             <th class="px-3 py-2.5 font-semibold">VIN</th>
                             <th class="px-3 py-2.5 font-semibold">Images</th>
                             <th class="px-3 py-2.5 font-semibold">Status</th>
+                            <th class="px-3 py-2.5 font-semibold">Issues</th>
                             <th class="px-3 py-2.5 font-semibold">Comment</th>
                         </tr>
                     </thead>
@@ -437,6 +507,8 @@
         const refreshBtn = document.getElementById('refresh-data-btn');
         if (pageId === 'page-dashboard' || pageId === 'page-review') refreshBtn.classList.remove('hidden');
         else refreshBtn.classList.add('hidden');
+        // When returning to dashboard, re-render so the per-team progress is current
+        if (pageId === 'page-dashboard' && teamsList.length) renderDashboard();
     }
 
     function goHome() {
@@ -494,8 +566,38 @@
         return -1;
     }
 
-    // KEY FIX: extract URLs from ALL cells of the row from a given start index onward.
-    // This works whether the CSV quoted the multi-URL cell or not.
+    // Is this URL actually an image? We allow known image extensions OR URLs
+    // on trusted image hosts (e.g. spyne-media S3). Rejects .csv, .xlsx, .pdf,
+    // google docs/sheets links etc. so they don't show as broken tiles.
+    function isImageUrl(url) {
+        if (!url) return false;
+        const u = url.toLowerCase().split('?')[0].split('#')[0];
+        const imgExts = /\.(jpe?g|png|webp|gif|bmp|heic|heif|avif|tiff?)$/i;
+        if (imgExts.test(u)) return true;
+        // trusted image hosts that serve extensionless image URLs
+        const imgHosts = [
+            'spyne-media.s3.amazonaws.com',
+            'spyne-ai.s3.amazonaws.com',
+            's3.amazonaws.com',
+            'cloudfront.net',
+            'googleusercontent.com'
+        ];
+        try {
+            const host = new URL(url).hostname.toLowerCase();
+            if (imgHosts.some(h => host.endsWith(h))) {
+                // also reject spreadsheet/doc exports even on trusted hosts
+                if (/\.(csv|tsv|xlsx?|pdf|docx?|pptx?)$/i.test(u)) return false;
+                return true;
+            }
+        } catch (e) {}
+        // explicit exclusions
+        if (/\.(csv|tsv|xlsx?|pdf|docx?|pptx?|zip)$/i.test(u)) return false;
+        if (/docs\.google\.com/i.test(url) || /sheets\.google\.com/i.test(url)) return false;
+        return false;
+    }
+
+    // Extract URLs from ALL cells of the row from a given start index onward.
+    // Works whether the CSV quoted the multi-URL cell or not. Filters to images only.
     function extractUrlsFromRow(cells, fromIdx) {
         const start = fromIdx >= 0 ? fromIdx : 0;
         const combined = cells.slice(start).join(',');
@@ -504,7 +606,10 @@
         const out = [];
         for (const u of urls) {
             const clean = u.replace(/[.,;:]+$/, '');
-            if (clean && !seen.has(clean)) { seen.add(clean); out.push(clean); }
+            if (!clean || seen.has(clean)) continue;
+            if (!isImageUrl(clean)) continue;
+            seen.add(clean);
+            out.push(clean);
         }
         return out;
     }
@@ -520,9 +625,14 @@
     function loadReviews() { try { reviews = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { reviews = {}; } }
     function persistReviews() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews)); } catch (e) {} }
     function getReview(teamId, vin) { return (reviews[teamId] && reviews[teamId][vin]) || null; }
-    function setReview(teamId, vin, status, comment) {
+    function setReview(teamId, vin, status, comment, issues) {
         if (!reviews[teamId]) reviews[teamId] = {};
-        reviews[teamId][vin] = { status, comment: comment || '', reviewedAt: new Date().toISOString() };
+        reviews[teamId][vin] = {
+            status,
+            comment: comment || '',
+            issues: Array.isArray(issues) ? issues : [],
+            reviewedAt: new Date().toISOString()
+        };
         persistReviews();
     }
 
@@ -869,6 +979,7 @@
         }
 
         document.getElementById('review-comment').value = r?.comment || '';
+        setCheckedIssues(r?.issues || []);
         renderImages(v);
         renderVINSidebar();
     }
@@ -931,14 +1042,77 @@
         }
     }
 
-    document.getElementById('approve-btn').addEventListener('click', () => submitReview('approved'));
-    document.getElementById('reject-btn').addEventListener('click',  () => submitReview('rejected'));
+    // Issue chips — toggle UI state when checkbox changes
+    document.querySelectorAll('.issue-chip').forEach(chip => {
+        const cb = chip.querySelector('.issue-cb');
+        chip.addEventListener('click', (e) => {
+            // clicking anywhere on the chip toggles the checkbox
+            if (e.target.tagName !== 'INPUT') {
+                e.preventDefault();
+                cb.checked = !cb.checked;
+            }
+            chip.classList.toggle('checked', cb.checked);
+            updateSubmitButtonAppearance();
+        });
+    });
+
+    function getCheckedIssues() {
+        const issues = [];
+        document.querySelectorAll('.issue-chip').forEach(chip => {
+            const cb = chip.querySelector('.issue-cb');
+            if (cb.checked) issues.push(chip.dataset.issue);
+        });
+        return issues;
+    }
+
+    function setCheckedIssues(issues) {
+        const set = new Set(issues || []);
+        document.querySelectorAll('.issue-chip').forEach(chip => {
+            const cb = chip.querySelector('.issue-cb');
+            cb.checked = set.has(chip.dataset.issue);
+            chip.classList.toggle('checked', cb.checked);
+        });
+        updateSubmitButtonAppearance();
+    }
+
+    // When issues are checked OR a comment is typed, the primary button flips to Reject.
+    function updateSubmitButtonAppearance() {
+        const btn = document.getElementById('submit-btn');
+        const txt = document.getElementById('submit-btn-text');
+        if (!btn) return;
+        const willReject = willSubmitAsReject();
+        if (willReject) {
+            btn.className = 'flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]';
+            txt.innerText = 'Reject & next';
+        } else {
+            btn.className = 'flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]';
+            txt.innerText = 'Approve & next';
+        }
+    }
+
+    function willSubmitAsReject() {
+        const issues = getCheckedIssues();
+        const comment = (document.getElementById('review-comment')?.value || '').trim();
+        return issues.length > 0 || comment.length > 0;
+    }
+
+    // Live-update button on comment input too
+    document.getElementById('review-comment').addEventListener('input', updateSubmitButtonAppearance);
+
+    document.getElementById('submit-btn').addEventListener('click', () => {
+        const status = willSubmitAsReject() ? 'rejected' : 'approved';
+        submitReview(status);
+    });
+    document.getElementById('reject-btn').addEventListener('click', () => {
+        submitReview('rejected');
+    });
 
     function submitReview(status) {
         if (currentVINIndex < 0) return;
         const v = currentTeamVINs[currentVINIndex];
         const comment = document.getElementById('review-comment').value;
-        setReview(currentTeam.teamId, v.vin, status, comment);
+        const issues  = getCheckedIssues();
+        setReview(currentTeam.teamId, v.vin, status, comment, issues);
         updateProgressBadge();
 
         let nextIdx = -1;
@@ -960,12 +1134,58 @@
         document.getElementById('vin-sidebar').classList.toggle('collapsed');
     });
 
-    // Keyboard shortcuts
+    // Copy VIN to clipboard
+    document.getElementById('copy-vin-btn').addEventListener('click', async () => {
+        const vin = document.getElementById('current-vin-text').innerText;
+        if (!vin || vin === '—') return;
+        try {
+            await navigator.clipboard.writeText(vin);
+        } catch (e) {
+            // fallback for older browsers / file:// origin
+            const ta = document.createElement('textarea');
+            ta.value = vin; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); } catch (_) {}
+            document.body.removeChild(ta);
+        }
+        const fb = document.getElementById('copy-vin-feedback');
+        fb.style.opacity = '1';
+        setTimeout(() => { fb.style.opacity = '0'; }, 1500);
+    });
+
+    // Keyboard shortcuts on review page:
+    //   Enter   -> Approve (or Reject if any issue checked / comment filled)
+    //   R       -> Force reject
+    //   1-4     -> Toggle issue chips (Sequence/Banner/Background/Quality)
+    // Shortcuts are suppressed while typing in an input/textarea, except that
+    // Enter inside the comment box will still submit (feels natural for this flow).
     document.addEventListener('keydown', (e) => {
         if (!document.getElementById('page-review').classList.contains('active')) return;
-        if (document.activeElement && ['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
-        if (e.key === 'a' || e.key === 'A') { e.preventDefault(); submitReview('approved'); }
-        if (e.key === 'r' || e.key === 'R') { e.preventDefault(); submitReview('rejected'); }
+
+        const active = document.activeElement;
+        const inInput = active && ['INPUT','TEXTAREA'].includes(active.tagName);
+        const inComment = active && active.id === 'review-comment';
+        const inSearch = active && active.id === 'vin-search';
+
+        // Enter -> submit (works from anywhere on review page, including comment box;
+        // but NOT from the VIN search box, because Enter there should just stay)
+        if (e.key === 'Enter' && !inSearch) {
+            e.preventDefault();
+            const status = willSubmitAsReject() ? 'rejected' : 'approved';
+            submitReview(status);
+            return;
+        }
+
+        // The remaining shortcuts should not fire while typing
+        if (inInput) return;
+
+        if (e.key === 'r' || e.key === 'R') { e.preventDefault(); submitReview('rejected'); return; }
+
+        // 1-4 toggle issues
+        if (['1','2','3','4'].includes(e.key)) {
+            e.preventDefault();
+            const chip = document.querySelector(`.issue-chip[data-key="${e.key}"]`);
+            if (chip) chip.click();
+        }
     });
 
     // =========================================================================
@@ -1006,12 +1226,14 @@
 
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50';
+            const issuesText = (r?.issues || []).join(', ');
             tr.innerHTML = `
                 <td class="px-6 py-2 text-slate-400 text-[11px]">${idx + 1}</td>
                 <td class="px-3 py-2 font-mono text-[11px] text-slate-700">${escapeHtml(v.vin)}</td>
                 <td class="px-3 py-2 text-slate-500">${v.urls.length}</td>
                 <td class="px-3 py-2"><span class="${statusClass} px-2 py-0.5 rounded text-[10px] font-bold uppercase">${status}</span></td>
-                <td class="px-3 py-2 text-slate-500 max-w-[240px] truncate">${escapeHtml(r?.comment || '')}</td>
+                <td class="px-3 py-2 text-slate-600 text-[11px]">${escapeHtml(issuesText)}</td>
+                <td class="px-3 py-2 text-slate-500 max-w-[200px] truncate">${escapeHtml(r?.comment || '')}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -1029,7 +1251,7 @@
 
     document.getElementById('download-csv-btn').addEventListener('click', () => {
         if (!currentTeam) return;
-        const header = ['#', 'Team Name', 'Team ID', 'VIN', 'Image Count', 'Status', 'Comment', 'Reviewed At'];
+        const header = ['#', 'Team Name', 'Team ID', 'VIN', 'Image Count', 'Status', 'Issues', 'Comment', 'Reviewed At'];
         const lines = [header.join(',')];
         currentTeamVINs.forEach((v, idx) => {
             const r = getReview(currentTeam.teamId, v.vin);
@@ -1040,6 +1262,7 @@
                 csvCell(v.vin),
                 v.urls.length,
                 csvCell(r?.status || 'pending'),
+                csvCell((r?.issues || []).join('; ')),
                 csvCell(r?.comment || ''),
                 csvCell(r?.reviewedAt || '')
             ];
