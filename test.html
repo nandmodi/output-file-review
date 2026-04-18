@@ -39,6 +39,22 @@
         .page-view { display: none; min-height: 100vh; }
         .page-view.active { display: flex; flex-direction: column; }
 
+        /* Review page: strict grid — body fits viewport minus main header, so each pane scrolls internally only */
+        #page-review.active {
+            height: calc(100vh - 56px);
+            min-height: calc(100vh - 56px);
+            overflow: hidden;
+        }
+        #review-body {
+            flex: 1;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            min-height: 0;
+            overflow: hidden;
+        }
+        #review-body > aside,
+        #review-body > main { min-height: 0; }
+
         .badge-vauto {
             background-color: #eef7ff; color: #4a86c4;
             padding: 2px 12px; border-radius: 9999px;
@@ -173,13 +189,9 @@
 </head>
 <body class="text-slate-800">
 
-    <header id="main-header" class="spyne-blue text-white px-6 py-3 flex justify-between items-center shadow-md sticky top-0 z-50">
+    <header id="main-header" class="spyne-blue text-white px-6 py-3 flex justify-between items-center shadow-md sticky top-0 z-50" style="height: 56px;">
         <div class="flex items-center space-x-2 cursor-pointer" onclick="goHome()">
-            <svg class="w-8 h-8" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="20" cy="20" r="18" stroke="white" stroke-width="2"/>
-                <circle cx="20" cy="20" r="6" fill="#F6AD55"/>
-            </svg>
-            <span class="text-xl font-bold tracking-tight">spyne</span>
+            <img id="header-logo" alt="spyne" src="data:image/jpeg;base64,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" style="height: 32px; background: white; border-radius: 6px; padding: 4px 8px;">
         </div>
 
         <div class="flex items-center space-x-4">
@@ -199,12 +211,7 @@
     <div id="page-login" class="page-view active items-center justify-center p-4">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100">
             <div class="flex justify-center mb-6">
-                 <div class="flex items-center space-x-2">
-                    <div class="w-10 h-10 rounded-full spyne-blue flex items-center justify-center">
-                        <div class="w-4 h-4 rounded-full bg-orange-400"></div>
-                    </div>
-                    <span class="text-2xl font-bold text-slate-700">spyne</span>
-                </div>
+                <img alt="spyne" src="data:image/jpeg;base64,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" style="height: 40px;">
             </div>
             <h1 class="text-xl font-bold text-slate-800 mb-2">Image review</h1>
             <p class="text-slate-500 text-sm mb-6 leading-snug">Select your Enterprise to load teams and begin reviewing vehicle images.</p>
@@ -281,7 +288,8 @@
 
     <!-- Page 3: Team Review -->
     <div id="page-review" class="page-view">
-        <div class="bg-white border-b px-4 py-2 flex items-center justify-between shadow-sm flex-shrink-0">
+        <!-- Row 1: Frozen sub-header (below the main header) -->
+        <div id="review-topbar" class="bg-white border-b px-4 py-2 flex items-center justify-between shadow-sm flex-shrink-0">
             <div class="flex items-center space-x-3 flex-wrap gap-y-1">
                 <button id="toggle-sidebar-btn" class="text-slate-500 hover:text-slate-700 hover:bg-slate-100 p-1.5 rounded transition" title="Toggle sidebar">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -309,9 +317,11 @@
             </div>
         </div>
 
-        <div class="flex-1 flex overflow-hidden" style="height: calc(100vh - 104px);">
+        <!-- Row 2: Body (fixed height, grid: sidebar | main), each column has own scroll -->
+        <div id="review-body">
+            <!-- Sidebar: scrolls internally only -->
             <aside id="vin-sidebar" class="sidebar bg-white border-r border-slate-200 flex flex-col" style="width: 260px; min-width: 260px;">
-                <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+                <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
                     <div>
                         <h3 class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">VINs</h3>
                         <p id="sidebar-count" class="text-[10px] text-slate-400 mt-0.5"></p>
@@ -321,10 +331,11 @@
                         <span class="flex items-center space-x-1"><span class="status-dot dot-rejected"></span><span id="legend-rejected">0</span></span>
                     </div>
                 </div>
-                <div id="vin-list" class="flex-1 overflow-y-auto p-2 space-y-0.5"></div>
+                <div id="vin-list" class="flex-1 min-h-0 overflow-y-auto p-2 space-y-0.5"></div>
             </aside>
 
-            <main class="flex-1 flex flex-col bg-[#f8fbff] overflow-hidden">
+            <!-- Main: image header (fixed) + image area (scrolls) + footer (fixed) -->
+            <main class="flex flex-col bg-[#f8fbff] min-w-0 overflow-hidden">
                 <div id="current-vin-header" class="bg-white px-6 py-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
                     <div class="min-w-0">
                         <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Reviewing VIN</p>
@@ -342,7 +353,8 @@
                     </div>
                 </div>
 
-                <div id="image-area" class="flex-1 overflow-y-auto p-5">
+                <!-- Image area: ONLY this section scrolls -->
+                <div id="image-area" class="flex-1 min-h-0 overflow-y-auto p-4">
                     <div id="no-vin-state" class="h-full flex items-center justify-center">
                         <div class="text-center">
                             <div class="w-20 h-20 bg-slate-100 rounded-full mx-auto mb-4 flex items-center justify-center">
@@ -365,8 +377,9 @@
                     </div>
                 </div>
 
+                <!-- Footer: ALWAYS visible, never scrolls, compact -->
                 <div id="review-footer" class="bg-white border-t border-slate-200 flex-shrink-0 hidden">
-                    <div class="px-4 pt-3 pb-2">
+                    <div class="px-4 py-2.5">
                         <div class="flex items-center flex-wrap gap-2 mb-2">
                             <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">Issues:</span>
                             <label class="issue-chip" data-issue="Sequence" data-key="1">
@@ -389,21 +402,24 @@
                                 <span class="issue-kbd">4</span>
                                 <span>Quality</span>
                             </label>
-                            <span class="text-[10px] text-slate-400 ml-auto" id="review-hint">Enter to approve · R to reject · 1-4 for issues</span>
+                            <label class="issue-chip" data-issue="Hero angle missing" data-key="5">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">5</span>
+                                <span>Hero angle</span>
+                            </label>
+                            <label class="issue-chip" data-issue="No exterior image" data-key="6">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">6</span>
+                                <span>No exterior</span>
+                            </label>
+                            <div class="flex-1"></div>
+                            <input id="review-comment" type="text" placeholder="Other comment..." class="w-56 p-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition">
+                            <button id="submit-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-5 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                <span id="submit-btn-text">Approved</span>
+                                <kbd class="ml-1 bg-white/20 text-[9px] px-1.5 py-0.5 rounded font-mono">Enter</kbd>
+                            </button>
                         </div>
-                        <input id="review-comment" type="text" placeholder="Additional comments..." class="w-full p-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition">
-                    </div>
-                    <div class="px-4 pb-3 flex space-x-2">
-                        <button id="submit-btn" class="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span id="submit-btn-text">Approve & next</span>
-                            <kbd class="ml-1 bg-white/20 text-[9px] px-1.5 py-0.5 rounded font-mono">Enter</kbd>
-                        </button>
-                        <button id="reject-btn" class="bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 px-5 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
-                            <span>Reject</span>
-                            <kbd class="ml-1 bg-white/20 text-[9px] px-1.5 py-0.5 rounded font-mono">R</kbd>
-                        </button>
                     </div>
                 </div>
             </main>
@@ -460,6 +476,43 @@
         </div>
     </div>
 
+    <!-- Completion modal: shown after last VIN is reviewed -->
+    <div id="complete-modal" class="modal-overlay" onclick="if(event.target===this)closeCompleteModal()">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md">
+            <div class="p-6">
+                <div class="w-14 h-14 bg-emerald-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <svg class="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                </div>
+                <h3 class="text-slate-800 font-bold text-[18px] text-center mb-1">All VINs reviewed</h3>
+                <p id="complete-subtitle" class="text-slate-500 text-[13px] text-center mb-5"></p>
+                <div class="grid grid-cols-3 gap-2 mb-5 text-center">
+                    <div class="bg-emerald-50 rounded-lg p-2.5">
+                        <div class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Approved</div>
+                        <div id="complete-approved" class="text-lg font-bold text-emerald-700">0</div>
+                    </div>
+                    <div class="bg-rose-50 rounded-lg p-2.5">
+                        <div class="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Rejected</div>
+                        <div id="complete-rejected" class="text-lg font-bold text-rose-700">0</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2.5">
+                        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total</div>
+                        <div id="complete-total" class="text-lg font-bold text-slate-700">0</div>
+                    </div>
+                </div>
+                <p class="text-slate-500 text-[12px] text-center mb-5">Click <b>OK</b> to download the CSV and return to teams, or <b>Cancel</b> to stay on this page.</p>
+                <div class="flex space-x-2">
+                    <button onclick="closeCompleteModal()" class="flex-1 bg-white border border-slate-300 text-slate-700 font-semibold py-2.5 rounded-lg hover:bg-slate-50 transition">
+                        Cancel
+                    </button>
+                    <button id="complete-ok-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg shadow-sm transition flex items-center justify-center space-x-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        <span>OK — Download & Exit</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="error-toast" class="fixed bottom-4 right-4 bg-red-600 text-white px-5 py-3 rounded-lg shadow-2xl transform translate-y-20 transition-transform duration-300 flex items-center space-x-3 z-[200] max-w-md">
         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <span id="error-message" class="text-sm font-medium"></span>
@@ -477,6 +530,36 @@
 
     const GOOGLE_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLScVlcfx6cSrfTohohTJY9zOv4GTiKQf5d0CmLHkPEWg8VMLgA/formResponse";
     const CLIENT_NAME_ENTRY_ID   = "entry.371922314";
+
+    // -------------------------------------------------------------------------
+    // REVIEW SYNC — Google Form that appends each review to the sheet.
+    // TO ENABLE:
+    //   1. Create a Google Form with these short-answer fields (any order):
+    //      Reviewer, Enterprise, Team Name, Team ID, VIN, Status,
+    //      Issues, Comment, Review Date, Reviewed At, Image Count
+    //   2. Link the form's responses to your Google Sheet (creates "Form Responses" tab)
+    //   3. Open the form, click three-dot menu -> Get pre-filled link -> fill any
+    //      dummy values for all fields -> click "Get Link"
+    //   4. Copy the resulting URL. From it you can read:
+    //      - REVIEW_FORM_ACTION_URL: replace "viewform?..." with "formResponse"
+    //      - Each field's entry ID: find "entry.NNNNNN=dummy" in the URL
+    //   5. Paste below. Set REVIEW_SYNC_ENABLED to true.
+    // -------------------------------------------------------------------------
+    const REVIEW_SYNC_ENABLED = false;   // <- set to true once configured
+    const REVIEW_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/REPLACE_WITH_YOUR_FORM_ID/formResponse";
+    const REVIEW_ENTRY = {
+        reviewer:    "entry.REPLACE_ME_1",
+        enterprise:  "entry.REPLACE_ME_2",
+        teamName:    "entry.REPLACE_ME_3",
+        teamId:      "entry.REPLACE_ME_4",
+        vin:         "entry.REPLACE_ME_5",
+        status:      "entry.REPLACE_ME_6",
+        issues:      "entry.REPLACE_ME_7",
+        comment:     "entry.REPLACE_ME_8",
+        reviewDate:  "entry.REPLACE_ME_9",   // DDMMYYYY
+        reviewedAt:  "entry.REPLACE_ME_10",  // ISO timestamp
+        imageCount:  "entry.REPLACE_ME_11"
+    };
 
     const COL_CANDIDATES = {
         teamId:      ['teamId', 'team_id', 'TeamId', 'Team ID', 'team id', 'mp_id', 'MP ID', 'mpId', 'mp'],
@@ -621,19 +704,69 @@
         catch (e) { console.warn("Form sync failed (CORS, normal):", e); }
     }
 
+    // Format as DDMMYYYY (matches requirement #11)
+    function ddmmyyyy(d) {
+        const pad = n => String(n).padStart(2, '0');
+        return pad(d.getDate()) + pad(d.getMonth() + 1) + d.getFullYear();
+    }
+
+    // Push a single review to the Google Form. Fire-and-forget (no-cors means we
+    // can't read the response, but the submission goes through). Safe to call
+    // repeatedly on the same VIN — the form just appends another row with a new
+    // timestamp, and later reviews override earlier ones downstream.
+    async function syncReviewToSheet(payload) {
+        if (!REVIEW_SYNC_ENABLED) return;
+        try {
+            const fd = new FormData();
+            fd.append(REVIEW_ENTRY.reviewer,   payload.reviewer || '');
+            fd.append(REVIEW_ENTRY.enterprise, payload.enterprise || '');
+            fd.append(REVIEW_ENTRY.teamName,   payload.teamName || '');
+            fd.append(REVIEW_ENTRY.teamId,     payload.teamId || '');
+            fd.append(REVIEW_ENTRY.vin,        payload.vin || '');
+            fd.append(REVIEW_ENTRY.status,     payload.status || '');
+            fd.append(REVIEW_ENTRY.issues,     (payload.issues || []).join('; '));
+            fd.append(REVIEW_ENTRY.comment,    payload.comment || '');
+            fd.append(REVIEW_ENTRY.reviewDate, payload.reviewDate || '');
+            fd.append(REVIEW_ENTRY.reviewedAt, payload.reviewedAt || '');
+            fd.append(REVIEW_ENTRY.imageCount, String(payload.imageCount ?? 0));
+            await fetch(REVIEW_FORM_ACTION_URL, { method: 'POST', mode: 'no-cors', body: fd });
+        } catch (e) {
+            console.warn('Review sync failed (non-fatal):', e);
+        }
+    }
+
     const STORAGE_KEY = 'spyne_reviews_v1';
     function loadReviews() { try { reviews = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { reviews = {}; } }
     function persistReviews() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews)); } catch (e) {} }
     function getReview(teamId, vin) { return (reviews[teamId] && reviews[teamId][vin]) || null; }
     function setReview(teamId, vin, status, comment, issues) {
         if (!reviews[teamId]) reviews[teamId] = {};
-        reviews[teamId][vin] = {
+        const now = new Date();
+        const rec = {
             status,
             comment: comment || '',
             issues: Array.isArray(issues) ? issues : [],
-            reviewedAt: new Date().toISOString()
+            reviewedAt: now.toISOString()
         };
+        reviews[teamId][vin] = rec;
         persistReviews();
+
+        // Live push to Google Sheet (fire-and-forget)
+        const team = teamsList.find(t => t.teamId === teamId);
+        const vinObj = currentTeamVINs.find(v => v.vin === vin);
+        syncReviewToSheet({
+            reviewer:    'Reviewer',          // Replace if you want to capture a name
+            enterprise:  selectedEnterprise,
+            teamName:    team?.name || '',
+            teamId:      teamId,
+            vin:         vin,
+            status:      status,
+            issues:      rec.issues,
+            comment:     rec.comment,
+            reviewDate:  ddmmyyyy(now),
+            reviewedAt:  rec.reviewedAt,
+            imageCount:  vinObj?.urls.length ?? 0
+        });
     }
 
     // =========================================================================
@@ -1002,21 +1135,31 @@
         grid.classList.remove('hidden');
         grid.innerHTML = '';
 
+        // Build tiles with document fragment for faster paint
+        const frag = document.createDocumentFragment();
         v.urls.forEach((url, i) => {
             const tile = document.createElement('div');
             tile.className = 'image-tile';
-            tile.innerHTML = `
-                <div class="img-index">${i + 1}</div>
-                <div class="img-skeleton"><div class="spinner-blue"></div></div>
-            `;
+            const idxBadge = document.createElement('div');
+            idxBadge.className = 'img-index';
+            idxBadge.textContent = String(i + 1);
+            tile.appendChild(idxBadge);
+
+            const skel = document.createElement('div');
+            skel.className = 'img-skeleton';
+            skel.innerHTML = '<div class="spinner-blue"></div>';
+            tile.appendChild(skel);
+
             const img = document.createElement('img');
-            img.loading = 'lazy';
             img.decoding = 'async';
+            // Eager-load the first ~18 images (fills a 6x3 grid instantly); lazy after that.
+            img.loading = i < 18 ? 'eager' : 'lazy';
+            img.fetchPriority = i < 6 ? 'high' : 'low';
             img.referrerPolicy = 'no-referrer';
             img.alt = '';
-            img.addEventListener('load', () => { const sk = tile.querySelector('.img-skeleton'); if (sk) sk.remove(); });
+            img.addEventListener('load', () => { skel.remove(); });
             img.addEventListener('error', () => {
-                const sk = tile.querySelector('.img-skeleton'); if (sk) sk.remove();
+                skel.remove();
                 tile.innerHTML = `
                     <div class="img-index">${i + 1}</div>
                     <div class="broken-img">
@@ -1027,18 +1170,23 @@
             img.addEventListener('click', () => openLightbox(url));
             img.src = url;
             tile.appendChild(img);
-            grid.appendChild(tile);
+            frag.appendChild(tile);
         });
+        grid.appendChild(frag);
 
-        // Prefetch next VIN's first few images
-        const nextIdx = currentVINIndex + 1;
-        if (nextIdx < currentTeamVINs.length) {
-            const next = currentTeamVINs[nextIdx];
-            next.urls.slice(0, 8).forEach(u => {
-                const pre = new Image();
-                pre.referrerPolicy = 'no-referrer';
-                pre.src = u;
-            });
+        // Aggressive prefetch of next VIN (warm browser cache)
+        prefetchNextVINs();
+    }
+
+    function prefetchNextVINs() {
+        // Prefetch full next VIN, plus first 6 of the one after
+        const next1 = currentTeamVINs[currentVINIndex + 1];
+        const next2 = currentTeamVINs[currentVINIndex + 2];
+        if (next1) {
+            next1.urls.forEach(u => { const p = new Image(); p.referrerPolicy = 'no-referrer'; p.src = u; });
+        }
+        if (next2) {
+            next2.urls.slice(0, 6).forEach(u => { const p = new Image(); p.referrerPolicy = 'no-referrer'; p.src = u; });
         }
     }
 
@@ -1082,11 +1230,11 @@
         if (!btn) return;
         const willReject = willSubmitAsReject();
         if (willReject) {
-            btn.className = 'flex-1 bg-rose-500 hover:bg-rose-600 text-white font-bold py-2.5 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]';
-            txt.innerText = 'Reject & next';
+            btn.className = 'bg-rose-500 hover:bg-rose-600 text-white font-bold px-5 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]';
+            txt.innerText = 'Rejected';
         } else {
-            btn.className = 'flex-1 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]';
-            txt.innerText = 'Approve & next';
+            btn.className = 'bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-5 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]';
+            txt.innerText = 'Approved';
         }
     }
 
@@ -1103,9 +1251,6 @@
         const status = willSubmitAsReject() ? 'rejected' : 'approved';
         submitReview(status);
     });
-    document.getElementById('reject-btn').addEventListener('click', () => {
-        submitReview('rejected');
-    });
 
     function submitReview(status) {
         if (currentVINIndex < 0) return;
@@ -1121,13 +1266,36 @@
             if (!getReview(currentTeam.teamId, currentTeamVINs[idx].vin)) { nextIdx = idx; break; }
         }
         if (nextIdx === -1) {
+            // All VINs reviewed — refresh sidebar and show completion popup
             renderVINSidebar();
-            showError("All VINs reviewed! Open Summary to download CSV.");
             selectVIN(currentVINIndex);
+            openCompleteModal();
         } else {
             selectVIN(nextIdx);
         }
     }
+
+    // Completion modal (shown after every VIN in the team is reviewed)
+    function openCompleteModal() {
+        if (!currentTeam) return;
+        let approved = 0, rejected = 0;
+        currentTeamVINs.forEach(v => {
+            const r = getReview(currentTeam.teamId, v.vin);
+            if (r?.status === 'approved') approved++;
+            else if (r?.status === 'rejected') rejected++;
+        });
+        document.getElementById('complete-subtitle').innerText = `${currentTeam.name} · ${currentTeam.teamId}`;
+        document.getElementById('complete-approved').innerText = approved;
+        document.getElementById('complete-rejected').innerText = rejected;
+        document.getElementById('complete-total').innerText = currentTeamVINs.length;
+        document.getElementById('complete-modal').classList.add('active');
+    }
+    function closeCompleteModal() { document.getElementById('complete-modal').classList.remove('active'); }
+    document.getElementById('complete-ok-btn').addEventListener('click', () => {
+        downloadCSV();
+        closeCompleteModal();
+        showPage('page-dashboard');
+    });
 
     document.getElementById('vin-search').addEventListener('input', renderVINSidebar);
     document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
@@ -1153,9 +1321,8 @@
     });
 
     // Keyboard shortcuts on review page:
-    //   Enter   -> Approve (or Reject if any issue checked / comment filled)
-    //   R       -> Force reject
-    //   1-4     -> Toggle issue chips (Sequence/Banner/Background/Quality)
+    //   Enter   -> Submit (Approve if no issues/comment, else Reject)
+    //   1-6     -> Toggle issue chips (Sequence/Banner/Background/Quality/Hero/NoExterior)
     // Shortcuts are suppressed while typing in an input/textarea, except that
     // Enter inside the comment box will still submit (feels natural for this flow).
     document.addEventListener('keydown', (e) => {
@@ -1163,11 +1330,9 @@
 
         const active = document.activeElement;
         const inInput = active && ['INPUT','TEXTAREA'].includes(active.tagName);
-        const inComment = active && active.id === 'review-comment';
         const inSearch = active && active.id === 'vin-search';
 
-        // Enter -> submit (works from anywhere on review page, including comment box;
-        // but NOT from the VIN search box, because Enter there should just stay)
+        // Enter -> submit (works from anywhere, EXCEPT the VIN search box)
         if (e.key === 'Enter' && !inSearch) {
             e.preventDefault();
             const status = willSubmitAsReject() ? 'rejected' : 'approved';
@@ -1175,13 +1340,11 @@
             return;
         }
 
-        // The remaining shortcuts should not fire while typing
+        // Remaining shortcuts don't fire while typing
         if (inInput) return;
 
-        if (e.key === 'r' || e.key === 'R') { e.preventDefault(); submitReview('rejected'); return; }
-
-        // 1-4 toggle issues
-        if (['1','2','3','4'].includes(e.key)) {
+        // 1-6 toggle issues
+        if (['1','2','3','4','5','6'].includes(e.key)) {
             e.preventDefault();
             const chip = document.querySelector(`.issue-chip[data-key="${e.key}"]`);
             if (chip) chip.click();
@@ -1203,6 +1366,7 @@
         if (e.key === 'Escape') {
             document.getElementById('lightbox').classList.remove('active');
             document.getElementById('summary-modal').classList.remove('active');
+            document.getElementById('complete-modal').classList.remove('active');
         }
     });
 
@@ -1249,7 +1413,9 @@
 
     function closeSummary() { document.getElementById('summary-modal').classList.remove('active'); }
 
-    document.getElementById('download-csv-btn').addEventListener('click', () => {
+    document.getElementById('download-csv-btn').addEventListener('click', downloadCSV);
+
+    function downloadCSV() {
         if (!currentTeam) return;
         const header = ['#', 'Team Name', 'Team ID', 'VIN', 'Image Count', 'Status', 'Issues', 'Comment', 'Reviewed At'];
         const lines = [header.join(',')];
@@ -1279,7 +1445,7 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-    });
+    }
 
     function csvCell(v) {
         const s = String(v ?? '');
