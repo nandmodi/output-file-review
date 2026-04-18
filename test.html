@@ -532,34 +532,12 @@
     const CLIENT_NAME_ENTRY_ID   = "entry.371922314";
 
     // -------------------------------------------------------------------------
-    // REVIEW SYNC — Google Form that appends each review to the sheet.
-    // TO ENABLE:
-    //   1. Create a Google Form with these short-answer fields (any order):
-    //      Reviewer, Enterprise, Team Name, Team ID, VIN, Status,
-    //      Issues, Comment, Review Date, Reviewed At, Image Count
-    //   2. Link the form's responses to your Google Sheet (creates "Form Responses" tab)
-    //   3. Open the form, click three-dot menu -> Get pre-filled link -> fill any
-    //      dummy values for all fields -> click "Get Link"
-    //   4. Copy the resulting URL. From it you can read:
-    //      - REVIEW_FORM_ACTION_URL: replace "viewform?..." with "formResponse"
-    //      - Each field's entry ID: find "entry.NNNNNN=dummy" in the URL
-    //   5. Paste below. Set REVIEW_SYNC_ENABLED to true.
+    // REVIEW SYNC — Google Apps Script Web App
+    // Each Approve/Reject POSTs a row to the "Reviews" tab of the linked sheet.
+    // The Apps Script creates the tab on first write and keeps appending.
     // -------------------------------------------------------------------------
-    const REVIEW_SYNC_ENABLED = false;   // <- set to true once configured
-    const REVIEW_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/REPLACE_WITH_YOUR_FORM_ID/formResponse";
-    const REVIEW_ENTRY = {
-        reviewer:    "entry.REPLACE_ME_1",
-        enterprise:  "entry.REPLACE_ME_2",
-        teamName:    "entry.REPLACE_ME_3",
-        teamId:      "entry.REPLACE_ME_4",
-        vin:         "entry.REPLACE_ME_5",
-        status:      "entry.REPLACE_ME_6",
-        issues:      "entry.REPLACE_ME_7",
-        comment:     "entry.REPLACE_ME_8",
-        reviewDate:  "entry.REPLACE_ME_9",   // DDMMYYYY
-        reviewedAt:  "entry.REPLACE_ME_10",  // ISO timestamp
-        imageCount:  "entry.REPLACE_ME_11"
-    };
+    const REVIEW_SYNC_ENABLED = true;
+    const REVIEW_WEBAPP_URL   = "https://script.google.com/macros/s/AKfycbxkTiE6QCD8x5bt5xdEY1zATDa7_WDI00zyk_rg_SlDFqhe19ora5qTn9zHXwV3DheM/exec";
 
     const COL_CANDIDATES = {
         teamId:      ['teamId', 'team_id', 'TeamId', 'Team ID', 'team id', 'mp_id', 'MP ID', 'mpId', 'mp'],
@@ -710,26 +688,32 @@
         return pad(d.getDate()) + pad(d.getMonth() + 1) + d.getFullYear();
     }
 
-    // Push a single review to the Google Form. Fire-and-forget (no-cors means we
-    // can't read the response, but the submission goes through). Safe to call
-    // repeatedly on the same VIN — the form just appends another row with a new
-    // timestamp, and later reviews override earlier ones downstream.
+    // Push a single review to the Apps Script Web App. Fire-and-forget (no-cors
+    // means we can't read the response, but the POST goes through). Apps Script
+    // appends a row to the "Reviews" tab and creates it on first write.
     async function syncReviewToSheet(payload) {
         if (!REVIEW_SYNC_ENABLED) return;
         try {
-            const fd = new FormData();
-            fd.append(REVIEW_ENTRY.reviewer,   payload.reviewer || '');
-            fd.append(REVIEW_ENTRY.enterprise, payload.enterprise || '');
-            fd.append(REVIEW_ENTRY.teamName,   payload.teamName || '');
-            fd.append(REVIEW_ENTRY.teamId,     payload.teamId || '');
-            fd.append(REVIEW_ENTRY.vin,        payload.vin || '');
-            fd.append(REVIEW_ENTRY.status,     payload.status || '');
-            fd.append(REVIEW_ENTRY.issues,     (payload.issues || []).join('; '));
-            fd.append(REVIEW_ENTRY.comment,    payload.comment || '');
-            fd.append(REVIEW_ENTRY.reviewDate, payload.reviewDate || '');
-            fd.append(REVIEW_ENTRY.reviewedAt, payload.reviewedAt || '');
-            fd.append(REVIEW_ENTRY.imageCount, String(payload.imageCount ?? 0));
-            await fetch(REVIEW_FORM_ACTION_URL, { method: 'POST', mode: 'no-cors', body: fd });
+            await fetch(REVIEW_WEBAPP_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                // Using text/plain avoids a CORS preflight that Apps Script blocks;
+                // the script reads e.postData.contents regardless of content-type.
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    reviewer:    payload.reviewer || '',
+                    enterprise:  payload.enterprise || '',
+                    teamName:    payload.teamName || '',
+                    teamId:      payload.teamId || '',
+                    vin:         payload.vin || '',
+                    status:      payload.status || '',
+                    issues:      payload.issues || [],
+                    comment:     payload.comment || '',
+                    reviewDate:  payload.reviewDate || '',
+                    reviewedAt:  payload.reviewedAt || '',
+                    imageCount:  payload.imageCount ?? 0
+                })
+            });
         } catch (e) {
             console.warn('Review sync failed (non-fatal):', e);
         }
