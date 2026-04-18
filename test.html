@@ -7,10 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f0f7ff;
-        }
+        body { font-family: 'Inter', sans-serif; background-color: #f0f7ff; }
         .spyne-blue { background-color: #2b6cb0; }
 
         ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -20,52 +17,39 @@
 
         .card-hover:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
         }
 
         .loading-spinner {
-            border: 2px solid rgba(255, 255, 255, 0.3);
+            border: 2px solid rgba(255,255,255,0.3);
             border-radius: 50%;
             border-top: 2px solid #fff;
-            width: 16px;
-            height: 16px;
+            width: 16px; height: 16px;
             animation: spin 0.8s linear infinite;
         }
         .spinner-blue {
-            border: 2px solid rgba(43, 108, 176, 0.2);
+            border: 2px solid rgba(43,108,176,0.2);
             border-top: 2px solid #2b6cb0;
             border-radius: 50%;
-            width: 24px;
-            height: 24px;
+            width: 24px; height: 24px;
             animation: spin 0.8s linear infinite;
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
 
         .page-view { display: none; min-height: 100vh; }
         .page-view.active { display: flex; flex-direction: column; }
 
         .badge-vauto {
-            background-color: #eef7ff;
-            color: #4a86c4;
-            padding: 2px 12px;
-            border-radius: 9999px;
-            font-size: 11px;
-            font-weight: 600;
+            background-color: #eef7ff; color: #4a86c4;
+            padding: 2px 12px; border-radius: 9999px;
+            font-size: 11px; font-weight: 600;
         }
 
-        /* Left sidebar VIN states */
         .vin-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            padding: 8px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 500;
-            transition: background 0.15s;
-            border: 1px solid transparent;
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; padding: 8px 12px; border-radius: 6px;
+            cursor: pointer; font-size: 12px; font-weight: 500;
+            transition: background 0.15s; border: 1px solid transparent;
         }
         .vin-item:hover { background: #f1f5f9; }
         .vin-item.pending { color: #64748b; }
@@ -75,80 +59,58 @@
         .vin-item.rejected:hover { background: #fee2e2; }
         .vin-item.current { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; font-weight: 600; }
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
         .dot-pending { background: #cbd5e1; }
         .dot-approved { background: #10b981; }
         .dot-rejected { background: #ef4444; }
 
-        /* Image grid */
         .image-tile {
-            position: relative;
-            background: #e2e8f0;
-            border-radius: 8px;
-            overflow: hidden;
-            aspect-ratio: 4 / 3;
-            cursor: zoom-in;
+            position: relative; background: #e2e8f0;
+            border-radius: 8px; overflow: hidden;
+            aspect-ratio: 4/3; cursor: zoom-in;
             transition: transform 0.15s;
         }
         .image-tile:hover { transform: scale(1.02); }
         .image-tile img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            display: block;
+            width: 100%; height: 100%; object-fit: cover; display: block;
         }
         .image-tile .img-index {
-            position: absolute;
-            top: 6px;
-            left: 6px;
-            background: rgba(0,0,0,0.6);
-            color: white;
-            font-size: 10px;
-            font-weight: 600;
-            padding: 2px 6px;
-            border-radius: 4px;
+            position: absolute; top: 6px; left: 6px;
+            background: rgba(0,0,0,0.6); color: white;
+            font-size: 10px; font-weight: 600;
+            padding: 2px 6px; border-radius: 4px; z-index: 2;
         }
+        .image-tile .img-skeleton {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: #e2e8f0;
+        }
+        .image-tile .img-skeleton .spinner-blue { width: 18px; height: 18px; border-width: 2px; }
 
-        /* Modal for image lightbox */
         .lightbox {
             position: fixed; inset: 0;
             background: rgba(0,0,0,0.85);
-            z-index: 100;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 40px;
+            z-index: 100; display: none;
+            align-items: center; justify-content: center; padding: 40px;
         }
         .lightbox.active { display: flex; }
         .lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; }
         .lightbox-close {
             position: absolute; top: 16px; right: 16px;
-            background: rgba(255,255,255,0.1);
-            color: white;
+            background: rgba(255,255,255,0.1); color: white;
             width: 40px; height: 40px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
         }
         .lightbox-close:hover { background: rgba(255,255,255,0.2); }
 
-        /* Summary modal */
         .modal-overlay {
             position: fixed; inset: 0;
-            background: rgba(15, 23, 42, 0.5);
-            z-index: 90;
-            display: none;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            background: rgba(15,23,42,0.5);
+            z-index: 90; display: none;
+            align-items: center; justify-content: center; padding: 20px;
         }
         .modal-overlay.active { display: flex; }
 
-        /* Sidebar collapse animation */
         .sidebar {
             transition: width 0.25s ease, min-width 0.25s ease;
             overflow: hidden;
@@ -160,14 +122,18 @@
             color: #94a3b8; font-size: 11px; text-align: center; padding: 8px;
             background: #f1f5f9;
             width: 100%; height: 100%;
+            flex-direction: column;
         }
 
-        /* Pulse for loading skeleton */
-        @keyframes pulse-bg {
-            0%, 100% { background-color: #e2e8f0; }
-            50% { background-color: #f1f5f9; }
+        .stat-card {
+            background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+            padding: 14px 18px;
         }
-        .skeleton { animation: pulse-bg 1.5s ease-in-out infinite; }
+        .stat-card .label {
+            font-size: 10px; font-weight: 700; color: #64748b;
+            letter-spacing: 0.08em; text-transform: uppercase;
+        }
+        .stat-card .value { font-size: 24px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: 2px; }
     </style>
 </head>
 <body class="text-slate-800">
@@ -194,7 +160,7 @@
         </div>
     </header>
 
-    <!-- Page 1: Enterprise Selection (Login) -->
+    <!-- Page 1: Enterprise Selection -->
     <div id="page-login" class="page-view active items-center justify-center p-4">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100">
             <div class="flex justify-center mb-6">
@@ -206,7 +172,7 @@
                 </div>
             </div>
             <h1 class="text-xl font-bold text-slate-800 mb-2">Image review</h1>
-            <p class="text-slate-500 text-sm mb-6 leading-snug">Enter your Enterprise ID to load your dealers and begin reviewing vehicle images.</p>
+            <p class="text-slate-500 text-sm mb-6 leading-snug">Select your Enterprise to load teams and begin reviewing vehicle images.</p>
 
             <div class="space-y-4">
                 <div class="relative">
@@ -218,15 +184,15 @@
                     </div>
                 </div>
                 <button id="load-dealers-btn" class="w-full spyne-blue text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center space-x-2 disabled:opacity-70">
-                    <span id="btn-text">Load dealers →</span>
+                    <span id="btn-text">Load teams →</span>
                     <div id="btn-loader" class="loading-spinner hidden"></div>
                 </button>
                 <p id="load-status" class="text-[11px] text-slate-400 text-center hidden"></p>
             </div>
 
             <div class="mt-8 text-center text-[11px] text-slate-400 leading-relaxed">
-                <p>Dealer data is embedded — works offline.</p>
-                <p>Images load live from Google Sheet when you open a dealer.</p>
+                <p>Press Enter after selecting to continue quickly.</p>
+                <p>Images load live from the All_Data sheet.</p>
             </div>
         </div>
     </div>
@@ -234,40 +200,63 @@
     <!-- Page 2: Dealer Dashboard -->
     <div id="page-dashboard" class="page-view p-6 md:p-8 bg-[#f8fbff]">
         <div class="max-w-7xl mx-auto w-full">
-            <div class="flex flex-row items-center justify-between mb-8">
+            <div class="flex flex-row items-center justify-between mb-5 flex-wrap gap-y-3">
                 <div class="flex items-center space-x-3 flex-wrap gap-y-2">
-                    <span class="text-slate-500 font-medium text-[13px]">Select a dealer</span>
+                    <span class="text-slate-500 font-medium text-[13px]">Select a team</span>
                     <span id="current-enterprise-tag" class="text-slate-700 font-semibold text-[13px]"></span>
                     <span id="enterprise-id-tag" class="bg-slate-200 px-3 py-0.5 rounded-full text-[11px] font-bold text-slate-600"></span>
                     <button onclick="showPage('page-login')" class="bg-blue-800 text-white text-[10px] px-2 py-0.5 rounded-md font-bold hover:bg-blue-900 transition flex items-center space-x-1">
                         <span>← Change ID</span>
                     </button>
                 </div>
+                <div class="relative">
+                    <input id="team-search" type="text" placeholder="Search team..." class="pl-3 pr-8 py-1.5 border border-slate-200 rounded-lg text-[12px] w-56 focus:ring-1 focus:ring-blue-500 outline-none transition bg-white">
+                </div>
             </div>
 
-            <div id="dealer-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-4">
+            <!-- Stats row (from All_Data) -->
+            <div id="dashboard-stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+                <div class="stat-card">
+                    <div class="label">Total teams</div>
+                    <div class="value" id="stat-total-teams">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Total VINs</div>
+                    <div class="value" id="stat-total-vins">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Total images</div>
+                    <div class="value" id="stat-total-images">—</div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Reviewed VINs</div>
+                    <div class="value" id="stat-reviewed">—</div>
+                </div>
+            </div>
+
+            <div id="dealer-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
             </div>
 
             <div id="dealer-empty" class="hidden text-center py-20 text-slate-400">
-                <p class="text-sm">No dealers found for this enterprise.</p>
+                <p class="text-sm">No teams found for this enterprise.</p>
+                <p class="text-[11px] mt-1">Check that the All_Data sheet is shared (anyone with the link → viewer).</p>
             </div>
         </div>
     </div>
 
-    <!-- Page 3: Team Details + Review Interface -->
+    <!-- Page 3: Team Review -->
     <div id="page-review" class="page-view">
-        <!-- Review top bar -->
         <div class="bg-white border-b px-4 py-2 flex items-center justify-between shadow-sm flex-shrink-0">
-            <div class="flex items-center space-x-3">
+            <div class="flex items-center space-x-3 flex-wrap gap-y-1">
                 <button id="toggle-sidebar-btn" class="text-slate-500 hover:text-slate-700 hover:bg-slate-100 p-1.5 rounded transition" title="Toggle sidebar">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
                 <button onclick="showPage('page-dashboard')" class="text-slate-400 hover:text-slate-600 transition flex items-center space-x-1">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-                    <span class="text-sm">Dealers</span>
+                    <span class="text-sm">Teams</span>
                 </button>
                 <div class="border-l border-slate-200 h-6 mx-1"></div>
-                <div class="flex items-baseline space-x-2">
+                <div class="flex items-baseline space-x-2 flex-wrap gap-y-1">
                     <h2 id="review-team-name" class="font-bold text-slate-800 text-[15px]"></h2>
                     <span id="review-team-id" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide"></span>
                 </div>
@@ -285,9 +274,7 @@
             </div>
         </div>
 
-        <!-- Review main area -->
         <div class="flex-1 flex overflow-hidden" style="height: calc(100vh - 104px);">
-            <!-- Left sidebar: VIN list -->
             <aside id="vin-sidebar" class="sidebar bg-white border-r border-slate-200 flex flex-col" style="width: 260px; min-width: 260px;">
                 <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
                     <div>
@@ -299,13 +286,10 @@
                         <span class="flex items-center space-x-1"><span class="status-dot dot-rejected"></span><span id="legend-rejected">0</span></span>
                     </div>
                 </div>
-                <div id="vin-list" class="flex-1 overflow-y-auto p-2 space-y-0.5">
-                </div>
+                <div id="vin-list" class="flex-1 overflow-y-auto p-2 space-y-0.5"></div>
             </aside>
 
-            <!-- Main content area -->
             <main class="flex-1 flex flex-col bg-[#f8fbff] overflow-hidden">
-                <!-- VIN current header -->
                 <div id="current-vin-header" class="bg-white px-6 py-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
                     <div>
                         <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Reviewing VIN</p>
@@ -317,9 +301,7 @@
                     </div>
                 </div>
 
-                <!-- Image grid area -->
                 <div id="image-area" class="flex-1 overflow-y-auto p-5">
-                    <!-- Placeholder when no VIN selected -->
                     <div id="no-vin-state" class="h-full flex items-center justify-center">
                         <div class="text-center">
                             <div class="w-20 h-20 bg-slate-100 rounded-full mx-auto mb-4 flex items-center justify-center">
@@ -328,19 +310,13 @@
                             <p class="text-slate-400 text-sm">Select a VIN from the left to start reviewing</p>
                         </div>
                     </div>
-
-                    <!-- Loading state -->
                     <div id="images-loading" class="hidden h-full flex items-center justify-center">
                         <div class="flex flex-col items-center space-y-3">
                             <div class="spinner-blue"></div>
                             <p class="text-slate-400 text-sm">Loading images...</p>
                         </div>
                     </div>
-
-                    <!-- Images grid -->
                     <div id="images-grid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
-
-                    <!-- No images state -->
                     <div id="no-images-state" class="hidden h-full flex items-center justify-center">
                         <div class="text-center">
                             <p class="text-slate-400 text-sm">No images found for this VIN.</p>
@@ -348,7 +324,6 @@
                     </div>
                 </div>
 
-                <!-- Review actions footer -->
                 <div id="review-footer" class="p-4 bg-white border-t border-slate-200 space-y-3 flex-shrink-0 hidden">
                     <input id="review-comment" type="text" placeholder="Optional comment for this VIN..." class="w-full p-2.5 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition">
                     <div class="flex space-x-2">
@@ -366,7 +341,6 @@
         </div>
     </div>
 
-    <!-- Image Lightbox -->
     <div id="lightbox" class="lightbox" onclick="closeLightbox(event)">
         <div class="lightbox-close" onclick="closeLightbox(event)">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -374,7 +348,6 @@
         <img id="lightbox-img" src="" alt="">
     </div>
 
-    <!-- Summary Modal -->
     <div id="summary-modal" class="modal-overlay" onclick="if(event.target===this)closeSummary()">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col">
             <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
@@ -417,49 +390,46 @@
         </div>
     </div>
 
-    <!-- Error Toast -->
-    <div id="error-toast" class="fixed bottom-4 right-4 bg-red-600 text-white px-5 py-3 rounded-lg shadow-2xl transform translate-y-20 transition-transform duration-300 flex items-center space-x-3 z-[200]">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div id="error-toast" class="fixed bottom-4 right-4 bg-red-600 text-white px-5 py-3 rounded-lg shadow-2xl transform translate-y-20 transition-transform duration-300 flex items-center space-x-3 z-[200] max-w-md">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <span id="error-message" class="text-sm font-medium"></span>
     </div>
 
     <script>
     // =========================================================================
-    // CONFIG — data sources
+    // CONFIG
     // =========================================================================
     const ENTERPRISE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbegWrxVDOVFjNCO_YYJZlTH4qz2qMjFNQy--nmGs8EghSyRVSRYjhihptVco3u8FzMIpJnFf8OUVJ/pub?gid=1308385365&single=true&output=csv";
-    const DEALERS_CSV_URL    = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbegWrxVDOVFjNCO_YYJZlTH4qz2qMjFNQy--nmGs8EghSyRVSRYjhihptVco3u8FzMIpJnFf8OUVJ/pub?gid=2093949532&single=true&output=csv";
 
-    // All_Data tab — try the gviz CSV endpoint first (works for "anyone with the link can view" sheets),
-    // otherwise publish the All_Data tab to the web (File → Share → Publish to web → All_Data as CSV)
-    // and paste the resulting URL here.
+    // All_Data tab — must be shared as "Anyone with the link → Viewer"
     const ALL_DATA_SHEET_ID  = "1_0JbxBr9PaD-FWXTBmIVzv68e1it3h9Ny5ejph6sjqI";
     const ALL_DATA_CSV_URL   = `https://docs.google.com/spreadsheets/d/${ALL_DATA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=All_Data`;
 
     const GOOGLE_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLScVlcfx6cSrfTohohTJY9zOv4GTiKQf5d0CmLHkPEWg8VMLgA/formResponse";
     const CLIENT_NAME_ENTRY_ID   = "entry.371922314";
 
-    // Column name candidates (tolerant to variations in the sheet headers)
-    const COLUMN_CANDIDATES = {
-        teamId:    ['teamId', 'team_id', 'TeamId', 'Team ID', 'team id', 'mp_id', 'MP ID', 'mpId'],
-        vin:       ['VIN', 'vin', 'Vin', 'vin_number', 'VIN Number'],
-        imageUrls: ['image_url', 'image_urls', 'imageUrl', 'imageUrls', 'images', 'url', 'urls', 'Image URL', 'Image URLs', 'Images']
+    const COL_CANDIDATES = {
+        teamId:      ['teamId', 'team_id', 'TeamId', 'Team ID', 'team id', 'mp_id', 'MP ID', 'mpId', 'mp'],
+        teamName:    ['team_name', 'teamName', 'Team Name', 'ow.name', 'dealer_name', 'dealer', 'name'],
+        enterprise:  ['enterprise_name', 'enterprise', 'Enterprise Name', 'Enterprise'],
+        vin:         ['VIN', 'vin', 'Vin', 'vin_number', 'VIN Number', 'vin_no']
     };
 
     // =========================================================================
     // STATE
     // =========================================================================
-    let allDealers       = [];       // rows from Dealers sheet
-    let allImageRows     = [];       // rows from All_Data sheet
-    let imagesLoaded     = false;    // lazy-load All_Data only once
-    let selectedEnterprise = "";
-    let currentTeam      = null;     // {teamId, name, vinCount}
-    let currentTeamVINs  = [];       // array of {vin, urls[]} for the current team
-    let currentVINIndex  = -1;       // index into currentTeamVINs
-    let reviews          = {};       // { teamId: { vin: {status, comment, reviewedAt} } }
+    let allImageData        = { headers: [], rows: [] };
+    let imagesLoaded        = false;
+    let selectedEnterprise  = "";
+    let teamsList           = [];
+    let vinsByTeam          = new Map();
+    let currentTeam         = null;
+    let currentTeamVINs     = [];
+    let currentVINIndex     = -1;
+    let reviews             = {};
 
     // =========================================================================
-    // UTILITIES
+    // UTILS
     // =========================================================================
     function showPage(pageId) {
         document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
@@ -470,7 +440,6 @@
     }
 
     function goHome() {
-        // header click -> if logged in, back to dashboard; else login
         if (selectedEnterprise) showPage('page-dashboard');
         else showPage('page-login');
     }
@@ -483,7 +452,11 @@
         window._toastTimer = setTimeout(() => toast.classList.add('translate-y-20'), 5000);
     }
 
-    // Robust CSV parser (handles quoted fields with commas and newlines)
+    function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    // Robust CSV parser: returns { headers, rows: [cellArr, cellArr, ...] }
     function parseCSV(text) {
         const rows = [];
         let row = [], field = '', inQuotes = false;
@@ -497,77 +470,59 @@
                 if (c === '"') { inQuotes = true; }
                 else if (c === ',') { row.push(field); field = ''; }
                 else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-                else if (c === '\r') { /* skip, handled with \n */ }
+                else if (c === '\r') {}
                 else { field += c; }
             }
         }
-        // trailing
         if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
-        if (rows.length === 0) return [];
+        if (rows.length === 0) return { headers: [], rows: [] };
         const headers = rows[0].map(h => h.trim());
-        return rows.slice(1)
-            .filter(r => r.some(v => String(v).trim().length > 0))
-            .map(r => {
-                const obj = {};
-                headers.forEach((h, i) => obj[h] = (r[i] !== undefined ? String(r[i]).trim() : ''));
-                return obj;
-            });
+        const dataRows = rows.slice(1).filter(r => r.some(v => String(v).trim().length > 0));
+        return { headers, rows: dataRows };
     }
 
-    // pick the first matching column from candidates, given a row's keys
-    function findColumn(row, candidates) {
-        if (!row) return null;
-        const keys = Object.keys(row);
+    function findColIdx(headers, candidates) {
         for (const c of candidates) {
-            const match = keys.find(k => k.toLowerCase() === c.toLowerCase());
-            if (match) return match;
+            const idx = headers.findIndex(h => h.toLowerCase() === c.toLowerCase());
+            if (idx !== -1) return idx;
         }
-        // fallback: any key that "contains" a candidate fragment
         for (const c of candidates) {
             const frag = c.toLowerCase();
-            const match = keys.find(k => k.toLowerCase().includes(frag));
-            if (match) return match;
+            const idx = headers.findIndex(h => h.toLowerCase().includes(frag));
+            if (idx !== -1) return idx;
         }
-        return null;
+        return -1;
     }
 
-    // extract all http(s) urls from a single cell value (multiple urls/separators supported)
-    function extractUrls(cellValue) {
-        if (!cellValue) return [];
-        const s = String(cellValue);
-        const urls = s.match(/https?:\/\/[^\s,;|"'<>\]\[]+/g) || [];
-        // de-dupe preserving order
-        return [...new Set(urls)];
+    // KEY FIX: extract URLs from ALL cells of the row from a given start index onward.
+    // This works whether the CSV quoted the multi-URL cell or not.
+    function extractUrlsFromRow(cells, fromIdx) {
+        const start = fromIdx >= 0 ? fromIdx : 0;
+        const combined = cells.slice(start).join(',');
+        const urls = combined.match(/https?:\/\/[^\s,;|"'<>\]\[\)(]+/g) || [];
+        const seen = new Set();
+        const out = [];
+        for (const u of urls) {
+            const clean = u.replace(/[.,;:]+$/, '');
+            if (clean && !seen.has(clean)) { seen.add(clean); out.push(clean); }
+        }
+        return out;
     }
 
     async function submitToForm(name) {
         const formData = new FormData();
         formData.append(CLIENT_NAME_ENTRY_ID, name);
         try { await fetch(GOOGLE_FORM_ACTION_URL, { method: 'POST', mode: 'no-cors', body: formData }); }
-        catch (e) { console.warn("Background form sync failed (normal CORS behavior):", e); }
+        catch (e) { console.warn("Form sync failed (CORS, normal):", e); }
     }
 
-    // =========================================================================
-    // LOCALSTORAGE PERSISTENCE
-    // =========================================================================
     const STORAGE_KEY = 'spyne_reviews_v1';
-    function loadReviews() {
-        try { reviews = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
-        catch (e) { reviews = {}; }
-    }
-    function persistReviews() {
-        try { localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews)); }
-        catch (e) { /* storage may fail in some contexts */ }
-    }
-    function getReview(teamId, vin) {
-        return (reviews[teamId] && reviews[teamId][vin]) || null;
-    }
+    function loadReviews() { try { reviews = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { reviews = {}; } }
+    function persistReviews() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews)); } catch (e) {} }
+    function getReview(teamId, vin) { return (reviews[teamId] && reviews[teamId][vin]) || null; }
     function setReview(teamId, vin, status, comment) {
         if (!reviews[teamId]) reviews[teamId] = {};
-        reviews[teamId][vin] = {
-            status, comment: comment || '',
-            reviewedAt: new Date().toISOString()
-        };
+        reviews[teamId][vin] = { status, comment: comment || '', reviewedAt: new Date().toISOString() };
         persistReviews();
     }
 
@@ -577,28 +532,92 @@
     async function fetchEnterprises() {
         const response = await fetch(ENTERPRISE_CSV_URL);
         const text = await response.text();
-        return parseCSV(text);
-    }
-
-    async function fetchDealers() {
-        const response = await fetch(DEALERS_CSV_URL);
-        const text = await response.text();
-        allDealers = parseCSV(text);
-        return allDealers;
+        const parsed = parseCSV(text);
+        return parsed.rows.map(r => {
+            const o = {};
+            parsed.headers.forEach((h, i) => o[h] = r[i] !== undefined ? String(r[i]).trim() : '');
+            return o;
+        });
     }
 
     async function fetchAllData() {
-        if (imagesLoaded && allImageRows.length) return allImageRows;
+        if (imagesLoaded && allImageData.rows.length) return;
         const response = await fetch(ALL_DATA_CSV_URL);
         if (!response.ok) throw new Error('All_Data fetch failed: HTTP ' + response.status);
         const text = await response.text();
-        allImageRows = parseCSV(text);
+        allImageData = parseCSV(text);
         imagesLoaded = true;
-        return allImageRows;
+        console.log('All_Data headers:', allImageData.headers);
+        console.log('All_Data rows:', allImageData.rows.length);
+    }
+
+    // Build teamsList + vinsByTeam from All_Data — THE source of truth
+    function buildTeamIndex(enterprise) {
+        if (!allImageData.headers.length) return;
+        const headers = allImageData.headers;
+
+        const teamIdIdx = findColIdx(headers, COL_CANDIDATES.teamId);
+        const vinIdx    = findColIdx(headers, COL_CANDIDATES.vin);
+        const nameIdx   = findColIdx(headers, COL_CANDIDATES.teamName);
+        const entIdx    = findColIdx(headers, COL_CANDIDATES.enterprise);
+
+        if (teamIdIdx === -1 || vinIdx === -1) {
+            showError(`All_Data missing teamId/VIN columns. Found: ${headers.slice(0, 8).join(', ')}`);
+            console.warn('Available headers:', headers);
+            teamsList = []; vinsByTeam = new Map();
+            return;
+        }
+
+        // Find image URL column: first column whose first non-empty value contains http
+        let urlStartIdx = -1;
+        for (let ci = 0; ci < headers.length; ci++) {
+            if (ci === teamIdIdx || ci === vinIdx || ci === nameIdx || ci === entIdx) continue;
+            for (const r of allImageData.rows) {
+                const v = (r[ci] || '').trim();
+                if (v && /https?:\/\//i.test(v)) { urlStartIdx = ci; break; }
+            }
+            if (urlStartIdx !== -1) break;
+        }
+        if (urlStartIdx === -1) urlStartIdx = Math.max(teamIdIdx, vinIdx) + 1;
+
+        console.log('Column map →', { teamIdIdx, vinIdx, nameIdx, entIdx, urlStartIdx,
+            headersPreview: headers.slice(0, Math.min(10, headers.length)) });
+
+        const teamAgg = new Map();
+        for (const r of allImageData.rows) {
+            if (entIdx !== -1 && enterprise) {
+                const rowEnt = (r[entIdx] || '').trim();
+                if (rowEnt && rowEnt !== enterprise) continue;
+            }
+
+            const teamId = (r[teamIdIdx] || '').trim();
+            const vin    = (r[vinIdx]    || '').trim();
+            if (!teamId || !vin) continue;
+
+            const name = nameIdx !== -1 ? (r[nameIdx] || '').trim() : teamId;
+            const urls = extractUrlsFromRow(r, urlStartIdx);
+
+            if (!teamAgg.has(teamId)) teamAgg.set(teamId, { name: name || teamId, vins: new Map() });
+            const t = teamAgg.get(teamId);
+            if ((!t.name || t.name === teamId) && name) t.name = name;
+            if (!t.vins.has(vin)) t.vins.set(vin, []);
+            const arr = t.vins.get(vin);
+            for (const u of urls) if (!arr.includes(u)) arr.push(u);
+        }
+
+        teamsList = [];
+        vinsByTeam = new Map();
+        for (const [teamId, t] of teamAgg.entries()) {
+            let imageCount = 0;
+            for (const urls of t.vins.values()) imageCount += urls.length;
+            teamsList.push({ teamId, name: t.name, vinCount: t.vins.size, imageCount });
+            vinsByTeam.set(teamId, t.vins);
+        }
+        teamsList.sort((a, b) => a.name.localeCompare(b.name));
     }
 
     // =========================================================================
-    // INIT — load enterprises + dealers (dealers load in background)
+    // INIT
     // =========================================================================
     async function init() {
         loadReviews();
@@ -606,69 +625,85 @@
             const data = await fetchEnterprises();
             const select = document.getElementById('enterprise-select');
             select.innerHTML = '<option value="" disabled selected>Select an Enterprise</option>';
-            const enterprises = [...new Set(data.map(item => item.enterprise_name))].filter(Boolean).sort();
+            const enterprises = [...new Set(data.map(it => it.enterprise_name))].filter(Boolean).sort();
             enterprises.forEach(name => {
                 const opt = document.createElement('option');
                 opt.value = name; opt.textContent = name;
                 select.appendChild(opt);
             });
-            // prefetch dealers in background (non-blocking), but Load button still awaits
-            fetchDealers().catch(() => {});
         } catch (err) {
-            showError("Failed to connect to spreadsheet data.");
+            showError("Failed to connect to enterprise data.");
         }
     }
 
-    // =========================================================================
-    // LOGIN → DASHBOARD (requirement #1: wait for teams to load)
-    // =========================================================================
+    // Enter key on login page
+    document.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter') return;
+        if (!document.getElementById('page-login').classList.contains('active')) return;
+        const sel = document.getElementById('enterprise-select');
+        if (sel.value) {
+            e.preventDefault();
+            document.getElementById('load-dealers-btn').click();
+        }
+    });
+
     document.getElementById('load-dealers-btn').addEventListener('click', async () => {
         const select = document.getElementById('enterprise-select');
         if (!select.value) { showError("Please select an enterprise."); return; }
 
-        const btn      = document.getElementById('load-dealers-btn');
-        const bText    = document.getElementById('btn-text');
-        const bLoader  = document.getElementById('btn-loader');
-        const lStatus  = document.getElementById('load-status');
+        const btn    = document.getElementById('load-dealers-btn');
+        const bText  = document.getElementById('btn-text');
+        const bLoad  = document.getElementById('btn-loader');
+        const lStatus= document.getElementById('load-status');
 
         selectedEnterprise = select.value;
         btn.disabled = true;
         bText.innerText = "Loading teams...";
-        bLoader.classList.remove('hidden');
+        bLoad.classList.remove('hidden');
         lStatus.classList.remove('hidden');
-        lStatus.innerText = "Fetching dealers from sheet…";
+        lStatus.innerText = "Fetching All_Data sheet…";
 
-        submitToForm(selectedEnterprise); // fire-and-forget
+        submitToForm(selectedEnterprise);
 
         try {
-            // REQUIREMENT 1: wait for teams to fully load before moving to next page
-            await fetchDealers();
-            lStatus.innerText = "Done";
+            imagesLoaded = false;
+            await fetchAllData();
+            lStatus.innerText = "Indexing teams & VINs…";
+            buildTeamIndex(selectedEnterprise);
             renderDashboard();
             showPage('page-dashboard');
         } catch (err) {
-            showError("Failed to load dealers. Please try again.");
+            console.error(err);
+            showError("Could not load All_Data. Share the sheet as 'anyone with the link → viewer'.");
         } finally {
             btn.disabled = false;
-            bText.innerText = "Load dealers →";
-            bLoader.classList.add('hidden');
+            bText.innerText = "Load teams →";
+            bLoad.classList.add('hidden');
             lStatus.classList.add('hidden');
         }
     });
 
     document.getElementById('refresh-data-btn').addEventListener('click', async () => {
-        const icon    = document.getElementById('refresh-icon');
-        const loader  = document.getElementById('refresh-loader');
-        const btn     = document.getElementById('refresh-data-btn');
+        const icon  = document.getElementById('refresh-icon');
+        const loader= document.getElementById('refresh-loader');
+        const btn   = document.getElementById('refresh-data-btn');
         btn.disabled = true;
         icon.classList.add('hidden');
         loader.classList.remove('hidden');
         try {
-            await fetchDealers();
-            // also re-fetch image data if we're deep in review
             imagesLoaded = false;
+            await fetchAllData();
+            buildTeamIndex(selectedEnterprise);
             renderDashboard();
-        } catch (e) { showError("Refresh failed."); }
+            if (currentTeam) {
+                const teamVins = vinsByTeam.get(currentTeam.teamId);
+                if (teamVins) {
+                    currentTeamVINs = [...teamVins.entries()].map(([vin, urls]) => ({ vin, urls }));
+                    renderVINSidebar();
+                    updateProgressBadge();
+                }
+            }
+        } catch (e) { showError("Refresh failed."); console.error(e); }
         finally {
             btn.disabled = false;
             icon.classList.remove('hidden');
@@ -677,7 +712,7 @@
     });
 
     // =========================================================================
-    // PAGE 2: DEALER DASHBOARD
+    // DASHBOARD
     // =========================================================================
     function renderDashboard() {
         const grid  = document.getElementById('dealer-grid');
@@ -686,132 +721,86 @@
         document.getElementById('enterprise-id-tag').innerText = "10bb841f8";
         grid.innerHTML = '';
 
-        // filter by enterprise (if the sheet has that column), else show all
-        let rows = allDealers;
-        if (rows.length && rows[0].enterprise_name !== undefined) {
-            const filtered = rows.filter(r => (r.enterprise_name || '').trim() === selectedEnterprise);
-            if (filtered.length) rows = filtered;
-        }
-
-        // unique teamIds
-        const seen = new Set();
-        const source = rows.filter(item => {
-            const id = item.teamId || item.team_id || item['Team ID'];
-            if (!id || seen.has(id)) return false;
-            seen.add(id);
-            return true;
+        let totalVINs = 0, totalImages = 0, reviewedVINs = 0;
+        teamsList.forEach(t => {
+            totalVINs   += t.vinCount;
+            totalImages += t.imageCount;
+            reviewedVINs += Object.keys(reviews[t.teamId] || {}).length;
         });
+        document.getElementById('stat-total-teams').innerText  = teamsList.length.toLocaleString();
+        document.getElementById('stat-total-vins').innerText   = totalVINs.toLocaleString();
+        document.getElementById('stat-total-images').innerText = totalImages.toLocaleString();
+        document.getElementById('stat-reviewed').innerText     = reviewedVINs.toLocaleString();
 
-        if (!source.length) {
-            empty.classList.remove('hidden');
-            return;
-        }
+        if (!teamsList.length) { empty.classList.remove('hidden'); return; }
         empty.classList.add('hidden');
 
-        source.forEach(item => {
-            const teamId    = item.teamId || item.team_id || item['Team ID'] || 'N/A';
-            const name      = item['ow.name'] || item.name || item.dealer_name || 'Unknown';
-            const vinCount  = item.VIN || item.vin_count || item.vins || '0';
+        const searchTerm = (document.getElementById('team-search').value || '').toLowerCase().trim();
+        teamsList
+            .filter(t => !searchTerm || t.name.toLowerCase().includes(searchTerm) || t.teamId.toLowerCase().includes(searchTerm))
+            .forEach(t => {
+                const reviewedCount = Object.keys(reviews[t.teamId] || {}).length;
+                const pct = t.vinCount > 0 ? Math.round((reviewedCount / t.vinCount) * 100) : 0;
 
-            const card = document.createElement('div');
-            card.className = "bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-hover transition cursor-pointer flex flex-col justify-between h-32";
-            card.innerHTML = `
-                <div class="flex flex-col space-y-0.5">
-                    <h3 class="font-bold text-[#1a202c] text-[15px] leading-tight truncate">${escapeHtml(name)}</h3>
-                    <p class="text-[12px] font-medium text-slate-400 mt-0.5 uppercase tracking-wide">${escapeHtml(teamId)}</p>
-                </div>
-                <div class="flex items-center justify-between mt-auto">
-                    <span class="badge-vauto">VAuto</span>
-                    <span class="text-[12px] font-medium text-slate-400 tracking-tight">${escapeHtml(String(vinCount))} VINs</span>
-                </div>
-            `;
-            card.onclick = () => openTeamReview({ teamId, name, vinCount });
-            grid.appendChild(card);
-        });
+                const card = document.createElement('div');
+                card.className = "bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-hover transition cursor-pointer flex flex-col justify-between min-h-[128px]";
+                card.innerHTML = `
+                    <div class="flex flex-col space-y-0.5">
+                        <h3 class="font-bold text-[#1a202c] text-[15px] leading-tight truncate" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</h3>
+                        <p class="text-[12px] font-medium text-slate-400 mt-0.5 uppercase tracking-wide">${escapeHtml(t.teamId)}</p>
+                    </div>
+                    <div class="mt-3">
+                        <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1">
+                            <span>${reviewedCount} / ${t.vinCount} reviewed</span>
+                            <span>${pct}%</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div class="h-full ${pct === 100 ? 'bg-emerald-500' : 'bg-blue-500'} transition-all" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between mt-3">
+                        <span class="badge-vauto">VAuto</span>
+                        <div class="flex items-center space-x-3 text-[11px]">
+                            <span class="text-slate-600 font-semibold">${t.vinCount.toLocaleString()} VINs</span>
+                            <span class="text-slate-400">${t.imageCount.toLocaleString()} imgs</span>
+                        </div>
+                    </div>
+                `;
+                card.onclick = () => openTeamReview(t);
+                grid.appendChild(card);
+            });
     }
 
-    function escapeHtml(s) {
-        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-    }
+    document.getElementById('team-search').addEventListener('input', renderDashboard);
 
     // =========================================================================
-    // PAGE 3: TEAM REVIEW — open a team, filter All_Data, render
+    // TEAM REVIEW
     // =========================================================================
-    async function openTeamReview(team) {
+    function openTeamReview(team) {
         currentTeam = team;
         currentVINIndex = -1;
-        currentTeamVINs = [];
 
-        // render team header immediately
         document.getElementById('review-team-name').innerText = team.name;
-        document.getElementById('review-team-id').innerText  = team.teamId;
-        document.getElementById('review-progress').innerText = 'Loading…';
+        document.getElementById('review-team-id').innerText   = team.teamId;
+
+        const teamVins = vinsByTeam.get(team.teamId);
+        currentTeamVINs = teamVins ? [...teamVins.entries()].map(([vin, urls]) => ({ vin, urls })) : [];
 
         showPage('page-review');
-        // show loading in VIN list + image area
-        document.getElementById('vin-list').innerHTML = `
-            <div class="p-4 text-center text-[11px] text-slate-400">
-                <div class="spinner-blue mx-auto mb-2"></div>
-                Loading VINs…
-            </div>`;
-        document.getElementById('no-vin-state').classList.add('hidden');
-        document.getElementById('images-loading').classList.remove('hidden');
-        document.getElementById('images-grid').classList.add('hidden');
-        document.getElementById('no-images-state').classList.add('hidden');
-        document.getElementById('review-footer').classList.add('hidden');
-
-        try {
-            await fetchAllData();
-        } catch (e) {
-            document.getElementById('vin-list').innerHTML = `
-                <div class="p-4 text-center text-[11px] text-rose-500">Failed to load images sheet.<br>Check All_Data access.</div>`;
-            document.getElementById('images-loading').classList.add('hidden');
-            document.getElementById('no-vin-state').classList.remove('hidden');
-            showError("Could not load All_Data tab. Make sure the sheet is shared (anyone with link, viewer).");
-            return;
-        }
-
-        // REQUIREMENT 12: filter for specific team before displaying
-        const teamIdCol   = findColumn(allImageRows[0], COLUMN_CANDIDATES.teamId);
-        const vinCol      = findColumn(allImageRows[0], COLUMN_CANDIDATES.vin);
-        const urlCol      = findColumn(allImageRows[0], COLUMN_CANDIDATES.imageUrls);
-
-        if (!teamIdCol || !vinCol) {
-            showError(`All_Data missing required columns. Looking for teamId (${COLUMN_CANDIDATES.teamId.join(', ')}) and VIN.`);
-            document.getElementById('images-loading').classList.add('hidden');
-            document.getElementById('no-vin-state').classList.remove('hidden');
-            return;
-        }
-
-        const teamRows = allImageRows.filter(r => (r[teamIdCol] || '').trim() === team.teamId);
-
-        // Group by VIN; collect all URLs for each VIN (across multiple rows AND multiple urls per cell)
-        const vinMap = new Map();
-        teamRows.forEach(row => {
-            const vin = (row[vinCol] || '').trim();
-            if (!vin) return;
-            const urls = urlCol ? extractUrls(row[urlCol]) : [];
-            if (!vinMap.has(vin)) vinMap.set(vin, []);
-            const arr = vinMap.get(vin);
-            urls.forEach(u => { if (!arr.includes(u)) arr.push(u); });
-        });
-
-        currentTeamVINs = [...vinMap.entries()].map(([vin, urls]) => ({ vin, urls }));
-
-        document.getElementById('images-loading').classList.add('hidden');
-        renderVINSidebar();
         updateProgressBadge();
+        renderVINSidebar();
 
-        if (currentTeamVINs.length === 0) {
+        if (!currentTeamVINs.length) {
             document.getElementById('no-vin-state').classList.remove('hidden');
+            document.getElementById('images-loading').classList.add('hidden');
+            document.getElementById('images-grid').classList.add('hidden');
+            document.getElementById('no-images-state').classList.add('hidden');
+            document.getElementById('review-footer').classList.add('hidden');
             document.getElementById('current-vin-text').innerText = '—';
             document.getElementById('current-vin-image-count').innerText = '';
-            document.getElementById('current-vin-status-badge').className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-500';
-            document.getElementById('current-vin-status-badge').innerText = 'pending';
             return;
         }
 
-        // open first VIN (or first un-reviewed)
         const firstIdx = currentTeamVINs.findIndex(v => !getReview(team.teamId, v.vin));
         selectVIN(firstIdx === -1 ? 0 : firstIdx);
     }
@@ -829,13 +818,12 @@
 
             if (searchTerm && !v.vin.toLowerCase().includes(searchTerm)) return;
 
-            const item = document.createElement('div');
-            let stateClass = 'pending';
-            let dotClass   = 'dot-pending';
+            let stateClass = 'pending', dotClass = 'dot-pending';
             if (r?.status === 'approved') { stateClass = 'approved'; dotClass = 'dot-approved'; }
             else if (r?.status === 'rejected') { stateClass = 'rejected'; dotClass = 'dot-rejected'; }
-            if (idx === currentVINIndex) stateClass = stateClass + ' current';
+            if (idx === currentVINIndex) stateClass += ' current';
 
+            const item = document.createElement('div');
             item.className = 'vin-item ' + stateClass;
             item.innerHTML = `
                 <div class="flex items-center gap-2 min-w-0">
@@ -854,13 +842,12 @@
     }
 
     function updateProgressBadge() {
-        const total    = currentTeamVINs.length;
+        const total = currentTeamVINs.length;
         let done = 0;
         currentTeamVINs.forEach(v => { if (getReview(currentTeam.teamId, v.vin)) done++; });
         document.getElementById('review-progress').innerText = `${done} / ${total} reviewed`;
     }
 
-    // REQUIREMENT 4: any VIN clickable for review
     function selectVIN(idx) {
         if (idx < 0 || idx >= currentTeamVINs.length) return;
         currentVINIndex = idx;
@@ -883,15 +870,14 @@
 
         document.getElementById('review-comment').value = r?.comment || '';
         renderImages(v);
-        renderVINSidebar(); // update 'current' highlight
+        renderVINSidebar();
     }
 
-    // REQUIREMENT 3 + 9 + 10: all images on one page, fast preview, lazy-load
     function renderImages(v) {
-        const grid       = document.getElementById('images-grid');
-        const noImg      = document.getElementById('no-images-state');
-        const noVin      = document.getElementById('no-vin-state');
-        const footer     = document.getElementById('review-footer');
+        const grid   = document.getElementById('images-grid');
+        const noImg  = document.getElementById('no-images-state');
+        const noVin  = document.getElementById('no-vin-state');
+        const footer = document.getElementById('review-footer');
 
         noVin.classList.add('hidden');
         footer.classList.remove('hidden');
@@ -910,25 +896,41 @@
             tile.className = 'image-tile';
             tile.innerHTML = `
                 <div class="img-index">${i + 1}</div>
-                <img loading="lazy" decoding="async" src="${escapeHtml(url)}"
-                     onerror="this.outerHTML='<div class=\\'broken-img\\'>image<br/>failed to load</div>'">
+                <div class="img-skeleton"><div class="spinner-blue"></div></div>
             `;
-            tile.querySelector('img')?.addEventListener('click', () => openLightbox(url));
+            const img = document.createElement('img');
+            img.loading = 'lazy';
+            img.decoding = 'async';
+            img.referrerPolicy = 'no-referrer';
+            img.alt = '';
+            img.addEventListener('load', () => { const sk = tile.querySelector('.img-skeleton'); if (sk) sk.remove(); });
+            img.addEventListener('error', () => {
+                const sk = tile.querySelector('.img-skeleton'); if (sk) sk.remove();
+                tile.innerHTML = `
+                    <div class="img-index">${i + 1}</div>
+                    <div class="broken-img">
+                        <div>failed to load</div>
+                        <a href="${escapeHtml(url)}" target="_blank" rel="noreferrer" class="text-blue-500 underline mt-1 text-[10px]">open direct</a>
+                    </div>`;
+            });
+            img.addEventListener('click', () => openLightbox(url));
+            img.src = url;
+            tile.appendChild(img);
             grid.appendChild(tile);
         });
 
-        // fast preview: prefetch next VIN's first few images
+        // Prefetch next VIN's first few images
         const nextIdx = currentVINIndex + 1;
         if (nextIdx < currentTeamVINs.length) {
             const next = currentTeamVINs[nextIdx];
-            next.urls.slice(0, 4).forEach(u => {
-                const preImg = new Image();
-                preImg.src = u;
+            next.urls.slice(0, 8).forEach(u => {
+                const pre = new Image();
+                pre.referrerPolicy = 'no-referrer';
+                pre.src = u;
             });
         }
     }
 
-    // REQUIREMENT 5: auto-advance after approve/reject; mark VIN green
     document.getElementById('approve-btn').addEventListener('click', () => submitReview('approved'));
     document.getElementById('reject-btn').addEventListener('click',  () => submitReview('rejected'));
 
@@ -939,37 +941,39 @@
         setReview(currentTeam.teamId, v.vin, status, comment);
         updateProgressBadge();
 
-        // auto-advance to next un-reviewed VIN; wrap around; if none, stay
         let nextIdx = -1;
         for (let step = 1; step <= currentTeamVINs.length; step++) {
             const idx = (currentVINIndex + step) % currentTeamVINs.length;
             if (!getReview(currentTeam.teamId, currentTeamVINs[idx].vin)) { nextIdx = idx; break; }
         }
         if (nextIdx === -1) {
-            // all reviewed — just refresh sidebar + badge
             renderVINSidebar();
-            showError("All VINs reviewed! Open Summary to download.");
+            showError("All VINs reviewed! Open Summary to download CSV.");
             selectVIN(currentVINIndex);
         } else {
             selectVIN(nextIdx);
         }
     }
 
-    // VIN search
     document.getElementById('vin-search').addEventListener('input', renderVINSidebar);
-
-    // REQUIREMENT 6: hide left sidebar
     document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
         document.getElementById('vin-sidebar').classList.toggle('collapsed');
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (!document.getElementById('page-review').classList.contains('active')) return;
+        if (document.activeElement && ['INPUT','TEXTAREA'].includes(document.activeElement.tagName)) return;
+        if (e.key === 'a' || e.key === 'A') { e.preventDefault(); submitReview('approved'); }
+        if (e.key === 'r' || e.key === 'R') { e.preventDefault(); submitReview('rejected'); }
     });
 
     // =========================================================================
     // LIGHTBOX
     // =========================================================================
     function openLightbox(url) {
-        const lb = document.getElementById('lightbox');
         document.getElementById('lightbox-img').src = url;
-        lb.classList.add('active');
+        document.getElementById('lightbox').classList.add('active');
     }
     function closeLightbox(e) {
         if (e && e.target.tagName === 'IMG' && e.target.id === 'lightbox-img') return;
@@ -983,7 +987,7 @@
     });
 
     // =========================================================================
-    // REQUIREMENT 7: SUMMARY + CSV DOWNLOAD
+    // SUMMARY + CSV
     // =========================================================================
     document.getElementById('summary-btn').addEventListener('click', openSummary);
 
