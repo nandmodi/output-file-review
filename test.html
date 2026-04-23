@@ -813,77 +813,64 @@
     // =========================================================================
     const ENTERPRISE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbegWrxVDOVFjNCO_YYJZlTH4qz2qMjFNQy--nmGs8EghSyRVSRYjhihptVco3u8FzMIpJnFf8OUVJ/pub?gid=1308385365&single=true&output=csv";
 
-    // All_Data tab — must be shared as "Anyone with the link → Viewer"
-    const ALL_DATA_SHEET_ID  = "1_0JbxBr9PaD-FWXTBmIVzv68e1it3h9Ny5ejph6sjqI";
-    const ALL_DATA_CSV_URL   = `https://docs.google.com/spreadsheets/d/${ALL_DATA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=All_Data`;
+    // All_Data tab  — one row per VIN, multiple embedded schema sections
+    // Metabase_Data — one row per team (index: name, enterpriseId, teamId)
+    const ALL_DATA_SHEET_ID    = "1_0JbxBr9PaD-FWXTBmIVzv68e1it3h9Ny5ejph6sjqI";
+    const ALL_DATA_CSV_URL     = `https://docs.google.com/spreadsheets/d/${ALL_DATA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=All_Data`;
+    const METABASE_DATA_CSV_URL= `https://docs.google.com/spreadsheets/d/${ALL_DATA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=Metabase_Data`;
 
     const GOOGLE_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLScVlcfx6cSrfTohohTJY9zOv4GTiKQf5d0CmLHkPEWg8VMLgA/formResponse";
     const CLIENT_NAME_ENTRY_ID   = "entry.371922314";
 
     // -------------------------------------------------------------------------
     // REVIEW SYNC — Google Apps Script Web App
-    // Each Approve/Reject POSTs a row to the "Reviews" tab of the linked sheet.
-    // The Apps Script creates the tab on first write and keeps appending.
     // -------------------------------------------------------------------------
     const REVIEW_SYNC_ENABLED = true;
     const REVIEW_WEBAPP_URL   = "https://script.google.com/macros/s/AKfycbxkTiE6QCD8x5bt5xdEY1zATDa7_WDI00zyk_rg_SlDFqhe19ora5qTn9zHXwV3DheM/exec";
 
-    // ── Fixed columns in the All_Data INDEX sheet (cols A–I) ─────────────────
-    const INDEX_COLS = {
-        teamName:     ['ow.name',  'team_name',  'teamName',  'name'],
-        teamId:       ['teamId',   'team_id',    'TeamId'],
-        enterpriseId: ['enterpriseId', 'enterprise_id'],
-        enterprise:   ['enterprise_name', 'enterprise', 'Enterprise Name', 'Enterprise'],
-        dealerId:     ['dealerId', 'dealer_id',  'dealerID'],
-        partnerId:    ['ow.partnerId', 'partnerId', 'partner_id'],
-        rowCount:     ['row_count', 'rowCount'],
-        s3Url:        ['s3_url',   's3url',      'S3 URL'],
-        createdAt:    ['created_at','createdAt']
+    // ── Column-name candidates covering ALL known schema variants ─────────────
+    // All_Data is a flat VIN sheet assembled from many team CSVs, each with
+    // slightly different column names/order. Embedded sub-header rows separate
+    // each schema section.
+    const COL_CANDIDATES = {
+        // Team / dealer ID — all variants seen across 10 schemas
+        teamId:   ['teamId','team_id','TeamId','Team ID','team id',
+                   'mp_id','MP ID','mpId','mp',
+                   'DealerId','dealerId','dealer_id','Dealer_id',
+                   'DealerID','dealerID','Dealer ID','Dealer Id'],
+        // Display name
+        teamName: ['ow.name','team_name','teamName','Team Name',
+                   'dealer_name','dealer','name'],
+        // Enterprise
+        enterprise:   ['enterprise_name','enterprise','Enterprise Name','Enterprise'],
+        enterpriseId: ['enterpriseId','enterprise_id','enterpriseid'],
+        // VIN
+        vin:      ['VIN','vin','Vin','vin_number','VIN Number','vin_no'],
+        // Explicit image-URL column names
+        images:   ['Photo URL list','Image URLs','Images','Photos',
+                   'PhotoURLs','Image Urls','Image URL',
+                   'photo_url_list','image_urls'],
+        // Non-URL metadata columns — skip these when scanning for image URLs
+        skipCols: ['Version','version','LAST UPDATED','Phototimestamp','Timestamp',
+                   'Stock','Stock Number','Stock #','Stock#','Price',
+                   'New/Used','Year','Model','Make','Location','Vehicle Type',
+                   'vehicle_condition','Type','s3_url','created_at',
+                   'ow.partnerId','partnerId','row_count','rowCount']
     };
-
-    // ── All known VIN column names across the 10 schema variants ─────────────
-    const VIN_NAMES = [
-        'VIN', 'vin', 'Vin', 'vin_number', 'VIN Number', 'vin_no'
-    ];
-
-    // ── All known image-URL column names across the 10 schema variants ────────
-    const IMAGE_COL_NAMES = [
-        'Photo URL list', 'Image URLs', 'Images', 'Photos',
-        'PhotoURLs', 'Image Urls', 'Image URL', 'photo_url_list', 'image_urls'
-    ];
-
-    // ── Non-URL columns to skip when scanning for image data ─────────────────
-    const SKIP_COL_NAMES = new Set([
-        'version','last updated','phototimestamp','timestamp',
-        'stock','stock number','stock #','stock#','price',
-        'new/used','year','model','make','location',
-        'vehicle type','vehicle_condition','type',
-        'dealer id','dealerid','dealer_id',
-        'dealer id version'   // ALLENTUR04 variant
-    ]);
 
     // =========================================================================
     // STATE
     // =========================================================================
-    let allIndexData        = { headers: [], rows: [] };   // All_Data index sheet
-    let indexLoaded         = false;
-    let selectedEnterprise  = "";
-    let selectedEnterpriseId = "";
-    let teamsList           = [];
-    let vinsByTeam          = new Map();
-    let currentTeam         = null;
-    let currentTeamVINs     = [];
-    let currentVINIndex     = -1;
-    let reviews             = {};
-
-    // Legacy alias so existing code that references imagesLoaded still works
-    Object.defineProperty(window, 'imagesLoaded', {
-        get() { return indexLoaded; }, set(v) { indexLoaded = v; }
-    });
-    // Legacy alias so existing code that references allImageData still works
-    Object.defineProperty(window, 'allImageData', {
-        get() { return allIndexData; }, set(v) { allIndexData = v; }
-    });
+    let allImageData         = { headers: [], rows: [] };
+    let imagesLoaded         = false;
+    let selectedEnterprise   = "";
+    let selectedEnterpriseId = "";        // read dynamically from Metabase_Data
+    let teamsList            = [];
+    let vinsByTeam           = new Map();
+    let currentTeam          = null;
+    let currentTeamVINs      = [];
+    let currentVINIndex      = -1;
+    let reviews              = {};
 
     // =========================================================================
     // UTILS
@@ -1165,226 +1152,209 @@
         });
     }
 
-    // =========================================================================
-    // DATA FETCHING — Two-phase architecture
-    //
-    // The All_Data sheet is an INDEX: one row per team.
-    //   Cols A–I  → fixed metadata: ow.name, teamId, enterpriseId,
-    //               enterprise_name, dealerId, ow.partnerId, row_count,
-    //               s3_url, created_at
-    //   Cols J+   → the SCHEMA of that team's source CSV, stored as column-
-    //               name strings (e.g. "VIN", "Version", "Photo URL list").
-    //               These tell us which column index = VIN and which = images
-    //               for that team's CSV.
-    //
-    // Phase 1: fetchAllData()  → download + cache the index sheet
-    // Phase 2: buildTeamIndex()→ for each team row matching the enterprise,
-    //          resolve VIN+image column positions from cols J+, fetch the
-    //          team's s3_url CSV in parallel, parse VINs + image URLs.
-    // =========================================================================
-
-    // Phase 1 ─────────────────────────────────────────────────────────────────
     async function fetchAllData() {
-        if (indexLoaded && allIndexData.rows.length) return;
+        if (imagesLoaded && allImageData.rows.length) return;
         const loadingMsg = document.getElementById('data-loading-msg');
-        if (loadingMsg) loadingMsg.textContent = "Downloading team index…";
-        const res = await fetch(ALL_DATA_CSV_URL, { cache: 'no-store' });
-        if (!res.ok) throw new Error('All_Data fetch failed: HTTP ' + res.status);
-        const text = await res.text();
-        allIndexData = parseCSV(text);
-        indexLoaded  = true;
-        console.log('[Index] headers:', allIndexData.headers);
-        console.log('[Index] rows:', allIndexData.rows.length);
+        if (loadingMsg) loadingMsg.textContent = "Downloading All_Data sheet…";
+        const response = await fetch(ALL_DATA_CSV_URL, { cache: 'no-store' });
+        if (!response.ok) throw new Error('All_Data fetch failed: HTTP ' + response.status);
+        const text = await response.text();
+        allImageData = parseCSV(text);
+        imagesLoaded = true;
+        console.log('[All_Data] headers:', allImageData.headers);
+        console.log('[All_Data] total rows:', allImageData.rows.length);
     }
 
-    // ── Resolve VIN column index from a schema array (cols J+) ──────────────
-    // schemaFields = array of header-name strings starting at col J
-    // Returns index into schemaFields (0-based within schema, not full row)
-    function schemaVinIdx(schemaFields) {
-        for (let i = 0; i < schemaFields.length; i++) {
-            const f = schemaFields[i].trim().toLowerCase();
-            if (VIN_NAMES.some(v => v.toLowerCase() === f)) return i;
+    // ── Detect an embedded sub-header row within the flat All_Data CSV ────────
+    // A row qualifies as a header if ≥2 of its cells exactly match known
+    // column-name candidates AND the row contains no http:// URL values.
+    function isSubHeaderRow(cells) {
+        if (!cells || cells.length < 2) return false;
+        if (cells.some(c => /https?:\/\//i.test(String(c)))) return false;
+        const allKnown = [
+            ...COL_CANDIDATES.teamId,   ...COL_CANDIDATES.teamName,
+            ...COL_CANDIDATES.enterprise, ...COL_CANDIDATES.enterpriseId,
+            ...COL_CANDIDATES.vin,       ...COL_CANDIDATES.images,
+            ...COL_CANDIDATES.skipCols
+        ].map(s => s.toLowerCase().trim());
+        let hits = 0;
+        for (const c of cells) {
+            if (allKnown.includes(String(c).trim().toLowerCase())) hits++;
         }
-        return -1;
+        return hits >= 2;
     }
 
-    // ── Resolve image-URL column index from a schema array ──────────────────
-    // Returns index into schemaFields (0-based within schema).
-    // Tries explicit image-col names first; falls back to first non-skip col
-    // after VIN.
-    function schemaImgIdx(schemaFields, vinRelIdx) {
-        // 1) Explicit image col name
-        for (let i = 0; i < schemaFields.length; i++) {
-            const f = schemaFields[i].trim().toLowerCase();
-            if (IMAGE_COL_NAMES.some(n => n.toLowerCase() === f)) return i;
+    // ── Resolve column indices for one section's header row ───────────────────
+    function resolveSection(headers) {
+        const teamIdIdx = findColIdx(headers, COL_CANDIDATES.teamId);
+        const vinIdx    = findColIdx(headers, COL_CANDIDATES.vin);
+        const nameIdx   = findColIdx(headers, COL_CANDIDATES.teamName);
+        const entIdx    = findColIdx(headers, COL_CANDIDATES.enterprise);
+        const entIdIdx  = findColIdx(headers, COL_CANDIDATES.enterpriseId);
+
+        // Image URL column: try explicit name first, then first non-skip col after VIN
+        let urlIdx = findColIdx(headers, COL_CANDIDATES.images);
+        if (urlIdx === -1) {
+            const skipSet = new Set(COL_CANDIDATES.skipCols.map(s => s.toLowerCase().trim()));
+            // also skip the fixed metadata cols
+            const metaCols = new Set(['ow.name','teamid','team_id','enterpriseid',
+                'enterprise_id','enterprise_name','dealerid','dealer_id',
+                'ow.partnerid','row_count','s3_url','created_at']);
+            for (let ci = 0; ci < headers.length; ci++) {
+                if (ci === vinIdx || ci === teamIdIdx || ci === nameIdx ||
+                    ci === entIdx  || ci === entIdIdx) continue;
+                const h = headers[ci].trim().toLowerCase();
+                if (skipSet.has(h) || metaCols.has(h)) continue;
+                urlIdx = ci; break;
+            }
         }
-        // 2) First col after VIN that isn't a known skip-col
-        for (let i = 0; i < schemaFields.length; i++) {
-            if (i === vinRelIdx) continue;
-            const f = schemaFields[i].trim().toLowerCase();
-            if (!SKIP_COL_NAMES.has(f) && f.length > 0) return i;
-        }
-        return vinRelIdx >= 0 ? vinRelIdx + 1 : 0;
+        if (urlIdx === -1 && vinIdx !== -1) urlIdx = vinIdx + 1;
+
+        return { teamIdIdx, vinIdx, nameIdx, entIdx, entIdIdx, urlIdx };
     }
 
-    // ── Fetch one team's s3_url CSV and return Map<vin, url[]> ───────────────
-    async function fetchTeamCSV(s3Url, teamId, schemaFields) {
+    // ── Build teamsList + vinsByTeam from both sheets ─────────────────────────
+    //
+    // Step 1 — Fetch Metabase_Data (one row per team) to get:
+    //   • team display names  (All_Data may only have teamId)
+    //   • enterpriseId        (shown in the dashboard badge)
+    //
+    // Step 2 — Walk All_Data rows, splitting into sections each time an
+    //   embedded sub-header is detected.  Each section is parsed with its own
+    //   column map, so all 10 schema variants are handled correctly.
+    //
+    async function buildTeamIndex(enterprise) {
+        if (!allImageData.headers.length) return;
+
+        // ── Step 1: load Metabase_Data for team names + enterprise ID ─────────
+        let metaByTeamId = new Map();   // teamId → { name, enterpriseId }
         try {
-            const res = await fetch(s3Url, { cache: 'no-store' });
-            if (!res.ok) {
-                console.warn(`[Team ${teamId}] HTTP ${res.status} on ${s3Url}`);
-                return new Map();
-            }
-            const text = await res.text();
-            const { headers: csvHeaders, rows } = parseCSV(text);
-
-            // Try to resolve columns from the actual CSV headers first
-            let vinAbsIdx = findColIdx(csvHeaders, VIN_NAMES);
-            let imgAbsIdx = -1;
-            if (vinAbsIdx !== -1) {
-                // Find image col from CSV headers
-                imgAbsIdx = findColIdx(csvHeaders, IMAGE_COL_NAMES);
-                if (imgAbsIdx === -1) {
-                    // First non-skip col that isn't VIN
-                    for (let ci = 0; ci < csvHeaders.length; ci++) {
-                        if (ci === vinAbsIdx) continue;
-                        const h = csvHeaders[ci].trim().toLowerCase();
-                        if (!SKIP_COL_NAMES.has(h) && h.length > 0) { imgAbsIdx = ci; break; }
+            const loadingMsg = document.getElementById('data-loading-msg');
+            if (loadingMsg) loadingMsg.textContent = "Loading team metadata…";
+            const res  = await fetch(METABASE_DATA_CSV_URL, { cache: 'no-store' });
+            if (res.ok) {
+                const { headers: mh, rows: mr } = parseCSV(await res.text());
+                const mTeamId  = findColIdx(mh, COL_CANDIDATES.teamId);
+                const mName    = findColIdx(mh, COL_CANDIDATES.teamName);
+                const mEnt     = findColIdx(mh, COL_CANDIDATES.enterprise);
+                const mEntId   = findColIdx(mh, COL_CANDIDATES.enterpriseId);
+                console.log('[Metabase_Data] headers:', mh, 'rows:', mr.length);
+                for (const r of mr) {
+                    if (mTeamId === -1) break;
+                    // Enterprise filter on Metabase_Data rows
+                    if (enterprise && mEnt !== -1) {
+                        const rowEnt = (r[mEnt] || '').trim();
+                        if (rowEnt && rowEnt !== enterprise) continue;
                     }
+                    const tid  = (r[mTeamId] || '').trim();
+                    const name = mName  !== -1 ? (r[mName]  || '').trim() : '';
+                    const eid  = mEntId !== -1 ? (r[mEntId] || '').trim() : '';
+                    if (tid) metaByTeamId.set(tid, { name: name || tid, enterpriseId: eid });
                 }
+                // Set dashboard badge from first match
+                for (const [, v] of metaByTeamId) {
+                    if (v.enterpriseId) { selectedEnterpriseId = v.enterpriseId; break; }
+                }
+                console.log('[Metabase_Data] teams loaded:', metaByTeamId.size,
+                    ' enterpriseId:', selectedEnterpriseId);
+            }
+        } catch (e) {
+            console.warn('[Metabase_Data] fetch failed (non-fatal):', e);
+        }
+
+        // ── Step 2: split All_Data into schema sections ───────────────────────
+        // The very first parsed row (allImageData.headers) is one header section.
+        // We walk ALL subsequent rows; when a row looks like a header we close
+        // the current section and open a new one with that row as its header.
+        const sections = [];
+        let curHeaders = allImageData.headers;
+        let curRows    = [];
+
+        for (const row of allImageData.rows) {
+            if (isSubHeaderRow(row)) {
+                if (curRows.length) sections.push({ headers: curHeaders, rows: curRows });
+                curHeaders = row.map(c => String(c).trim());
+                curRows    = [];
+            } else {
+                curRows.push(row);
+            }
+        }
+        if (curRows.length) sections.push({ headers: curHeaders, rows: curRows });
+
+        console.log('[buildTeamIndex] sections detected:', sections.length,
+            sections.map(s => ({ hdr: s.headers.slice(0,6), rows: s.rows.length })));
+
+        // ── Step 3: aggregate VINs across all sections ────────────────────────
+        const teamAgg = new Map();   // teamId → { name, vins: Map<vin, url[]> }
+
+        for (const { headers, rows } of sections) {
+            const { teamIdIdx, vinIdx, nameIdx, entIdx, entIdIdx, urlIdx } =
+                resolveSection(headers);
+
+            if (teamIdIdx === -1 || vinIdx === -1) {
+                console.warn('[section] skipped — cannot resolve teamId/VIN. headers:', headers);
+                continue;
             }
 
-            // If CSV has no headers or headers didn't resolve, fall back to
-            // the schema we read from the index row (cols J+)
-            if (vinAbsIdx === -1 && schemaFields && schemaFields.length) {
-                const vr = schemaVinIdx(schemaFields);
-                const ir = schemaImgIdx(schemaFields, vr);
-                // schemaFields is 0-based within cols J+; the CSV rows start at col 0
-                // so the positions are the same (CSV row[0] = schema col J = index 0)
-                vinAbsIdx = vr;
-                imgAbsIdx = ir;
-                console.log(`[Team ${teamId}] Using index-schema fallback: vin@${vr} img@${ir}`, schemaFields);
-            }
-
-            if (vinAbsIdx === -1) {
-                console.warn(`[Team ${teamId}] Cannot resolve VIN column. CSV headers:`, csvHeaders, 'schema:', schemaFields);
-                return new Map();
-            }
-            if (imgAbsIdx === -1) imgAbsIdx = vinAbsIdx + 1;
-
-            console.log(`[Team ${teamId}] vinCol=${vinAbsIdx}(${csvHeaders[vinAbsIdx]||'?'}) imgCol=${imgAbsIdx}(${csvHeaders[imgAbsIdx]||'?'}) rows=${rows.length}`);
-
-            const vinMap = new Map();
             for (const r of rows) {
-                const vin = (r[vinAbsIdx] || '').trim();
-                if (!vin || vin.toLowerCase() === 'vin') continue; // skip any embedded header rows
-                const urls = extractUrlsFromRow(r, imgAbsIdx);
-                if (!vinMap.has(vin)) vinMap.set(vin, []);
-                const arr = vinMap.get(vin);
+                // Enterprise filter
+                if (enterprise && entIdx !== -1) {
+                    const rowEnt = (r[entIdx] || '').trim();
+                    if (rowEnt && rowEnt !== enterprise) continue;
+                }
+
+                const teamId = (r[teamIdIdx] || '').trim();
+                const vin    = (r[vinIdx]    || '').trim();
+                if (!teamId || !vin) continue;
+                // Skip any accidental leftover header-like rows
+                if (COL_CANDIDATES.vin.map(v=>v.toLowerCase()).includes(vin.toLowerCase())) continue;
+
+                // Prefer the Metabase name; fall back to what's in this row
+                const rowName = nameIdx !== -1 ? (r[nameIdx] || '').trim() : '';
+                const metaName = metaByTeamId.get(teamId)?.name || '';
+                const name = metaName || rowName || teamId;
+
+                // Capture enterprise ID if not yet set
+                if (!selectedEnterpriseId && entIdIdx !== -1) {
+                    const eid = (r[entIdIdx] || '').trim();
+                    if (eid) selectedEnterpriseId = eid;
+                }
+
+                if (!teamAgg.has(teamId)) teamAgg.set(teamId, { name, vins: new Map() });
+                const t = teamAgg.get(teamId);
+                // Update name if we now have a better one
+                if ((!t.name || t.name === teamId) && name !== teamId) t.name = name;
+                if (!t.vins.has(vin)) t.vins.set(vin, []);
+                const arr = t.vins.get(vin);
+                const urls = extractUrlsFromRow(r, urlIdx);
                 for (const u of urls) if (!arr.includes(u)) arr.push(u);
             }
-            return vinMap;
-        } catch (err) {
-            console.warn(`[Team ${teamId}] fetchTeamCSV error:`, err);
-            return new Map();
-        }
-    }
-
-    // Phase 2 ─────────────────────────────────────────────────────────────────
-    async function buildTeamIndex(enterprise) {
-        if (!allIndexData.headers.length) return;
-
-        const h = allIndexData.headers;
-        // Resolve fixed index-column positions
-        const teamIdIdx  = findColIdx(h, INDEX_COLS.teamId);
-        const nameIdx    = findColIdx(h, INDEX_COLS.teamName);
-        const entIdx     = findColIdx(h, INDEX_COLS.enterprise);
-        const entIdIdx   = findColIdx(h, INDEX_COLS.enterpriseId);
-        const s3Idx      = findColIdx(h, INDEX_COLS.s3Url);
-
-        // Columns J+ start at the first column NOT in the fixed set
-        // We find this by taking the highest fixed-col index + 1
-        const fixedMax = Math.max(teamIdIdx, nameIdx, entIdx, entIdIdx, s3Idx,
-            findColIdx(h, INDEX_COLS.dealerId),
-            findColIdx(h, INDEX_COLS.partnerId),
-            findColIdx(h, INDEX_COLS.rowCount),
-            findColIdx(h, INDEX_COLS.createdAt)
-        );
-        const schemaStartIdx = fixedMax + 1;  // first schema-descriptor column
-
-        if (teamIdIdx === -1) {
-            showError(`All_Data index missing teamId column. Headers: ${h.slice(0,9).join(', ')}`);
-            teamsList = []; vinsByTeam = new Map(); return;
-        }
-        if (s3Idx === -1) {
-            showError(`All_Data index missing s3_url column. Headers: ${h.slice(0,9).join(', ')}`);
-            teamsList = []; vinsByTeam = new Map(); return;
         }
 
-        // Filter index rows to matching enterprise, build team metadata list
-        const teamMeta = [];   // { teamId, name, s3Url, schemaFields, entId }
-        const seenIds  = new Set();
-
-        for (const r of allIndexData.rows) {
-            // Enterprise filter
-            if (enterprise && entIdx !== -1) {
-                const rowEnt = (r[entIdx] || '').trim();
-                if (rowEnt && rowEnt !== enterprise) continue;
-            }
-            const teamId = (r[teamIdIdx] || '').trim();
-            const s3Url  = (r[s3Idx]    || '').trim();
-            if (!teamId || !s3Url) continue;
-            if (seenIds.has(teamId)) continue;   // deduplicate
-            seenIds.add(teamId);
-
-            const name       = nameIdx  !== -1 ? (r[nameIdx]  || '').trim() : teamId;
-            const entId      = entIdIdx !== -1 ? (r[entIdIdx] || '').trim() : '';
-            // Schema fields = everything from schemaStartIdx onward, trimmed, non-empty
-            const schemaFields = r.slice(schemaStartIdx)
-                                  .map(v => String(v || '').trim())
-                                  .filter(Boolean);
-
-            teamMeta.push({ teamId, name: name || teamId, s3Url, schemaFields, entId });
+        // ── Step 4: also add teams from Metabase_Data with 0 VINs if missing ─
+        // (so the team card shows up even if All_Data has no matching rows yet)
+        for (const [tid, meta] of metaByTeamId) {
+            if (!teamAgg.has(tid)) teamAgg.set(tid, { name: meta.name, vins: new Map() });
         }
 
-        if (!teamMeta.length) {
-            showError(`No teams found for "${enterprise}". Check the enterprise name matches.`);
-            teamsList = []; vinsByTeam = new Map(); return;
+        if (!teamAgg.size) {
+            showError(`No teams found for "${enterprise}". Check the enterprise name matches exactly.`);
+            teamsList = []; vinsByTeam = new Map();
+            return;
         }
 
-        // Set enterprise ID dynamically from first matching row
-        const firstEntId = teamMeta.find(t => t.entId)?.entId || '';
-        if (firstEntId) selectedEnterpriseId = firstEntId;
-
-        // Parallel-fetch all team CSVs (6 at a time)
-        const loadingMsg = document.getElementById('data-loading-msg');
-        const CONCURRENCY = 6;
-        const vinResults  = new Array(teamMeta.length);
-        let done = 0;
-
-        for (let i = 0; i < teamMeta.length; i += CONCURRENCY) {
-            const batch = teamMeta.slice(i, i + CONCURRENCY);
-            const results = await Promise.all(
-                batch.map(t => fetchTeamCSV(t.s3Url, t.teamId, t.schemaFields))
-            );
-            results.forEach((vm, bi) => { vinResults[i + bi] = vm; done++; });
-            if (loadingMsg)
-                loadingMsg.textContent = `Loading team data… ${done} / ${teamMeta.length} teams`;
-        }
-
-        // Assemble final state
+        // ── Step 5: build final teamsList + vinsByTeam ────────────────────────
         teamsList  = [];
         vinsByTeam = new Map();
-        teamMeta.forEach((t, idx) => {
-            const vinMap     = vinResults[idx] || new Map();
-            let   imageCount = 0;
-            for (const urls of vinMap.values()) imageCount += urls.length;
-            teamsList.push({ teamId: t.teamId, name: t.name, vinCount: vinMap.size, imageCount });
-            vinsByTeam.set(t.teamId, vinMap);
-        });
+        for (const [teamId, t] of teamAgg.entries()) {
+            let imageCount = 0;
+            for (const urls of t.vins.values()) imageCount += urls.length;
+            teamsList.push({ teamId, name: t.name, vinCount: t.vins.size, imageCount });
+            vinsByTeam.set(teamId, t.vins);
+        }
         teamsList.sort((a, b) => a.name.localeCompare(b.name));
-        console.log(`[buildTeamIndex] done — ${teamsList.length} teams,`,
-            teamsList.reduce((s, t) => s + t.vinCount, 0), 'VINs total');
+        console.log('[buildTeamIndex] done —', teamsList.length, 'teams,',
+            teamsList.reduce((s, t) => s + t.vinCount, 0), 'VINs');
     }
 
     // =========================================================================
@@ -1511,14 +1481,13 @@
         loadingMsg.textContent = "Fetching All_Data sheet…";
 
         try {
-            indexLoaded = false;
-            loadingMsg.textContent = "Downloading team index…";
+            imagesLoaded = false;
+            loadingMsg.textContent = "Downloading All_Data sheet…";
             await fetchAllData();
-            loadingMsg.textContent = `Loading team data for "${selectedEnterprise}"…`;
+            loadingMsg.textContent = `Indexing teams & VINs for "${selectedEnterprise}"…`;
             await buildTeamIndex(selectedEnterprise);
 
             if (!teamsList.length) {
-                // Error already shown by buildTeamIndex; stay on login page
                 loadingOv.classList.add('hidden');
                 btn.disabled = false;
                 bText.innerText = "Load teams →";
@@ -1527,6 +1496,7 @@
                 return;
             }
 
+            // Restore cross-device progress from Sheet BEFORE rendering dashboard
             loadingMsg.textContent = "Restoring your progress…";
             await loadProgressFromSheet(selectedEnterprise);
             loadingMsg.textContent = `Found ${teamsList.length} team(s) — opening dashboard…`;
@@ -1555,7 +1525,7 @@
         icon.classList.add('hidden');
         loader.classList.remove('hidden');
         try {
-            indexLoaded = false;
+            imagesLoaded = false;
             await fetchAllData();
             await buildTeamIndex(selectedEnterprise);
             renderDashboard();
