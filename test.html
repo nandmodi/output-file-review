@@ -1226,6 +1226,10 @@
     async function buildTeamIndex(enterprise) {
         if (!allImageData.headers.length) return;
 
+        // Always reset enterprise ID at the start of each build so it never
+        // carries over from a previous enterprise selection.
+        selectedEnterpriseId = '';
+
         // ── Step 1: load Metabase_Data for team names + enterprise ID ─────────
         let metaByTeamId = new Map();   // teamId → { name, enterpriseId }
         try {
@@ -1241,10 +1245,10 @@
                 console.log('[Metabase_Data] headers:', mh, 'rows:', mr.length);
                 for (const r of mr) {
                     if (mTeamId === -1) break;
-                    // Enterprise filter on Metabase_Data rows
-                    if (enterprise && mEnt !== -1) {
+                    // Strict enterprise filter — skip rows that don't match
+                    if (mEnt !== -1) {
                         const rowEnt = (r[mEnt] || '').trim();
-                        if (rowEnt && rowEnt !== enterprise) continue;
+                        if (!rowEnt || rowEnt !== enterprise) continue;
                     }
                     const tid  = (r[mTeamId] || '').trim();
                     const name = mName  !== -1 ? (r[mName]  || '').trim() : '';
@@ -1263,9 +1267,6 @@
         }
 
         // ── Step 2: split All_Data into schema sections ───────────────────────
-        // The very first parsed row (allImageData.headers) is one header section.
-        // We walk ALL subsequent rows; when a row looks like a header we close
-        // the current section and open a new one with that row as its header.
         const sections = [];
         let curHeaders = allImageData.headers;
         let curRows    = [];
@@ -1297,24 +1298,24 @@
             }
 
             for (const r of rows) {
-                // Enterprise filter
-                if (enterprise && entIdx !== -1) {
+                // Enterprise filter — always enforce strictly
+                if (entIdx !== -1) {
                     const rowEnt = (r[entIdx] || '').trim();
-                    if (rowEnt && rowEnt !== enterprise) continue;
+                    if (!rowEnt || rowEnt !== enterprise) continue;
                 }
 
                 const teamId = (r[teamIdIdx] || '').trim();
                 const vin    = (r[vinIdx]    || '').trim();
                 if (!teamId || !vin) continue;
-                // Skip any accidental leftover header-like rows
+                // Skip accidental leftover header-like rows
                 if (COL_CANDIDATES.vin.map(v=>v.toLowerCase()).includes(vin.toLowerCase())) continue;
 
-                // Prefer the Metabase name; fall back to what's in this row
-                const rowName = nameIdx !== -1 ? (r[nameIdx] || '').trim() : '';
+                // Prefer Metabase name; fall back to row value
+                const rowName  = nameIdx !== -1 ? (r[nameIdx] || '').trim() : '';
                 const metaName = metaByTeamId.get(teamId)?.name || '';
                 const name = metaName || rowName || teamId;
 
-                // Capture enterprise ID if not yet set
+                // Capture enterprise ID from data row if still not set
                 if (!selectedEnterpriseId && entIdIdx !== -1) {
                     const eid = (r[entIdIdx] || '').trim();
                     if (eid) selectedEnterpriseId = eid;
@@ -1322,7 +1323,6 @@
 
                 if (!teamAgg.has(teamId)) teamAgg.set(teamId, { name, vins: new Map() });
                 const t = teamAgg.get(teamId);
-                // Update name if we now have a better one
                 if ((!t.name || t.name === teamId) && name !== teamId) t.name = name;
                 if (!t.vins.has(vin)) t.vins.set(vin, []);
                 const arr = t.vins.get(vin);
@@ -1331,8 +1331,9 @@
             }
         }
 
-        // ── Step 4: also add teams from Metabase_Data with 0 VINs if missing ─
-        // (so the team card shows up even if All_Data has no matching rows yet)
+        // ── Step 4: add teams from Metabase_Data that have no All_Data rows yet ─
+        // Only add teams that are confirmed to belong to this enterprise
+        // (metaByTeamId already filtered to this enterprise in Step 1).
         for (const [tid, meta] of metaByTeamId) {
             if (!teamAgg.has(tid)) teamAgg.set(tid, { name: meta.name, vins: new Map() });
         }
@@ -1465,7 +1466,8 @@
         const bLoad  = document.getElementById('btn-loader');
         const lStatus= document.getElementById('load-status');
 
-        selectedEnterprise = select.value;
+        selectedEnterprise   = select.value;
+        selectedEnterpriseId = '';   // reset so badge always reflects the new enterprise
         btn.disabled = true;
         bText.innerText = "Loading teams...";
         bLoad.classList.remove('hidden');
