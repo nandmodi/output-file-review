@@ -1408,6 +1408,10 @@
         const noVin  = document.getElementById('no-vin-state');
         const footer = document.getElementById('review-footer');
 
+        // Reset grid layout to original (may have been changed by 1st-image mode)
+        grid.style.gridTemplateColumns = '';
+        grid.className = 'hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3';
+
         noVin.classList.add('hidden');
         footer.classList.remove('hidden');
 
@@ -1627,6 +1631,22 @@
         sumBtn._handler1img = () => openImg1Summary();
         sumBtn.addEventListener('click', sumBtn._handler1img);
 
+        // Add a "Done ✓" button to topbar for 1img mode
+        let doneBtn = document.getElementById('img1-done-btn');
+        if (!doneBtn) {
+            doneBtn = document.createElement('button');
+            doneBtn.id = 'img1-done-btn';
+            doneBtn.className = 'bg-emerald-600 text-white px-3 py-1.5 rounded text-[11px] font-bold hover:bg-emerald-700 flex items-center space-x-1.5';
+            doneBtn.innerHTML = '<span>Done ✓</span>';
+            doneBtn.onclick = () => {
+                const pending = currentImg1VINs.filter(v => !getImg1Review(currentImg1Team.teamId, v.vin)).length;
+                if (pending > 0 && !confirm(pending + ' VINs still pending. Mark all as Done anyway?')) return;
+                openImg1Complete();
+            };
+            sumBtn.parentElement.insertBefore(doneBtn, sumBtn);
+        }
+        doneBtn.classList.remove('hidden');
+
         showPage('page-review');
         updateImg1ProgressBadge();
         render1ImgSidebar();
@@ -1639,24 +1659,30 @@
             document.getElementById('current-vin-text').innerText = '—';
             return;
         }
+        // Show the full gallery of all 1st images
+        render1ImgGallery();
+        // Also pre-select first unreviewed in sidebar
         const firstUnreviewed = currentImg1VINs.findIndex(v => !getImg1Review(team.teamId, v.vin));
-        select1ImgVIN(firstUnreviewed === -1 ? 0 : firstUnreviewed);
+        currentImg1Idx = firstUnreviewed === -1 ? 0 : firstUnreviewed;
+        render1ImgSidebar();
+        updateImg1ProgressBadge();
     }
 
     function restore1ImgMode() {
-        // Called when leaving 1img mode — restore VIN review defaults
         reviewMode = 'vin';
         const modeBadge = document.getElementById('review-mode-badge');
         if (modeBadge) modeBadge.classList.add('hidden');
-        // Restore summary button
+        const doneBtn = document.getElementById('img1-done-btn');
+        if (doneBtn) doneBtn.classList.add('hidden');
         const sumBtn = document.getElementById('summary-btn');
         if (sumBtn._handler1img) {
             sumBtn.removeEventListener('click', sumBtn._handler1img);
             sumBtn._handler1img = null;
         }
-        document.getElementById('summary-btn').onclick = null;
-        // Re-attach original summary listener (it was set with addEventListener originally)
-        // The existing listener is still there, we just removed our added one.
+        // Reset image grid back to original class
+        const grid = document.getElementById('images-grid');
+        grid.style.gridTemplateColumns = '';
+        grid.className = 'hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3';
     }
 
     function updateImg1ProgressBadge() {
@@ -1702,9 +1728,9 @@
         if (idx < 0 || idx >= currentImg1VINs.length) return;
         currentImg1Idx = idx;
         const v = currentImg1VINs[idx];
-        document.getElementById('current-vin-text').innerText = v.vin;
-        document.getElementById('current-vin-image-count').innerText = v.urls.length + ' image' + (v.urls.length === 1 ? '' : 's') + ' total';
 
+        // Update header VIN display
+        document.getElementById('current-vin-text').innerText = v.vin;
         const st = getImg1Review(currentImg1Team.teamId, v.vin);
         const badge = document.getElementById('current-vin-status-badge');
         if (st === 'ok') {
@@ -1717,63 +1743,122 @@
             badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-600';
             badge.innerText = 'pending';
         }
+        document.getElementById('current-vin-image-count').innerText = '1/' + v.urls.length + ' shown';
 
-        render1ImgImagePane(v, idx);
+        // Scroll gallery tile into view
+        const tile = document.getElementById('img1-tile-' + idx);
+        if (tile) tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
         render1ImgSidebar();
     }
 
-    function render1ImgImagePane(v, idx) {
-        const noVin    = document.getElementById('no-vin-state');
-        const loading  = document.getElementById('images-loading');
-        const grid     = document.getElementById('images-grid');
-        const noImg    = document.getElementById('no-images-state');
-        const footer   = document.getElementById('review-footer');
+    // Render the full 1st-image gallery (ALL VINs, 1st image each, in a grid).
+    // Called once when entering 1st-image mode, and after each status toggle.
+    function render1ImgGallery() {
+        const noVin   = document.getElementById('no-vin-state');
+        const loading = document.getElementById('images-loading');
+        const grid    = document.getElementById('images-grid');
+        const noImg   = document.getElementById('no-images-state');
+        const footer  = document.getElementById('review-footer');
 
         noVin.classList.add('hidden');
         loading.classList.add('hidden');
-        footer.classList.add('hidden');
-        grid.classList.remove('hidden');
-        grid.style.gridTemplateColumns = '1fr';  // single column for 1st image
-
-        if (!v.urls.length) {
-            grid.classList.add('hidden');
-            noImg.classList.remove('hidden');
-            return;
-        }
         noImg.classList.add('hidden');
+        footer.classList.add('hidden');
 
-        const firstUrl = v.urls[0];
-        const curSt = getImg1Review(currentImg1Team.teamId, v.vin);
-        const cardClass = curSt === 'ok' ? 'img1-ok' : curSt === 'issue' ? 'img1-issue' : '';
-        const overlayClass = curSt === 'issue' ? 'img1-overlay img1-overlay-ok' : 'img1-overlay img1-overlay-iss';
-        const overlayTxt   = curSt === 'issue' ? '✓ Click to mark OK' : '✕ Click to mark Issue';
+        // Use a 4-col responsive grid for the gallery
+        grid.style.gridTemplateColumns = '';
+        grid.className = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3';
 
-        grid.innerHTML = `
-            <div style="max-width:520px;margin:0 auto">
-                <div class="img1-card ${cardClass}" id="img1-main-card" onclick="toggle1ImgIssue(${idx})">
-                    <img src="${escapeHtml(thumbUrl(firstUrl,800,85))}"
-                         onerror="this.src='${escapeHtml(firstUrl)}'"
-                         referrerpolicy="no-referrer" style="width:100%;display:block;aspect-ratio:4/3;object-fit:cover;">
-                    <div class="${overlayClass}">${overlayTxt}</div>
-                </div>
-                <p class="img1-url-label" style="margin-top:8px;font-size:10px;color:#94a3b8;word-break:break-all">${escapeHtml(firstUrl)}</p>
-                <p style="margin-top:6px;font-size:11px;color:#64748b">${v.urls.length} image${v.urls.length===1?'':'s'} total for this VIN — only 1st shown</p>
-                <div style="display:flex;gap:8px;margin-top:14px;">
-                    <button onclick="submit1ImgReview(${idx},'ok')"
-                        style="flex:1;background:#d1fae5;color:#047857;border:1.5px solid #6ee7b7;border-radius:8px;padding:10px;font-weight:700;font-size:13px;cursor:pointer;">
-                        ✓ OK &amp; Next
-                    </button>
-                    <button onclick="submit1ImgReview(${idx},'issue')"
-                        style="flex:1;background:#fee2e2;color:#b91c1c;border:1.5px solid #fca5a5;border-radius:8px;padding:10px;font-weight:700;font-size:13px;cursor:pointer;">
-                        ✕ Issue &amp; Next
-                    </button>
-                    <button onclick="select1ImgVIN(${idx+1})"
-                        style="background:#f1f5f9;color:#475569;border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 16px;font-weight:600;font-size:13px;cursor:pointer;">
-                        Skip →
-                    </button>
-                </div>
-            </div>
-        `;
+        grid.innerHTML = '';
+        const frag = document.createDocumentFragment();
+
+        currentImg1VINs.forEach((v, idx) => {
+            const st = getImg1Review(currentImg1Team.teamId, v.vin) || 'pending';
+            const firstUrl = v.urls[0] || '';
+
+            // Outer wrapper — acts like image-tile but with status border
+            const tile = document.createElement('div');
+            tile.className = 'image-tile';
+            tile.id = 'img1-tile-' + idx;
+            tile.style.cursor = 'pointer';
+            tile.style.outline = st === 'ok' ? '2px solid #10b981'
+                                : st === 'issue' ? '2px solid #ef4444'
+                                : '2px solid transparent';
+
+            // Index badge (reuse existing style) — show VIN truncated
+            const badge = document.createElement('div');
+            badge.className = 'img-index';
+            badge.style.maxWidth = '90%';
+            badge.style.overflow = 'hidden';
+            badge.style.textOverflow = 'ellipsis';
+            badge.style.whiteSpace = 'nowrap';
+            badge.title = v.vin;
+            badge.textContent = v.vin.slice(-8);  // last 8 chars of VIN
+            tile.appendChild(badge);
+
+            // Status overlay (top-right corner)
+            const stBadge = document.createElement('div');
+            stBadge.style.cssText = 'position:absolute;top:4px;right:4px;z-index:3;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;';
+            if (st === 'ok')    { stBadge.style.background='#10b981'; stBadge.style.color='#fff'; stBadge.textContent='OK'; }
+            else if (st === 'issue') { stBadge.style.background='#ef4444'; stBadge.style.color='#fff'; stBadge.textContent='ISSUE'; }
+            tile.appendChild(stBadge);
+
+            // Hover overlay
+            const hoverOv = document.createElement('div');
+            hoverOv.style.cssText = 'position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;opacity:0;transition:opacity 0.15s;z-index:4;';
+            if (st === 'issue') { hoverOv.style.background='rgba(16,185,129,0.8)'; hoverOv.style.color='#fff'; hoverOv.textContent='✓ Mark OK'; }
+            else                { hoverOv.style.background='rgba(239,68,68,0.8)';  hoverOv.style.color='#fff'; hoverOv.textContent='✕ Mark Issue'; }
+            tile.addEventListener('mouseenter', () => hoverOv.style.opacity='1');
+            tile.addEventListener('mouseleave', () => hoverOv.style.opacity='0');
+            tile.appendChild(hoverOv);
+
+            if (!firstUrl) {
+                const broken = document.createElement('div');
+                broken.className = 'broken-img';
+                broken.textContent = 'No image';
+                tile.appendChild(broken);
+            } else {
+                const skel = document.createElement('div');
+                skel.className = 'img-skeleton';
+                skel.innerHTML = '<div class="spinner-blue" style="width:14px;height:14px;border-width:2px"></div>';
+                tile.appendChild(skel);
+
+                const img = document.createElement('img');
+                img.loading = 'lazy';
+                img.referrerPolicy = 'no-referrer';
+                img.alt = '';
+                img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                let fallbackStep = 0;
+                img.addEventListener('load', () => skel.remove());
+                img.addEventListener('error', () => {
+                    fallbackStep++;
+                    if (fallbackStep === 1) { img.src = wsrvThumbUrl(firstUrl, 400, 70); return; }
+                    if (fallbackStep === 2) { img.src = firstUrl; return; }
+                    skel.remove();
+                    tile.innerHTML += '<div class="broken-img" style="position:absolute;inset:0;font-size:9px">failed</div>';
+                });
+                img.src = thumbUrl(firstUrl, 400, 70);
+                tile.appendChild(img);
+            }
+
+            // Click = toggle issue/ok AND sync sidebar highlight
+            tile.addEventListener('click', () => {
+                toggle1ImgIssue(idx);
+            });
+
+            frag.appendChild(tile);
+        });
+
+        grid.appendChild(frag);
+    }
+
+    // render1ImgImagePane is kept for sidebar-click to highlight the selected VIN
+    // but now it just scrolls the gallery tile into view + updates sidebar
+    function render1ImgImagePane(v, idx) {
+        // Scroll the tile into view in the gallery
+        const tile = document.getElementById('img1-tile-' + idx);
+        if (tile) tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     function toggle1ImgIssue(idx) {
@@ -1782,26 +1867,32 @@
         const newSt = cur === 'issue' ? 'ok' : 'issue';
         setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
         updateImg1ProgressBadge();
-        select1ImgVIN(idx);
+        currentImg1Idx = idx;
+        // Update just this tile's outline + status badge without re-rendering whole gallery
+        const tile = document.getElementById('img1-tile-' + idx);
+        if (tile) {
+            tile.style.outline = newSt === 'ok' ? '2px solid #10b981' : '2px solid #ef4444';
+            // Update status badge (second child after img-index)
+            const stBadge = tile.children[1];
+            if (stBadge && !stBadge.classList.contains('img-skeleton') && stBadge.style.position === 'absolute') {
+                if (newSt === 'ok')    { stBadge.textContent='OK';    stBadge.style.background='#10b981'; }
+                else                   { stBadge.textContent='ISSUE'; stBadge.style.background='#ef4444'; }
+            }
+            // Update hover overlay text (third child)
+            const hoverOv = tile.children[2];
+            if (hoverOv && hoverOv.style.transition) {
+                if (newSt === 'issue') { hoverOv.style.background='rgba(16,185,129,0.8)'; hoverOv.textContent='✓ Mark OK'; }
+                else                   { hoverOv.style.background='rgba(239,68,68,0.8)';  hoverOv.textContent='✕ Mark Issue'; }
+            }
+        }
+        render1ImgSidebar();
     }
 
     function submit1ImgReview(idx, status) {
+        // This is now only called from the completion modal path if needed
         const v = currentImg1VINs[idx];
         setImg1Review(currentImg1Team.teamId, v.vin, status, '');
-        updateImg1ProgressBadge();
-        // move to next unreviewed
-        let nextIdx = -1;
-        for (let step = 1; step <= currentImg1VINs.length; step++) {
-            const ni = (idx + step) % currentImg1VINs.length;
-            if (!getImg1Review(currentImg1Team.teamId, currentImg1VINs[ni].vin)) { nextIdx = ni; break; }
-        }
-        if (nextIdx === -1) {
-            render1ImgSidebar();
-            select1ImgVIN(idx);
-            openImg1Complete();
-        } else {
-            select1ImgVIN(nextIdx);
-        }
+        toggle1ImgIssue(idx);  // reuse in-place update
     }
 
     function openImg1Complete() {
@@ -1960,6 +2051,31 @@
         const inInput = active && ['INPUT','TEXTAREA'].includes(active.tagName);
         const inSearch = active && active.id === 'vin-search';
 
+        // ── 1st Image mode shortcuts ──
+        if (reviewMode === '1img') {
+            if (inSearch) return;
+            if (e.key === 'Enter' && currentImg1Idx >= 0) {
+                e.preventDefault();
+                toggle1ImgIssue(currentImg1Idx);
+                return;
+            }
+            // Arrow keys to move between VINs in sidebar
+            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+                e.preventDefault();
+                const next = Math.min(currentImg1Idx + 1, currentImg1VINs.length - 1);
+                select1ImgVIN(next);
+                return;
+            }
+            if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+                e.preventDefault();
+                const prev = Math.max(currentImg1Idx - 1, 0);
+                select1ImgVIN(prev);
+                return;
+            }
+            return;
+        }
+
+        // ── VIN Review mode shortcuts (original behaviour) ──
         // Enter -> submit (works from anywhere, EXCEPT the VIN search box)
         if (e.key === 'Enter' && !inSearch) {
             e.preventDefault();
