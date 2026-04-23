@@ -141,6 +141,51 @@
             flex-direction: column;
         }
 
+        /* Loading overlay */
+        .data-loading-overlay {
+            position: fixed; inset: 0; background: rgba(240,247,255,0.92);
+            z-index: 200; display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 16px;
+        }
+        .data-loading-overlay.hidden { display: none; }
+
+        /* 1st image review mode */
+        .img1-card {
+            position: relative; background: #e2e8f0;
+            border-radius: 8px; overflow: hidden;
+            cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+            border: 2px solid transparent;
+        }
+        .img1-card:hover { transform: scale(1.02); }
+        .img1-card.img1-ok { border-color: #10b981; }
+        .img1-card.img1-issue { border-color: #ef4444; opacity: 0.75; }
+        .img1-card img { width: 100%; display: block; aspect-ratio: 4/3; object-fit: cover; }
+        .img1-overlay {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 700; letter-spacing: 0.03em;
+            opacity: 0; transition: opacity 0.15s; pointer-events: none;
+        }
+        .img1-card:hover .img1-overlay { opacity: 1; }
+        .img1-overlay-ok  { background: rgba(16,185,129,0.75); color: #fff; }
+        .img1-overlay-iss { background: rgba(239,68,68,0.75);  color: #fff; }
+        .img1-url-label {
+            font-size: 10px; color: #94a3b8; margin-top: 4px;
+            word-break: break-all; line-height: 1.3;
+        }
+
+        /* Dual mode buttons on team card */
+        .team-card-btns { display: flex; gap: 6px; margin-top: 10px; }
+        .team-card-btn {
+            flex: 1; font-size: 11px; font-weight: 700;
+            padding: 6px 4px; border-radius: 6px; border: none;
+            cursor: pointer; transition: all 0.15s; text-align: center;
+        }
+        .tcb-vin  { background: #dbeafe; color: #1d4ed8; }
+        .tcb-vin:hover  { background: #1d4ed8; color: #fff; }
+        .tcb-img  { background: #d1fae5; color: #047857; }
+        .tcb-img:hover  { background: #047857; color: #fff; }
+
         .stat-card {
             background: white; border: 1px solid #e2e8f0; border-radius: 10px;
             padding: 14px 18px;
@@ -326,7 +371,7 @@
                 <button id="toggle-sidebar-btn" class="text-slate-500 hover:text-slate-700 hover:bg-slate-100 p-1.5 rounded transition" title="Toggle sidebar">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                 </button>
-                <button onclick="showPage('page-dashboard')" class="text-slate-400 hover:text-slate-600 transition flex items-center space-x-1">
+                <button onclick="if(reviewMode==='1img')restore1ImgMode();showPage('page-dashboard')" class="text-slate-400 hover:text-slate-600 transition flex items-center space-x-1">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                     <span class="text-sm">Teams</span>
                 </button>
@@ -550,7 +595,13 @@
         <span id="error-message" class="text-sm font-medium"></span>
     </div>
 
-    <script>
+    <!-- Loading overlay (shown while fetching All_Data) -->
+<div id="data-loading-overlay" class="data-loading-overlay hidden">
+    <div class="spinner-blue" style="width:40px;height:40px;border-width:3px;"></div>
+    <p id="data-loading-msg" class="text-slate-600 font-medium text-[14px]">Loading teams…</p>
+</div>
+
+<script>
     // =========================================================================
     // AUTH — simple front-end gate. NOT cryptographically secure (anyone who
     // views source can read the hash + brute-force a weak password); treat as
@@ -1043,14 +1094,22 @@
 
         submitToForm(selectedEnterprise);
 
+        // Show full-screen loading overlay immediately — page transitions only after data is ready
+        const loadingOv = document.getElementById('data-loading-overlay');
+        const loadingMsg = document.getElementById('data-loading-msg');
+        loadingOv.classList.remove('hidden');
+        loadingMsg.textContent = "Fetching All_Data sheet…";
+
         try {
             imagesLoaded = false;
             await fetchAllData();
-            lStatus.innerText = "Indexing teams & VINs…";
+            loadingMsg.textContent = "Indexing teams & VINs…";
             buildTeamIndex(selectedEnterprise);
             renderDashboard();
+            loadingOv.classList.add('hidden');
             showPage('page-dashboard');
         } catch (err) {
+            loadingOv.classList.add('hidden');
             console.error(err);
             showError("Could not load All_Data. Share the sheet as 'anyone with the link → viewer'.");
         } finally {
@@ -1143,8 +1202,12 @@
                             <span class="text-slate-400">${t.imageCount.toLocaleString()} imgs</span>
                         </div>
                     </div>
+                    <div class="team-card-btns">
+                        <button class="team-card-btn tcb-vin" onclick="event.stopPropagation();openTeamReview(window.__teamRef_${t.teamId.replace(/[^a-z0-9]/gi,'_')})">&#9654; VIN Review</button>
+                        <button class="team-card-btn tcb-img" onclick="event.stopPropagation();openTeam1stImage(window.__teamRef_${t.teamId.replace(/[^a-z0-9]/gi,'_')})">&#9654; 1st Image</button>
+                    </div>
                 `;
-                card.onclick = () => openTeamReview(t);
+                window['__teamRef_' + t.teamId.replace(/[^a-z0-9]/gi,'_')] = t;
                 grid.appendChild(card);
             });
     }
@@ -1456,7 +1519,322 @@
         }
     }
 
+    // =========================================================================
+    // 1ST IMAGE REVIEW
+    // =========================================================================
+    let img1Reviews = {};    // { teamId: { vin: 'ok'|'issue' } }
+    let img1Comments = {};   // { teamId: { vin: string } }
+    let currentImg1Team = null;
+    let currentImg1VINs = [];
+    let currentImg1Idx  = -1;
+    let reviewMode = 'vin'; // 'vin' | '1img'
+
+    function getImg1Review(teamId, vin) { return (img1Reviews[teamId] && img1Reviews[teamId][vin]) || null; }
+    function setImg1Review(teamId, vin, status, comment) {
+        if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
+        if (!img1Comments[teamId]) img1Comments[teamId] = {};
+        img1Reviews[teamId][vin] = status;
+        img1Comments[teamId][vin] = comment || '';
+    }
+
+    function openTeam1stImage(team) {
+        reviewMode = '1img';
+        currentImg1Team = team;
+        currentImg1Idx  = -1;
+        const teamVins  = vinsByTeam.get(team.teamId);
+        currentImg1VINs = teamVins ? [...teamVins.entries()].map(([vin, urls]) => ({ vin, urls })) : [];
+
+        // Reuse the same review page — update header labels
+        document.getElementById('review-team-name').innerText = team.name + ' — 1st Image Review';
+        document.getElementById('review-team-id').innerText   = team.teamId;
+
+        // Show a mode badge in topbar
+        let modeBadge = document.getElementById('review-mode-badge');
+        if (!modeBadge) {
+            modeBadge = document.createElement('span');
+            modeBadge.id = 'review-mode-badge';
+            modeBadge.className = 'bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider';
+            document.getElementById('review-progress').after(modeBadge);
+        }
+        modeBadge.textContent = '1st Image Mode';
+        modeBadge.classList.remove('hidden');
+
+        // Hide issue chips and comment for 1st image mode — not needed
+        document.getElementById('review-footer').classList.add('hidden');
+
+        // Change summary button to open 1img summary
+        const sumBtn = document.getElementById('summary-btn');
+        sumBtn.__orig_onclick = sumBtn.onclick;
+        sumBtn.onclick = null;
+        sumBtn._handler1img = () => openImg1Summary();
+        sumBtn.addEventListener('click', sumBtn._handler1img);
+
+        showPage('page-review');
+        updateImg1ProgressBadge();
+        render1ImgSidebar();
+
+        if (!currentImg1VINs.length) {
+            document.getElementById('no-vin-state').classList.remove('hidden');
+            document.getElementById('images-grid').classList.add('hidden');
+            document.getElementById('no-images-state').classList.add('hidden');
+            document.getElementById('images-loading').classList.add('hidden');
+            document.getElementById('current-vin-text').innerText = '—';
+            return;
+        }
+        const firstUnreviewed = currentImg1VINs.findIndex(v => !getImg1Review(team.teamId, v.vin));
+        select1ImgVIN(firstUnreviewed === -1 ? 0 : firstUnreviewed);
+    }
+
+    function restore1ImgMode() {
+        // Called when leaving 1img mode — restore VIN review defaults
+        reviewMode = 'vin';
+        const modeBadge = document.getElementById('review-mode-badge');
+        if (modeBadge) modeBadge.classList.add('hidden');
+        // Restore summary button
+        const sumBtn = document.getElementById('summary-btn');
+        if (sumBtn._handler1img) {
+            sumBtn.removeEventListener('click', sumBtn._handler1img);
+            sumBtn._handler1img = null;
+        }
+        document.getElementById('summary-btn').onclick = null;
+        // Re-attach original summary listener (it was set with addEventListener originally)
+        // The existing listener is still there, we just removed our added one.
+    }
+
+    function updateImg1ProgressBadge() {
+        const total = currentImg1VINs.length;
+        const done  = currentImg1VINs.filter(v => getImg1Review(currentImg1Team.teamId, v.vin)).length;
+        document.getElementById('review-progress').innerText = `${done} / ${total} reviewed`;
+    }
+
+    function render1ImgSidebar() {
+        const list = document.getElementById('vin-list');
+        const searchTerm = (document.getElementById('vin-search').value || '').toLowerCase().trim();
+        list.innerHTML = '';
+        let ok = 0, issue = 0;
+        currentImg1VINs.forEach((v, idx) => {
+            const st = getImg1Review(currentImg1Team.teamId, v.vin);
+            if (st === 'ok') ok++;
+            if (st === 'issue') issue++;
+            if (searchTerm && !v.vin.toLowerCase().includes(searchTerm)) return;
+
+            let stateClass = 'pending', dotClass = 'dot-pending';
+            if (st === 'ok')    { stateClass = 'approved'; dotClass = 'dot-approved'; }
+            if (st === 'issue') { stateClass = 'rejected'; dotClass = 'dot-rejected'; }
+            if (idx === currentImg1Idx) stateClass += ' current';
+
+            const item = document.createElement('div');
+            item.className = 'vin-item ' + stateClass;
+            item.innerHTML = `
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="status-dot ${dotClass}"></span>
+                    <span class="truncate font-mono text-[11px]">${escapeHtml(v.vin)}</span>
+                </div>
+                <span class="text-[10px] text-slate-400 flex-shrink-0">${v.urls.length > 0 ? '1/'+v.urls.length : '0'}</span>
+            `;
+            item.onclick = () => select1ImgVIN(idx);
+            list.appendChild(item);
+        });
+        document.getElementById('sidebar-count').innerText = currentImg1VINs.length + ' total';
+        document.getElementById('legend-approved').innerText = ok;
+        document.getElementById('legend-rejected').innerText = issue;
+    }
+
+    function select1ImgVIN(idx) {
+        if (idx < 0 || idx >= currentImg1VINs.length) return;
+        currentImg1Idx = idx;
+        const v = currentImg1VINs[idx];
+        document.getElementById('current-vin-text').innerText = v.vin;
+        document.getElementById('current-vin-image-count').innerText = v.urls.length + ' image' + (v.urls.length === 1 ? '' : 's') + ' total';
+
+        const st = getImg1Review(currentImg1Team.teamId, v.vin);
+        const badge = document.getElementById('current-vin-status-badge');
+        if (st === 'ok') {
+            badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700';
+            badge.innerText = 'ok';
+        } else if (st === 'issue') {
+            badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-rose-100 text-rose-700';
+            badge.innerText = 'issue';
+        } else {
+            badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-600';
+            badge.innerText = 'pending';
+        }
+
+        render1ImgImagePane(v, idx);
+        render1ImgSidebar();
+    }
+
+    function render1ImgImagePane(v, idx) {
+        const noVin    = document.getElementById('no-vin-state');
+        const loading  = document.getElementById('images-loading');
+        const grid     = document.getElementById('images-grid');
+        const noImg    = document.getElementById('no-images-state');
+        const footer   = document.getElementById('review-footer');
+
+        noVin.classList.add('hidden');
+        loading.classList.add('hidden');
+        footer.classList.add('hidden');
+        grid.classList.remove('hidden');
+        grid.style.gridTemplateColumns = '1fr';  // single column for 1st image
+
+        if (!v.urls.length) {
+            grid.classList.add('hidden');
+            noImg.classList.remove('hidden');
+            return;
+        }
+        noImg.classList.add('hidden');
+
+        const firstUrl = v.urls[0];
+        const curSt = getImg1Review(currentImg1Team.teamId, v.vin);
+        const cardClass = curSt === 'ok' ? 'img1-ok' : curSt === 'issue' ? 'img1-issue' : '';
+        const overlayClass = curSt === 'issue' ? 'img1-overlay img1-overlay-ok' : 'img1-overlay img1-overlay-iss';
+        const overlayTxt   = curSt === 'issue' ? '✓ Click to mark OK' : '✕ Click to mark Issue';
+
+        grid.innerHTML = `
+            <div style="max-width:520px;margin:0 auto">
+                <div class="img1-card ${cardClass}" id="img1-main-card" onclick="toggle1ImgIssue(${idx})">
+                    <img src="${escapeHtml(thumbUrl(firstUrl,800,85))}"
+                         onerror="this.src='${escapeHtml(firstUrl)}'"
+                         referrerpolicy="no-referrer" style="width:100%;display:block;aspect-ratio:4/3;object-fit:cover;">
+                    <div class="${overlayClass}">${overlayTxt}</div>
+                </div>
+                <p class="img1-url-label" style="margin-top:8px;font-size:10px;color:#94a3b8;word-break:break-all">${escapeHtml(firstUrl)}</p>
+                <p style="margin-top:6px;font-size:11px;color:#64748b">${v.urls.length} image${v.urls.length===1?'':'s'} total for this VIN — only 1st shown</p>
+                <div style="display:flex;gap:8px;margin-top:14px;">
+                    <button onclick="submit1ImgReview(${idx},'ok')"
+                        style="flex:1;background:#d1fae5;color:#047857;border:1.5px solid #6ee7b7;border-radius:8px;padding:10px;font-weight:700;font-size:13px;cursor:pointer;">
+                        ✓ OK &amp; Next
+                    </button>
+                    <button onclick="submit1ImgReview(${idx},'issue')"
+                        style="flex:1;background:#fee2e2;color:#b91c1c;border:1.5px solid #fca5a5;border-radius:8px;padding:10px;font-weight:700;font-size:13px;cursor:pointer;">
+                        ✕ Issue &amp; Next
+                    </button>
+                    <button onclick="select1ImgVIN(${idx+1})"
+                        style="background:#f1f5f9;color:#475569;border:1.5px solid #e2e8f0;border-radius:8px;padding:10px 16px;font-weight:600;font-size:13px;cursor:pointer;">
+                        Skip →
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+
+    function toggle1ImgIssue(idx) {
+        const v = currentImg1VINs[idx];
+        const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+        const newSt = cur === 'issue' ? 'ok' : 'issue';
+        setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
+        updateImg1ProgressBadge();
+        select1ImgVIN(idx);
+    }
+
+    function submit1ImgReview(idx, status) {
+        const v = currentImg1VINs[idx];
+        setImg1Review(currentImg1Team.teamId, v.vin, status, '');
+        updateImg1ProgressBadge();
+        // move to next unreviewed
+        let nextIdx = -1;
+        for (let step = 1; step <= currentImg1VINs.length; step++) {
+            const ni = (idx + step) % currentImg1VINs.length;
+            if (!getImg1Review(currentImg1Team.teamId, currentImg1VINs[ni].vin)) { nextIdx = ni; break; }
+        }
+        if (nextIdx === -1) {
+            render1ImgSidebar();
+            select1ImgVIN(idx);
+            openImg1Complete();
+        } else {
+            select1ImgVIN(nextIdx);
+        }
+    }
+
+    function openImg1Complete() {
+        const teamId = currentImg1Team.teamId;
+        let ok = 0, issue = 0;
+        currentImg1VINs.forEach(v => {
+            const st = getImg1Review(teamId, v.vin);
+            if (st === 'ok') ok++; else if (st === 'issue') issue++;
+        });
+        // Show a simple alert-style modal reusing complete-modal
+        document.getElementById('complete-subtitle').innerText = currentImg1Team.name + ' · 1st Image Review';
+        document.getElementById('complete-approved').innerText = ok;
+        document.getElementById('complete-rejected').innerText = issue;
+        document.getElementById('complete-total').innerText    = currentImg1VINs.length;
+        // Override ok button for 1img download
+        const okBtn = document.getElementById('complete-ok-btn');
+        okBtn.__1imgMode = true;
+        document.getElementById('complete-modal').classList.add('active');
+    }
+
+    // ── 1st Image Summary modal ──
+    function openImg1Summary() {
+        if (!currentImg1Team) return;
+        const tbody = document.getElementById('summary-tbody');
+        tbody.innerHTML = '';
+        let ok = 0, issue = 0, pending = 0;
+        currentImg1VINs.forEach((v, idx) => {
+            const st = getImg1Review(currentImg1Team.teamId, v.vin) || 'pending';
+            if (st === 'ok') ok++; else if (st === 'issue') issue++; else pending++;
+            const stClass = st === 'ok' ? 'bg-emerald-100 text-emerald-700'
+                          : st === 'issue' ? 'bg-rose-100 text-rose-700'
+                          : 'bg-slate-100 text-slate-500';
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50';
+            tr.innerHTML = `
+                <td class="px-6 py-2 text-slate-400 text-[11px]">${idx+1}</td>
+                <td class="px-3 py-2 font-mono text-[11px] text-slate-700">${escapeHtml(v.vin)}</td>
+                <td class="px-3 py-2 text-slate-500">1 / ${v.urls.length}</td>
+                <td class="px-3 py-2"><span class="${stClass} px-2 py-0.5 rounded text-[10px] font-bold uppercase">${st}</span></td>
+                <td class="px-3 py-2 text-slate-500 text-[11px]">${escapeHtml(v.urls[0] || '')}</td>
+                <td class="px-3 py-2 text-slate-500 text-[11px]">${escapeHtml(img1Comments[currentImg1Team.teamId]?.[v.vin] || '')}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        // Patch summary header for 1img mode
+        document.getElementById('summary-subtitle').innerText = currentImg1Team.name + ' · 1st Image Review';
+        document.getElementById('summary-approved').innerText = ok;
+        document.getElementById('summary-rejected').innerText = issue;
+        document.getElementById('summary-pending').innerText  = pending;
+        document.getElementById('summary-total').innerText    = currentImg1VINs.length;
+
+        // Patch download button for 1img CSV
+        const dlBtn = document.getElementById('download-csv-btn');
+        dlBtn.__1imgMode = true;
+        document.getElementById('summary-modal').classList.add('active');
+    }
+
+    function download1ImgCSV() {
+        if (!currentImg1Team) return;
+        const header = ['#', 'Team Name', 'Team ID', 'VIN', 'Total Images', '1st Image Status', '1st Image URL', 'Comment'];
+        const lines = [header.join(',')];
+        currentImg1VINs.forEach((v, idx) => {
+            const st  = getImg1Review(currentImg1Team.teamId, v.vin) || 'pending';
+            const cm  = img1Comments[currentImg1Team.teamId]?.[v.vin] || '';
+            const row = [
+                idx + 1,
+                csvCell(currentImg1Team.name),
+                csvCell(currentImg1Team.teamId),
+                csvCell(v.vin),
+                v.urls.length,
+                csvCell(st),
+                csvCell(v.urls[0] || ''),
+                csvCell(cm)
+            ];
+            lines.push(row.join(','));
+        });
+        const blob = new Blob([lines.join('
+')], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        const safe = currentImg1Team.teamId.replace(/[^a-z0-9_-]/gi, '_');
+        a.download = `1st_image_review_${safe}_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(a.href);
+    }
+
+    // =========================================================================
     // Completion modal (shown after every VIN in the team is reviewed)
+    // =========================================================================
+
     function openCompleteModal() {
         if (!currentTeam) return;
         let approved = 0, rejected = 0;
@@ -1473,12 +1851,24 @@
     }
     function closeCompleteModal() { document.getElementById('complete-modal').classList.remove('active'); }
     document.getElementById('complete-ok-btn').addEventListener('click', () => {
-        downloadCSV();
-        closeCompleteModal();
-        showPage('page-dashboard');
+        const btn = document.getElementById('complete-ok-btn');
+        if (btn.__1imgMode) {
+            btn.__1imgMode = false;
+            download1ImgCSV();
+            closeCompleteModal();
+            restore1ImgMode();
+            showPage('page-dashboard');
+        } else {
+            downloadCSV();
+            closeCompleteModal();
+            showPage('page-dashboard');
+        }
     });
 
-    document.getElementById('vin-search').addEventListener('input', renderVINSidebar);
+    document.getElementById('vin-search').addEventListener('input', () => {
+        if (reviewMode === '1img') render1ImgSidebar();
+        else renderVINSidebar();
+    });
     document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
         document.getElementById('vin-sidebar').classList.toggle('collapsed');
     });
@@ -1592,9 +1982,18 @@
         document.getElementById('summary-modal').classList.add('active');
     }
 
-    function closeSummary() { document.getElementById('summary-modal').classList.remove('active'); }
+    function closeSummary() {
+        document.getElementById('summary-modal').classList.remove('active');
+        // Reset 1img mode flag on download button
+        const dlBtn = document.getElementById('download-csv-btn');
+        if (dlBtn) dlBtn.__1imgMode = false;
+    }
 
-    document.getElementById('download-csv-btn').addEventListener('click', downloadCSV);
+    document.getElementById('download-csv-btn').addEventListener('click', () => {
+        const btn = document.getElementById('download-csv-btn');
+        if (btn.__1imgMode) { download1ImgCSV(); }
+        else { downloadCSV(); }
+    });
 
     function downloadCSV() {
         if (!currentTeam) return;
