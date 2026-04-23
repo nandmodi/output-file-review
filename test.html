@@ -1252,19 +1252,15 @@
 
                 const card = document.createElement('div');
                 card.className = "bg-white p-5 rounded-xl border border-slate-200 shadow-sm card-hover transition cursor-pointer flex flex-col justify-between min-h-[128px]";
+                // 1st image review progress
+                const img1TeamReviews = img1Reviews[t.teamId] || {};
+                const img1ReviewedCount = Object.keys(img1TeamReviews).length;
+                const img1Pct = t.vinCount > 0 ? Math.round((img1ReviewedCount / t.vinCount) * 100) : 0;
+
                 card.innerHTML = `
                     <div class="flex flex-col space-y-0.5">
                         <h3 class="font-bold text-[#1a202c] text-[15px] leading-tight truncate" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</h3>
                         <p class="text-[12px] font-medium text-slate-400 mt-0.5 uppercase tracking-wide">${escapeHtml(t.teamId)}</p>
-                    </div>
-                    <div class="mt-3">
-                        <div class="flex items-center justify-between text-[11px] text-slate-500 mb-1">
-                            <span>${reviewedCount} / ${t.vinCount} reviewed</span>
-                            <span>${pct}%</span>
-                        </div>
-                        <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                            <div class="h-full ${pct === 100 ? 'bg-emerald-500' : 'bg-blue-500'} transition-all" style="width: ${pct}%"></div>
-                        </div>
                     </div>
                     <div class="flex items-center justify-between mt-3">
                         <span class="badge-vauto">VAuto</span>
@@ -1273,9 +1269,21 @@
                             <span class="text-slate-400">${t.imageCount.toLocaleString()} imgs</span>
                         </div>
                     </div>
-                    <div class="team-card-btns">
-                        <button class="team-card-btn tcb-vin" onclick="event.stopPropagation();openTeamReview(window.__teamRef_${t.teamId.replace(/[^a-z0-9]/gi,'_')})">&#9654; VIN Review</button>
-                        <button class="team-card-btn tcb-img" onclick="event.stopPropagation();openTeam1stImage(window.__teamRef_${t.teamId.replace(/[^a-z0-9]/gi,'_')})">&#9654; 1st Image</button>
+                    <div class="team-card-btns" style="margin-top:10px">
+                        <div style="flex:1;display:flex;flex-direction:column;gap:3px">
+                            <button class="team-card-btn tcb-vin" onclick="event.stopPropagation();openTeamReview(window.__teamRef_${t.teamId.replace(/[^a-z0-9]/gi,'_')})">&#9654; VIN Review</button>
+                            <div style="height:5px;background:#dbeafe;border-radius:3px;overflow:hidden" title="VIN reviewed: ${reviewedCount}/${t.vinCount}">
+                                <div style="height:100%;width:${pct}%;background:${pct===100?'#10b981':'#3b82f6'};transition:width 0.3s"></div>
+                            </div>
+                            <span style="font-size:9px;color:#6b7280;text-align:center">${reviewedCount}/${t.vinCount} &nbsp;${pct}%</span>
+                        </div>
+                        <div style="flex:1;display:flex;flex-direction:column;gap:3px">
+                            <button class="team-card-btn tcb-img" onclick="event.stopPropagation();openTeam1stImage(window.__teamRef_${t.teamId.replace(/[^a-z0-9]/gi,'_')})">&#9654; 1st Image</button>
+                            <div style="height:5px;background:#d1fae5;border-radius:3px;overflow:hidden" title="1st img reviewed: ${img1ReviewedCount}/${t.vinCount}">
+                                <div style="height:100%;width:${img1Pct}%;background:${img1Pct===100?'#10b981':'#34d399'};transition:width 0.3s"></div>
+                            </div>
+                            <span style="font-size:9px;color:#6b7280;text-align:center">${img1ReviewedCount}/${t.vinCount} &nbsp;${img1Pct}%</span>
+                        </div>
                     </div>
                 `;
                 window['__teamRef_' + t.teamId.replace(/[^a-z0-9]/gi,'_')] = t;
@@ -1698,6 +1706,9 @@
 
     function restore1ImgMode() {
         reviewMode = 'vin';
+        // Clear VIN search box so highlights don't bleed into VIN review
+        const searchEl = document.getElementById('vin-search');
+        if (searchEl) searchEl.value = '';
         // Hide scroll-to-top button
         const scrollBtn = document.getElementById('scroll-top-btn');
         if (scrollBtn) scrollBtn.style.display = 'none';
@@ -2062,9 +2073,54 @@
     });
 
     document.getElementById('vin-search').addEventListener('input', () => {
-        if (reviewMode === '1img') render1ImgSidebar();
-        else renderVINSidebar();
+        if (reviewMode === '1img') {
+            render1ImgSidebar();
+            highlight1ImgSearch();
+        } else {
+            renderVINSidebar();
+        }
     });
+
+    function highlight1ImgSearch() {
+        const q = (document.getElementById('vin-search').value || '').toLowerCase().trim();
+        currentImg1VINs.forEach((v, idx) => {
+            const tile = document.getElementById('img1-tile-' + idx);
+            if (!tile) return;
+            const st = getImg1Review(currentImg1Team ? currentImg1Team.teamId : '', v.vin);
+            if (q && v.vin.toLowerCase().includes(q)) {
+                // Highlight: red/amber search border overrides status border
+                tile.style.outline = '3px solid #f59e0b';
+                tile.style.boxShadow = '0 0 0 1px #f59e0b, 0 4px 12px rgba(245,158,11,0.35)';
+                tile.style.zIndex = '5';
+                // Scroll first match into view
+                const firstMatchIdx = currentImg1VINs.findIndex(vv => vv.vin.toLowerCase().includes(q));
+                if (idx === firstMatchIdx) {
+                    tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } else {
+                // Restore normal status border
+                tile.style.boxShadow = '';
+                tile.style.zIndex = '';
+                tile.style.outline = st === 'ok'    ? '2px solid #10b981'
+                                   : st === 'issue' ? '2px solid #ef4444'
+                                   : '2px solid transparent';
+            }
+        });
+
+        // If search cleared, reset all
+        if (!q) {
+            currentImg1VINs.forEach((v, idx) => {
+                const tile = document.getElementById('img1-tile-' + idx);
+                if (!tile) return;
+                const st = getImg1Review(currentImg1Team ? currentImg1Team.teamId : '', v.vin);
+                tile.style.boxShadow = '';
+                tile.style.zIndex = '';
+                tile.style.outline = st === 'ok'    ? '2px solid #10b981'
+                                   : st === 'issue' ? '2px solid #ef4444'
+                                   : '2px solid transparent';
+            });
+        }
+    }
     document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
         document.getElementById('vin-sidebar').classList.toggle('collapsed');
     });
