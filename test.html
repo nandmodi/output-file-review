@@ -431,7 +431,17 @@
                 </div>
 
                 <!-- Image area: ONLY this section scrolls -->
-                <div id="image-area" class="flex-1 min-h-0 overflow-y-auto p-4">
+                <div id="image-area" class="flex-1 min-h-0 overflow-y-auto p-4" onscroll="handleImageAreaScroll()">
+                <!-- Scroll-to-top button (only visible in 1st image mode when scrolled) -->
+                <button id="scroll-top-btn"
+                    onclick="document.getElementById('image-area').scrollTo({top:0,behavior:'smooth'})"
+                    style="display:none;position:sticky;bottom:16px;float:right;z-index:50;
+                           width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;
+                           background:#2b6cb0;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.25);
+                           align-items:center;justify-content:center;font-size:16px;"
+                    title="Back to top">
+                    ↑
+                </button>
                     <div id="no-vin-state" class="h-full flex items-center justify-center">
                         <div class="text-center">
                             <div class="w-20 h-20 bg-slate-100 rounded-full mx-auto mb-4 flex items-center justify-center">
@@ -1164,12 +1174,15 @@
             loadingMsg.textContent = "Indexing teams & VINs…";
             buildTeamIndex(selectedEnterprise);
             renderDashboard();
-            loadingOv.classList.add('hidden');
             showPage('page-dashboard');
+            // Hide overlay only after browser has painted the dashboard (rAF x2 = after paint)
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                loadingOv.classList.add('hidden');
+            }));
         } catch (err) {
             loadingOv.classList.add('hidden');
             console.error(err);
-            showError("Could not load All_Data. Share the sheet as 'anyone with the link → viewer'.");
+            showError("Could not load All_Data. Share the sheet as 'anyone with the link → viewer' and try again.");
         } finally {
             btn.disabled = false;
             bText.innerText = "Load teams →";
@@ -1659,6 +1672,9 @@
             document.getElementById('current-vin-text').innerText = '—';
             return;
         }
+        // Scroll image-area to top when entering gallery
+        const imgArea = document.getElementById('image-area');
+        if (imgArea) imgArea.scrollTop = 0;
         // Show the full gallery of all 1st images
         render1ImgGallery();
         // Also pre-select first unreviewed in sidebar
@@ -1668,8 +1684,23 @@
         updateImg1ProgressBadge();
     }
 
+    function handleImageAreaScroll() {
+        const btn = document.getElementById('scroll-top-btn');
+        if (!btn) return;
+        const area = document.getElementById('image-area');
+        // Only show in 1img mode when scrolled more than 300px
+        if (reviewMode === '1img' && area.scrollTop > 300) {
+            btn.style.display = 'flex';
+        } else {
+            btn.style.display = 'none';
+        }
+    }
+
     function restore1ImgMode() {
         reviewMode = 'vin';
+        // Hide scroll-to-top button
+        const scrollBtn = document.getElementById('scroll-top-btn');
+        if (scrollBtn) scrollBtn.style.display = 'none';
         const modeBadge = document.getElementById('review-mode-badge');
         if (modeBadge) modeBadge.classList.add('hidden');
         const doneBtn = document.getElementById('img1-done-btn');
@@ -1897,6 +1928,23 @@
 
     function openImg1Complete() {
         const teamId = currentImg1Team.teamId;
+        // Auto-approve all pending (unmarked) VINs
+        currentImg1VINs.forEach(v => {
+            if (!getImg1Review(teamId, v.vin)) {
+                setImg1Review(teamId, v.vin, 'ok', '');
+                // Update tile outline in gallery
+                const tile = document.getElementById('img1-tile-' + currentImg1VINs.indexOf(v));
+                if (tile) {
+                    tile.style.outline = '2px solid #10b981';
+                    const stBadge = tile.children[1];
+                    if (stBadge && stBadge.style.position === 'absolute') {
+                        stBadge.textContent = 'OK'; stBadge.style.background = '#10b981';
+                    }
+                }
+            }
+        });
+        render1ImgSidebar();
+        updateImg1ProgressBadge();
         let ok = 0, issue = 0;
         currentImg1VINs.forEach(v => {
             const st = getImg1Review(teamId, v.vin);
