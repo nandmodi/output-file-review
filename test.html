@@ -1136,8 +1136,9 @@
     async function fetchAllData() {
         if (imagesLoaded && allImageData.rows.length) return;
 
-        // Try Metabase_Data first (has all teams), then All_Data as fallback
-        const sheetNames = ['Metabase_Data', 'All_Data'];
+        // All_Data has VIN-level rows with Photo URL list — correct source
+        // Metabase_Data has team-level rows only (no VIN column) — wrong for this app
+        const sheetNames = ['All_Data', 'Metabase_Data'];
         let lastError = null;
 
         for (const sheetName of sheetNames) {
@@ -1148,10 +1149,16 @@
                 const text = await response.text();
                 const parsed = parseCSV(text);
                 if (parsed.rows.length === 0) { lastError = sheetName + ' returned 0 rows'; continue; }
+                // Verify this sheet has a VIN column — Metabase_Data doesn't, All_Data does
+                const hasVin = parsed.headers.some(h => h.trim().toLowerCase() === 'vin');
+                if (!hasVin) {
+                    lastError = sheetName + ' has no VIN column (team-level data only, need VIN-level)';
+                    console.warn(`Skipping ${sheetName} — no VIN column. Headers:`, parsed.headers);
+                    continue;
+                }
                 allImageData = parsed;
                 imagesLoaded = true;
-                console.log(`Loaded from sheet: ${sheetName} — headers:`, allImageData.headers);
-                console.log('Rows:', allImageData.rows.length);
+                console.log(`✓ Loaded from "${sheetName}" — ${parsed.rows.length} rows, headers:`, allImageData.headers);
                 return;  // success
             } catch (e) {
                 lastError = e.message;
@@ -1173,9 +1180,17 @@
         // Explicitly find "Photo URL list" column — do NOT fall back to s3_url
         const photoIdx  = findColIdx(headers, COL_CANDIDATES.photoUrl);
 
-        if (teamIdIdx === -1 || vinIdx === -1) {
-            showError(`Sheet missing teamId/VIN columns. Headers found: ${headers.slice(0, 10).join(', ')}`);
-            console.warn('Available headers:', headers);
+        if (teamIdIdx === -1) {
+            showError(`Sheet missing teamId column. Headers found: ${headers.slice(0, 10).join(', ')}`);
+            teamsList = []; vinsByTeam = new Map();
+            return;
+        }
+
+        // If VIN column not found, this is likely Metabase_Data (team-level only, no VINs)
+        // We cannot build the VIN index from it — we need All_Data instead
+        if (vinIdx === -1) {
+            showError(`Sheet has team data but no VIN column. The app needs "All_Data" sheet which has VIN and "Photo URL list" columns. Headers found: ${headers.join(', ')}`);
+            console.warn('Loaded wrong sheet — need All_Data not Metabase_Data. Headers:', headers);
             teamsList = []; vinsByTeam = new Map();
             return;
         }
