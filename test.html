@@ -350,6 +350,7 @@
                 <div class="stat-card">
                     <div class="label">Reviewed VINs</div>
                     <div class="value" id="stat-reviewed">—</div>
+                    <div id="stat-reviewed-sub" style="font-size:10px;color:#64748b;margin-top:2px">1st img: —</div>
                 </div>
             </div>
 
@@ -432,16 +433,7 @@
 
                 <!-- Image area: ONLY this section scrolls -->
                 <div id="image-area" class="flex-1 min-h-0 overflow-y-auto p-4" onscroll="handleImageAreaScroll()">
-                <!-- Scroll-to-top button (only visible in 1st image mode when scrolled) -->
-                <button id="scroll-top-btn"
-                    onclick="document.getElementById('image-area').scrollTo({top:0,behavior:'smooth'})"
-                    style="display:none;position:sticky;bottom:16px;float:right;z-index:50;
-                           width:36px;height:36px;border-radius:50%;border:none;cursor:pointer;
-                           background:#2b6cb0;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.25);
-                           align-items:center;justify-content:center;font-size:16px;"
-                    title="Back to top">
-                    ↑
-                </button>
+
                     <div id="no-vin-state" class="h-full flex items-center justify-center">
                         <div class="text-center">
                             <div class="w-20 h-20 bg-slate-100 rounded-full mx-auto mb-4 flex items-center justify-center">
@@ -600,6 +592,15 @@
         </div>
     </div>
 
+    <!-- Fixed scroll-to-top for 1st image gallery -->
+    <button id="scroll-top-btn"
+        onclick="document.getElementById('image-area').scrollTo({top:0,behavior:'smooth'})"
+        style="display:none;position:fixed;bottom:72px;right:20px;z-index:150;
+               width:40px;height:40px;border-radius:50%;border:none;cursor:pointer;
+               background:#2b6cb0;color:#fff;box-shadow:0 3px 10px rgba(0,0,0,0.3);
+               font-size:18px;line-height:1;align-items:center;justify-content:center;"
+        title="Back to top">↑</button>
+
     <div id="error-toast" class="fixed bottom-4 right-4 bg-red-600 text-white px-5 py-3 rounded-lg shadow-2xl transform translate-y-20 transition-transform duration-300 flex items-center space-x-3 z-[200] max-w-md">
         <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
         <span id="error-message" class="text-sm font-medium"></span>
@@ -623,12 +624,30 @@
     //   2. Paste the resulting hex string as AUTH_PASSWORD_HASH
     // Current password: "spyne@123"
     // =========================================================================
-    const AUTH_USERS = [
-        'praveen@spyne.ai',
-        'kishor@spyne.ai'
-    ];
-    const AUTH_PASSWORD_HASH = '11135d32763e29c722e5a67de28b995c8184b26568937072f4e74e1f72c66d1f';
-    const AUTH_SESSION_KEY   = 'spyne_auth_user_v1';
+    // ─── USER MANAGEMENT ──────────────────────────────────────────────────────
+    // To add a user:
+    //   1. Pick their email and password
+    //   2. Get the SHA-256 hash of their password:
+    //      In browser console: sha256Hex('their_password').then(console.log)
+    //      Or terminal: echo -n "their_password" | shasum -a 256
+    //   3. Add an entry below: 'email@spyne.ai': 'hash_here'
+    //
+    // Multi-user safety: each user's reviews are stored under their own
+    // localStorage key AND tagged with their email in Google Sheet rows,
+    // so reviewers never overwrite each other's data.
+    // ──────────────────────────────────────────────────────────────────────────
+    const AUTH_USER_PASSWORDS = {
+        'praveen@spyne.ai': '11135d32763e29c722e5a67de28b995c8184b26568937072f4e74e1f72c66d1f',
+        'kishor@spyne.ai':  '11135d32763e29c722e5a67de28b995c8184b26568937072f4e74e1f72c66d1f',
+        // Add more users here — same format:
+        // 'newuser@spyne.ai': 'sha256_hash_of_their_password',
+    };
+    const AUTH_USERS    = Object.keys(AUTH_USER_PASSWORDS);
+    const AUTH_SESSION_KEY = 'spyne_auth_user_v1';
+
+    // Per-user localStorage keys — reviews are isolated per reviewer
+    function storageKey()     { return 'spyne_reviews_v2_' + (getCurrentUser() || 'anon'); }
+    function storageKey1Img() { return 'spyne_1img_v2_'   + (getCurrentUser() || 'anon'); }
 
     // Pure-JS SHA-256 — works on file:// (crypto.subtle requires HTTPS/localhost)
     async function sha256Hex(input) {
@@ -897,16 +916,16 @@
     // Push a single review to the Apps Script Web App. Fire-and-forget (no-cors
     // means we can't read the response, but the POST goes through). Apps Script
     // appends a row to the "Reviews" tab and creates it on first write.
+    // ── VIN Review → fixed "Reviews" tab (all users, tagged by reviewer email) ──
     async function syncReviewToSheet(payload) {
         if (!REVIEW_SYNC_ENABLED) return;
         try {
             await fetch(REVIEW_WEBAPP_URL, {
                 method: 'POST',
                 mode: 'no-cors',
-                // Using text/plain avoids a CORS preflight that Apps Script blocks;
-                // the script reads e.postData.contents regardless of content-type.
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
+                    sheet:       'Reviews',             // fixed tab name — matches your sheet
                     reviewer:    payload.reviewer || '',
                     enterprise:  payload.enterprise || '',
                     teamName:    payload.teamName || '',
@@ -925,9 +944,80 @@
         }
     }
 
-    const STORAGE_KEY = 'spyne_reviews_v1';
-    function loadReviews() { try { reviews = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (e) { reviews = {}; } }
-    function persistReviews() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(reviews)); } catch (e) {} }
+    // ── 1st Image Review → fixed "1st_image_review" tab ──
+    async function sync1ImgToSheet(payload) {
+        if (!REVIEW_SYNC_ENABLED) return;
+        try {
+            await fetch(REVIEW_WEBAPP_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    sheet:        '1st_image_review',   // fixed tab name
+                    reviewer:     payload.reviewer || '',
+                    enterprise:   payload.enterprise || '',
+                    teamName:     payload.teamName || '',
+                    teamId:       payload.teamId || '',
+                    vin:          payload.vin || '',
+                    status:       payload.status || '',
+                    firstImgUrl:  payload.firstImgUrl || '',
+                    imageCount:   payload.imageCount ?? 0,
+                    reviewDate:   payload.reviewDate || '',
+                    reviewedAt:   payload.reviewedAt || ''
+                })
+            });
+        } catch (e) {
+            console.warn('1img sync failed (non-fatal):', e);
+        }
+    }
+
+    // ── READ progress back from Sheet on login (cross-device restore) ──
+    // GET ?action=getReviews&reviewer=praveen@spyne.ai&enterprise=Gettel...
+    async function loadProgressFromSheet(enterprise) {
+        if (!REVIEW_SYNC_ENABLED) return false;
+        try {
+            const reviewer = getCurrentUser() || '';
+            const url = REVIEW_WEBAPP_URL
+                + '?action=getReviews'
+                + '&reviewer='   + encodeURIComponent(reviewer)
+                + '&enterprise=' + encodeURIComponent(enterprise || '');
+            const res = await fetch(url, { cache: 'no-cache' });
+            if (!res.ok) return false;
+            const data = await res.json();
+            // data = { vinReviews: { teamId: { vin: {status,issues,comment,reviewedAt} } },
+            //          imgReviews: { teamId: { vin: 'ok'|'issue' } } }
+            if (data.vinReviews && typeof data.vinReviews === 'object') {
+                // Merge sheet data into local — sheet wins for cross-device
+                for (const [teamId, vins] of Object.entries(data.vinReviews)) {
+                    if (!reviews[teamId]) reviews[teamId] = {};
+                    Object.assign(reviews[teamId], vins);
+                }
+                persistReviews();
+            }
+            if (data.imgReviews && typeof data.imgReviews === 'object') {
+                for (const [teamId, vins] of Object.entries(data.imgReviews)) {
+                    if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
+                    Object.assign(img1Reviews[teamId], vins);
+                }
+                persist1ImgReviews();
+            }
+            return true;
+        } catch (e) {
+            console.warn('Sheet progress load failed (non-fatal):', e);
+            return false;
+        }
+    }
+
+    function loadReviews() {
+        try { reviews = JSON.parse(localStorage.getItem(storageKey()) || '{}'); } catch (e) { reviews = {}; }
+        try { img1Reviews = JSON.parse(localStorage.getItem(storageKey1Img()) || '{}'); } catch (e) { img1Reviews = {}; }
+    }
+    function persistReviews() {
+        try { localStorage.setItem(storageKey(), JSON.stringify(reviews)); } catch (e) {}
+    }
+    function persist1ImgReviews() {
+        try { localStorage.setItem(storageKey1Img(), JSON.stringify(img1Reviews)); } catch (e) {}
+    }
     function getReview(teamId, vin) { return (reviews[teamId] && reviews[teamId][vin]) || null; }
     function setReview(teamId, vin, status, comment, issues) {
         if (!reviews[teamId]) reviews[teamId] = {};
@@ -1105,12 +1195,13 @@
         await new Promise(r => setTimeout(r, 350));
 
         try {
-            if (!AUTH_USERS.includes(email)) throw new Error('Invalid email or password');
+            if (!AUTH_USER_PASSWORDS[email]) throw new Error('Invalid email or password');
             const hash = await sha256Hex(pass);
-            if (hash !== AUTH_PASSWORD_HASH) throw new Error('Invalid email or password');
-            // Success
+            if (hash !== AUTH_USER_PASSWORDS[email]) throw new Error('Invalid email or password');
+            // Success — load THIS user's saved progress from localStorage
             setCurrentUser(email);
             updateUserBadge();
+            loadReviews();   // reload with per-user storage key
             passEl.value = '';
             showPage('page-login');
         } catch (err) {
@@ -1170,12 +1261,15 @@
 
         try {
             imagesLoaded = false;
+            loadingMsg.textContent = "Fetching All_Data sheet…";
             await fetchAllData();
             loadingMsg.textContent = "Indexing teams & VINs…";
             buildTeamIndex(selectedEnterprise);
+            // Restore cross-device progress from Sheet BEFORE rendering dashboard
+            loadingMsg.textContent = "Restoring your progress…";
+            await loadProgressFromSheet(selectedEnterprise);
             renderDashboard();
             showPage('page-dashboard');
-            // Hide overlay only after browser has painted the dashboard (rAF x2 = after paint)
             requestAnimationFrame(() => requestAnimationFrame(() => {
                 loadingOv.classList.add('hidden');
             }));
@@ -1229,16 +1323,21 @@
         document.getElementById('enterprise-id-tag').innerText = "10bb841f8";
         grid.innerHTML = '';
 
-        let totalVINs = 0, totalImages = 0, reviewedVINs = 0;
+        let totalVINs = 0, totalImages = 0, reviewedVINs = 0, reviewed1Img = 0;
         teamsList.forEach(t => {
-            totalVINs   += t.vinCount;
-            totalImages += t.imageCount;
-            reviewedVINs += Object.keys(reviews[t.teamId] || {}).length;
+            totalVINs    += t.vinCount;
+            totalImages  += t.imageCount;
+            reviewedVINs += Object.keys(reviews[t.teamId]    || {}).length;
+            reviewed1Img += Object.keys(img1Reviews[t.teamId] || {}).length;
         });
         document.getElementById('stat-total-teams').innerText  = teamsList.length.toLocaleString();
         document.getElementById('stat-total-vins').innerText   = totalVINs.toLocaleString();
         document.getElementById('stat-total-images').innerText = totalImages.toLocaleString();
-        document.getElementById('stat-reviewed').innerText     = reviewedVINs.toLocaleString();
+        // Show both counts in the stat card
+        document.getElementById('stat-reviewed').innerText = reviewedVINs.toLocaleString();
+        // Update sub-label if element exists (we'll add it below)
+        const sub = document.getElementById('stat-reviewed-sub');
+        if (sub) sub.innerText = '1st img: ' + reviewed1Img.toLocaleString();
 
         if (!teamsList.length) { empty.classList.remove('hidden'); return; }
         empty.classList.add('hidden');
@@ -1618,6 +1717,24 @@
         if (!img1Comments[teamId]) img1Comments[teamId] = {};
         img1Reviews[teamId][vin] = status;
         img1Comments[teamId][vin] = comment || '';
+        persist1ImgReviews();
+
+        // Sync to Google Sheet → '1st_image_review' tab
+        const now = new Date();
+        const team = teamsList.find(t => t.teamId === teamId);
+        const vinObj = (currentImg1VINs || []).find(v => v.vin === vin);
+        sync1ImgToSheet({
+            reviewer:    getCurrentUser() || 'unknown',
+            enterprise:  selectedEnterprise,
+            teamName:    team?.name || '',
+            teamId:      teamId,
+            vin:         vin,
+            status:      status,
+            firstImgUrl: vinObj?.urls?.[0] || '',
+            imageCount:  vinObj?.urls?.length ?? 0,
+            reviewDate:  ddmmyyyy(now),
+            reviewedAt:  now.toISOString()
+        });
     }
 
     function openTeam1stImage(team) {
