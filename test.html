@@ -255,6 +255,69 @@
         </div>
     </header>
 
+    <!-- Admin: User Management (access via ?admin=1 in URL) -->
+    <div id="page-admin" class="page-view items-center justify-center p-4 bg-slate-50">
+        <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg border border-slate-100">
+            <div class="flex items-center justify-between mb-6">
+                <h1 class="text-xl font-bold text-slate-800">User Management</h1>
+                <span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded font-bold uppercase tracking-wider">Admin</span>
+            </div>
+            <p class="text-[13px] text-slate-500 mb-6 leading-relaxed">
+                Generate a password hash for a new user. Copy the output line and paste it into
+                <code class="bg-slate-100 px-1.5 py-0.5 rounded text-[12px] font-mono">AUTH_USER_PASSWORDS</code> in the HTML file.
+            </p>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Email</label>
+                    <input id="admin-email" type="email" placeholder="newuser@spyne.ai"
+                        class="w-full p-2.5 border border-slate-300 rounded-lg text-[14px] outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Password</label>
+                    <div class="relative">
+                        <input id="admin-pass" type="password" placeholder="Enter password for this user"
+                            class="w-full p-2.5 border border-slate-300 rounded-lg text-[14px] outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 pr-20">
+                        <button onclick="toggleAdminPassVis()" id="admin-pass-eye"
+                            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-[11px] text-slate-400 hover:text-slate-600 font-semibold">
+                            SHOW
+                        </button>
+                    </div>
+                </div>
+                <button onclick="generateUserHash()"
+                    class="w-full spyne-blue text-white font-semibold py-2.5 rounded-lg hover:bg-blue-700 transition mt-1">
+                    Generate →
+                </button>
+            </div>
+
+            <!-- Output -->
+            <div id="admin-output" class="hidden mt-5">
+                <div class="flex items-center justify-between mb-1.5">
+                    <label class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Copy this line into AUTH_USER_PASSWORDS</label>
+                    <button onclick="copyAdminOutput()" id="admin-copy-btn"
+                        class="text-[11px] text-blue-600 hover:text-blue-800 font-semibold">Copy</button>
+                </div>
+                <pre id="admin-output-text"
+                    class="bg-slate-900 text-emerald-400 text-[12px] font-mono p-4 rounded-lg overflow-x-auto whitespace-pre-wrap break-all select-all"></pre>
+                <p class="text-[11px] text-slate-400 mt-2 leading-relaxed">
+                    Paste inside <code class="bg-slate-100 px-1 rounded">AUTH_USER_PASSWORDS = &#123; ... &#125;</code>
+                    in the HTML, save, and redeploy.
+                </p>
+            </div>
+
+            <!-- Existing users list -->
+            <div class="mt-6 border-t border-slate-100 pt-5">
+                <h3 class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-3">Current Users</h3>
+                <div id="admin-users-list" class="space-y-1.5"></div>
+            </div>
+
+            <button onclick="showPage('page-auth')"
+                class="mt-6 w-full border border-slate-200 text-slate-500 text-[13px] py-2 rounded-lg hover:bg-slate-50 transition">
+                ← Back to login
+            </button>
+        </div>
+    </div>
+
     <!-- Page 0: Auth (login with email + password) -->
     <div id="page-auth" class="page-view active items-center justify-center p-4">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm border border-slate-100">
@@ -1156,6 +1219,9 @@
             // focus email field for fast typing
             setTimeout(() => document.getElementById('auth-email')?.focus(), 50);
         }
+
+        // Check if admin mode requested via ?admin=1
+        checkAdminMode();
 
         // Load enterprise list regardless (pre-warms while user signs in)
         try {
@@ -2425,6 +2491,81 @@
         const s = String(v ?? '');
         if (/[",\n\r]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
         return s;
+    }
+
+    // =========================================================================
+    // ADMIN — User Management (?admin=1 in URL)
+    // =========================================================================
+    function toggleAdminPassVis() {
+        const inp = document.getElementById('admin-pass');
+        const btn = document.getElementById('admin-pass-eye');
+        if (inp.type === 'password') { inp.type = 'text';     btn.textContent = 'HIDE'; }
+        else                         { inp.type = 'password'; btn.textContent = 'SHOW'; }
+    }
+
+    async function generateUserHash() {
+        const email = (document.getElementById('admin-email').value || '').trim().toLowerCase();
+        const pass  =  document.getElementById('admin-pass').value  || '';
+        const out   =  document.getElementById('admin-output');
+        const pre   =  document.getElementById('admin-output-text');
+
+        if (!email || !pass) { alert('Enter both email and password.'); return; }
+        if (!/^[^@]+@[^@]+\.[^@]+$/.test(email)) { alert('Enter a valid email address.'); return; }
+
+        const hash = await sha256Hex(pass);
+        const line = `'${email}': '${hash}',`;
+        pre.textContent = line;
+        out.classList.remove('hidden');
+    }
+
+    function copyAdminOutput() {
+        const text = document.getElementById('admin-output-text').textContent;
+        navigator.clipboard.writeText(text).then(() => {
+            const btn = document.getElementById('admin-copy-btn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        }).catch(() => {
+            // Fallback
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            const btn = document.getElementById('admin-copy-btn');
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        });
+    }
+
+    function renderAdminUsersList() {
+        const list = document.getElementById('admin-users-list');
+        if (!list) return;
+        list.innerHTML = '';
+        const users = Object.keys(AUTH_USER_PASSWORDS);
+        if (!users.length) {
+            list.innerHTML = '<p class="text-[12px] text-slate-400">No users configured.</p>';
+            return;
+        }
+        users.forEach(email => {
+            const row = document.createElement('div');
+            row.className = 'flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2';
+            row.innerHTML = `
+                <span class="text-[13px] text-slate-700 font-mono">${escapeHtml(email)}</span>
+                <span class="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded font-bold">active</span>
+            `;
+            list.appendChild(row);
+        });
+    }
+
+    // Check URL for ?admin=1 on load
+    function checkAdminMode() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.get('admin') === '1') {
+            document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
+            document.getElementById('page-admin').classList.add('active');
+            renderAdminUsersList();
+        }
     }
 
     window.onload = init;
