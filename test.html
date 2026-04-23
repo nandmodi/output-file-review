@@ -702,8 +702,6 @@
     const AUTH_USER_PASSWORDS = {
         'praveen@spyne.ai': '11135d32763e29c722e5a67de28b995c8184b26568937072f4e74e1f72c66d1f',
         'kishor@spyne.ai':  '11135d32763e29c722e5a67de28b995c8184b26568937072f4e74e1f72c66d1f',
-        'ajay.devrani@spyne.co.in': 'b00ca705240bae3e13fff0254248b6f7c320020e188cc6347ccaa0e9fa0c9278',
-        'ranbir.manoranjan@spyne.ai': 'c775e7b757ede630cd0aa1113bd102661ab38829ca52a6422ab782862f268646',
         // Add more users here — same format:
         // 'newuser@spyne.ai': 'sha256_hash_of_their_password',
     };
@@ -1130,13 +1128,31 @@
 
     async function fetchAllData() {
         if (imagesLoaded && allImageData.rows.length) return;
-        const response = await fetch(ALL_DATA_CSV_URL);
-        if (!response.ok) throw new Error('All_Data fetch failed: HTTP ' + response.status);
-        const text = await response.text();
-        allImageData = parseCSV(text);
-        imagesLoaded = true;
-        console.log('All_Data headers:', allImageData.headers);
-        console.log('All_Data rows:', allImageData.rows.length);
+
+        // Try All_Data first, then Metabase_Data as fallback
+        // (some sheets use one name, some use the other)
+        const sheetNames = ['All_Data', 'Metabase_Data'];
+        let lastError = null;
+
+        for (const sheetName of sheetNames) {
+            try {
+                const url = `https://docs.google.com/spreadsheets/d/${ALL_DATA_SHEET_ID}/gviz/tq?tqx=out:csv&sheet=${encodeURIComponent(sheetName)}`;
+                const response = await fetch(url);
+                if (!response.ok) { lastError = 'HTTP ' + response.status; continue; }
+                const text = await response.text();
+                const parsed = parseCSV(text);
+                if (parsed.rows.length === 0) { lastError = sheetName + ' returned 0 rows'; continue; }
+                allImageData = parsed;
+                imagesLoaded = true;
+                console.log(`Loaded from sheet: ${sheetName} — headers:`, allImageData.headers);
+                console.log('Rows:', allImageData.rows.length);
+                return;  // success
+            } catch (e) {
+                lastError = e.message;
+                continue;
+            }
+        }
+        throw new Error('Could not load data from All_Data or Metabase_Data. Last error: ' + lastError);
     }
 
     // Build teamsList + vinsByTeam from All_Data — THE source of truth
@@ -1388,7 +1404,22 @@
         const grid  = document.getElementById('dealer-grid');
         const empty = document.getElementById('dealer-empty');
         document.getElementById('current-enterprise-tag').innerText = selectedEnterprise;
-        document.getElementById('enterprise-id-tag').innerText = "10bb841f8";
+        // Show actual enterprise ID from the loaded team data (not hardcoded)
+        const entId = teamsList.length > 0
+            ? (allImageData.rows.find(r => {
+                const entIdx = allImageData.headers.findIndex(h => h.toLowerCase().includes('enterprise') && h.toLowerCase().includes('name'));
+                const entIdIdx = allImageData.headers.findIndex(h => h.toLowerCase() === 'enterpriseid' || h.toLowerCase() === 'enterprise_id' || h.toLowerCase() === 'enterpriseid');
+                if (entIdx === -1) return false;
+                return String(r[entIdx] || '').trim() === selectedEnterprise;
+              }) || null)
+            : null;
+        // Find enterpriseId column index
+        const eidColIdx = allImageData.headers.findIndex(h => {
+            const l = h.toLowerCase();
+            return l === 'enterpriseid' || l === 'enterprise_id' || l === 'enterpriseid';
+        });
+        const eidVal = (entId && eidColIdx !== -1) ? String(entId[eidColIdx] || '') : '';
+        document.getElementById('enterprise-id-tag').innerText = eidVal || selectedEnterprise;
         grid.innerHTML = '';
 
         let totalVINs = 0, totalImages = 0, reviewedVINs = 0, reviewed1Img = 0;
