@@ -827,10 +827,17 @@
     const REVIEW_WEBAPP_URL   = "https://script.google.com/macros/s/AKfycbxkTiE6QCD8x5bt5xdEY1zATDa7_WDI00zyk_rg_SlDFqhe19ora5qTn9zHXwV3DheM/exec";
 
     const COL_CANDIDATES = {
-        teamId:      ['teamId', 'team_id', 'TeamId', 'Team ID', 'team id', 'mp_id', 'MP ID', 'mpId', 'mp'],
-        teamName:    ['team_name', 'teamName', 'Team Name', 'ow.name', 'dealer_name', 'dealer', 'name'],
-        enterprise:  ['enterprise_name', 'enterprise', 'Enterprise Name', 'Enterprise'],
-        vin:         ['VIN', 'vin', 'Vin', 'vin_number', 'VIN Number', 'vin_no']
+        // exact Metabase_Data column: "teamId"
+        teamId:      ['teamId', 'team_id', 'TeamId', 'Team ID', 'team id'],
+        // exact Metabase_Data column: "ow.name"
+        teamName:    ['ow.name', 'team_name', 'teamName', 'Team Name', 'dealer_name', 'dealer', 'name'],
+        // exact Metabase_Data column: "enterprise_name"
+        enterprise:  ['enterprise_name', 'enterprise_name', 'Enterprise Name', 'enterprise', 'Enterprise'],
+        // exact Metabase_Data column: "VIN"
+        vin:         ['VIN', 'vin', 'Vin', 'vin_number', 'VIN Number'],
+        // exact Metabase_Data column: "Photo URL list" (comma-separated image URLs)
+        photoUrl:    ['Photo URL list', 'photo url list', 'photo_url_list', 'Photo URL List',
+                      'image_url', 'image url', 'url', 'urls', 'Photo URL']
     };
 
     // =========================================================================
@@ -1129,9 +1136,8 @@
     async function fetchAllData() {
         if (imagesLoaded && allImageData.rows.length) return;
 
-        // Try All_Data first, then Metabase_Data as fallback
-        // (some sheets use one name, some use the other)
-        const sheetNames = ['All_Data', 'Metabase_Data'];
+        // Try Metabase_Data first (has all teams), then All_Data as fallback
+        const sheetNames = ['Metabase_Data', 'All_Data'];
         let lastError = null;
 
         for (const sheetName of sheetNames) {
@@ -1164,34 +1170,69 @@
         const vinIdx    = findColIdx(headers, COL_CANDIDATES.vin);
         const nameIdx   = findColIdx(headers, COL_CANDIDATES.teamName);
         const entIdx    = findColIdx(headers, COL_CANDIDATES.enterprise);
+        // Explicitly find "Photo URL list" column — do NOT fall back to s3_url
+        const photoIdx  = findColIdx(headers, COL_CANDIDATES.photoUrl);
 
         if (teamIdIdx === -1 || vinIdx === -1) {
-            showError(`All_Data missing teamId/VIN columns. Found: ${headers.slice(0, 8).join(', ')}`);
+            showError(`Sheet missing teamId/VIN columns. Headers found: ${headers.slice(0, 10).join(', ')}`);
             console.warn('Available headers:', headers);
             teamsList = []; vinsByTeam = new Map();
             return;
         }
 
-        // Find image URL column: first column whose first non-empty value contains http
-        let urlStartIdx = -1;
-        for (let ci = 0; ci < headers.length; ci++) {
-            if (ci === teamIdIdx || ci === vinIdx || ci === nameIdx || ci === entIdx) continue;
-            for (const r of allImageData.rows) {
-                const v = (r[ci] || '').trim();
-                if (v && /https?:\/\//i.test(v)) { urlStartIdx = ci; break; }
+        // URL column resolution:
+        // Priority 1: explicit "Photo URL list" column (Metabase_Data format)
+        // Priority 2: scan for first column containing image URLs (skipping s3_url / .csv links)
+        let urlColIdx = photoIdx;
+        if (urlColIdx === -1) {
+            // Find first column whose values contain actual image URLs (not .csv links)
+            for (let ci = 0; ci < headers.length; ci++) {
+                if (ci === teamIdIdx || ci === vinIdx || ci === nameIdx || ci === entIdx) continue;
+                const hdr = headers[ci].toLowerCase();
+                // Skip known non-image URL columns
+                if (hdr.includes('s3_url') || hdr.includes('s3url') || hdr.includes('partner')) continue;
+                for (const r of allImageData.rows) {
+                    const v = (r[ci] || '').trim();
+                    if (v && /https?:\/\//i.test(v) && isImageUrl(v.split(',')[0].trim())) {
+                        urlColIdx = ci; break;
+                    }
+                }
+                if (urlColIdx !== -1) break;
             }
-            if (urlStartIdx !== -1) break;
         }
-        if (urlStartIdx === -1) urlStartIdx = Math.max(teamIdIdx, vinIdx) + 1;
+        // Final fallback: use whatever comes after VIN
+        if (urlColIdx === -1) urlColIdx = vinIdx + 1;
 
-        console.log('Column map →', { teamIdIdx, vinIdx, nameIdx, entIdx, urlStartIdx,
-            headersPreview: headers.slice(0, Math.min(10, headers.length)) });
+        console.log('Column map →', { teamIdIdx, vinIdx, nameIdx, entIdx, photoIdx, urlColIdx,
+            headers: headers });
+
+        // Pre-scan: find the exact enterprise name as it appears in the data.
+        // Handles case/spacing differences between the dropdown CSV and sheet data.
+        let matchedEnterprise = enterprise;
+        if (entIdx !== -1 && enterprise) {
+            const entLower = enterprise.toLowerCase().trim();
+            const uniqueEnts = [...new Set(allImageData.rows.map(r => (r[entIdx] || '').trim()))].filter(Boolean);
+            console.log('All enterprise names in sheet:', uniqueEnts);
+            // 1. Exact case-insensitive match
+            const exact = uniqueEnts.find(e => e.toLowerCase() === entLower);
+            if (exact) {
+                matchedEnterprise = exact;
+            } else {
+                // 2. Partial match — one contains the other
+                const partial = uniqueEnts.find(e =>
+                    e.toLowerCase().includes(entLower) || entLower.includes(e.toLowerCase())
+                );
+                if (partial) matchedEnterprise = partial;
+            }
+            console.log(`Enterprise: selected="${enterprise}" → matched="${matchedEnterprise}" (${uniqueEnts.length} unique in sheet)`);
+        }
 
         const teamAgg = new Map();
         for (const r of allImageData.rows) {
-            if (entIdx !== -1 && enterprise) {
+            // Enterprise filter — use matched name (case-insensitive, trimmed)
+            if (entIdx !== -1 && matchedEnterprise) {
                 const rowEnt = (r[entIdx] || '').trim();
-                if (rowEnt && rowEnt !== enterprise) continue;
+                if (rowEnt && rowEnt.toLowerCase() !== matchedEnterprise.toLowerCase()) continue;
             }
 
             const teamId = (r[teamIdIdx] || '').trim();
@@ -1199,7 +1240,23 @@
             if (!teamId || !vin) continue;
 
             const name = nameIdx !== -1 ? (r[nameIdx] || '').trim() : teamId;
-            const urls = extractUrlsFromRow(r, urlStartIdx);
+
+            // Extract URLs: if urlColIdx points to "Photo URL list", split by comma
+            // Otherwise use the generic extractor
+            let urls = [];
+            if (urlColIdx >= 0) {
+                const cell = (r[urlColIdx] || '').trim();
+                if (cell) {
+                    // "Photo URL list" is comma-separated image URLs in a single cell
+                    const candidates = cell.split(',').map(u => u.trim()).filter(u => u.startsWith('http'));
+                    if (candidates.length > 0) {
+                        urls = candidates.filter(u => isImageUrl(u));
+                        if (urls.length === 0) urls = candidates; // keep even if isImageUrl fails
+                    } else {
+                        urls = extractUrlsFromRow(r, urlColIdx);
+                    }
+                }
+            }
 
             if (!teamAgg.has(teamId)) teamAgg.set(teamId, { name: name || teamId, vins: new Map() });
             const t = teamAgg.get(teamId);
@@ -1218,6 +1275,16 @@
             vinsByTeam.set(teamId, t.vins);
         }
         teamsList.sort((a, b) => a.name.localeCompare(b.name));
+        // Log for debugging
+        if (teamsList.length === 0 && enterprise) {
+            // Show what enterprise names ARE in the data
+            const sampleEnts = entIdx !== -1
+                ? [...new Set(allImageData.rows.slice(0, 50).map(r => (r[entIdx] || '').trim()))].filter(Boolean)
+                : [];
+            console.warn(`0 teams found for enterprise "${enterprise}". Sample enterprise names in data:`, sampleEnts);
+        } else {
+            console.log(`Built ${teamsList.length} teams for enterprise "${enterprise}"`);
+        }
     }
 
     // =========================================================================
@@ -1241,19 +1308,38 @@
         // Check if admin mode requested via ?admin=1
         checkAdminMode();
 
-        // Load enterprise list regardless (pre-warms while user signs in)
+        // Load enterprise list directly from Metabase_Data — guarantees names
+        // exactly match the data so the enterprise filter always works correctly.
         try {
-            const data = await fetchEnterprises();
             const select = document.getElementById('enterprise-select');
-            select.innerHTML = '<option value="" disabled selected>Select an Enterprise</option>';
-            const enterprises = [...new Set(data.map(it => it.enterprise_name))].filter(Boolean).sort();
-            enterprises.forEach(name => {
-                const opt = document.createElement('option');
-                opt.value = name; opt.textContent = name;
-                select.appendChild(opt);
-            });
+            select.innerHTML = '<option value="" disabled selected>Loading enterprises…</option>';
+            await fetchAllData();
+            const entIdx = findColIdx(allImageData.headers, COL_CANDIDATES.enterprise);
+            if (entIdx !== -1) {
+                const names = [...new Set(
+                    allImageData.rows.map(r => (r[entIdx] || '').trim())
+                )].filter(Boolean).sort();
+                select.innerHTML = '<option value="" disabled selected>Select an Enterprise</option>';
+                names.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name; opt.textContent = name;
+                    select.appendChild(opt);
+                });
+                console.log('Enterprises loaded from Metabase_Data:', names.length);
+            } else {
+                // Fallback: dedicated enterprise CSV
+                const data = await fetchEnterprises();
+                const enterprises = [...new Set(data.map(it => it.enterprise_name))].filter(Boolean).sort();
+                select.innerHTML = '<option value="" disabled selected>Select an Enterprise</option>';
+                enterprises.forEach(name => {
+                    const opt = document.createElement('option');
+                    opt.value = name; opt.textContent = name;
+                    select.appendChild(opt);
+                });
+            }
         } catch (err) {
-            showError("Failed to connect to enterprise data.");
+            console.error('Enterprise load failed:', err);
+            showError("Failed to load enterprise list. Ensure sheet is shared as Anyone with link → Viewer.");
         }
     }
 
@@ -1404,22 +1490,20 @@
         const grid  = document.getElementById('dealer-grid');
         const empty = document.getElementById('dealer-empty');
         document.getElementById('current-enterprise-tag').innerText = selectedEnterprise;
-        // Show actual enterprise ID from the loaded team data (not hardcoded)
-        const entId = teamsList.length > 0
-            ? (allImageData.rows.find(r => {
-                const entIdx = allImageData.headers.findIndex(h => h.toLowerCase().includes('enterprise') && h.toLowerCase().includes('name'));
-                const entIdIdx = allImageData.headers.findIndex(h => h.toLowerCase() === 'enterpriseid' || h.toLowerCase() === 'enterprise_id' || h.toLowerCase() === 'enterpriseid');
-                if (entIdx === -1) return false;
-                return String(r[entIdx] || '').trim() === selectedEnterprise;
-              }) || null)
-            : null;
-        // Find enterpriseId column index
+        // Show the enterpriseId for the selected enterprise (from Metabase_Data column)
         const eidColIdx = allImageData.headers.findIndex(h => {
-            const l = h.toLowerCase();
-            return l === 'enterpriseid' || l === 'enterprise_id' || l === 'enterpriseid';
+            const l = h.toLowerCase().replace(/[_\s]/g, '');
+            return l === 'enterpriseid';
         });
-        const eidVal = (entId && eidColIdx !== -1) ? String(entId[eidColIdx] || '') : '';
-        document.getElementById('enterprise-id-tag').innerText = eidVal || selectedEnterprise;
+        const entNameIdx = findColIdx(allImageData.headers, COL_CANDIDATES.enterprise);
+        let eidVal = '';
+        if (eidColIdx !== -1 && entNameIdx !== -1) {
+            const matchRow = allImageData.rows.find(r =>
+                (r[entNameIdx] || '').trim().toLowerCase() === selectedEnterprise.toLowerCase()
+            );
+            if (matchRow) eidVal = String(matchRow[eidColIdx] || '').trim();
+        }
+        document.getElementById('enterprise-id-tag').innerText = eidVal || '';
         grid.innerHTML = '';
 
         let totalVINs = 0, totalImages = 0, reviewedVINs = 0, reviewed1Img = 0;
