@@ -245,6 +245,10 @@
                 <div id="refresh-loader" class="loading-spinner hidden" style="border-top-color: white;"></div>
                 <span>Refresh</span>
             </button>
+            <button id="clear-cache-btn" class="hidden items-center space-x-1.5 bg-white/10 hover:bg-rose-500/80 border border-white/20 px-3 py-1.5 rounded-md text-[11px] font-bold text-white transition active:scale-95 uppercase tracking-wider" title="Clear locally stored review progress for this device">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                <span>Clear Cache</span>
+            </button>
             <div id="user-info" class="hidden flex items-center space-x-2">
                 <div id="user-avatar" class="w-8 h-8 rounded-full bg-blue-800 flex items-center justify-center text-xs font-bold">?</div>
                 <span id="user-email" class="text-[12px] hidden sm:inline max-w-[160px] truncate"></span>
@@ -875,9 +879,12 @@
     function showPage(pageId) {
         document.querySelectorAll('.page-view').forEach(p => p.classList.remove('active'));
         document.getElementById(pageId).classList.add('active');
-        const refreshBtn = document.getElementById('refresh-data-btn');
-        if (pageId === 'page-dashboard' || pageId === 'page-review') refreshBtn.classList.remove('hidden');
-        else refreshBtn.classList.add('hidden');
+        const refreshBtn    = document.getElementById('refresh-data-btn');
+        const clearCacheBtn = document.getElementById('clear-cache-btn');
+        const showBtns = pageId === 'page-dashboard' || pageId === 'page-review';
+        refreshBtn.classList.toggle('hidden', !showBtns);
+        clearCacheBtn.classList.toggle('hidden', !showBtns);
+        clearCacheBtn.style.display = showBtns ? 'flex' : 'none';
         // When returning to dashboard, re-render so the per-team progress is current
         if (pageId === 'page-dashboard' && teamsList.length) renderDashboard();
     }
@@ -1545,10 +1552,28 @@
         }
     });
 
-    // =========================================================================
-    // DASHBOARD
-    // =========================================================================
-    function renderDashboard() {
+    document.getElementById('clear-cache-btn').addEventListener('click', () => {
+        const confirmed = confirm(
+            'Clear locally stored review progress from this device?\n\n' +
+            'Your reviews are saved in the Google Sheet — they will be restored\n' +
+            'from the sheet the next time you load an enterprise.\n\n' +
+            'This only clears the local cache on this device.'
+        );
+        if (!confirmed) return;
+
+        // Clear only Spyne review keys (preserves everything else on the domain)
+        Object.keys(localStorage)
+            .filter(k => k.startsWith('spyne_'))
+            .forEach(k => localStorage.removeItem(k));
+
+        // Reset in-memory state
+        reviews     = {};
+        img1Reviews = {};
+
+        // Re-render dashboard to show cleared counts
+        renderDashboard();
+        showError('Local cache cleared. Reload the enterprise to restore from the sheet.');
+    });
         const grid  = document.getElementById('dealer-grid');
         const empty = document.getElementById('dealer-empty');
         document.getElementById('current-enterprise-tag').innerText = selectedEnterprise;
