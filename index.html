@@ -999,62 +999,103 @@
         return pad(d.getDate()) + pad(d.getMonth() + 1) + d.getFullYear();
     }
 
-    // Push a single review to the Apps Script Web App. Fire-and-forget (no-cors
-    // means we can't read the response, but the POST goes through). Apps Script
-    // appends a row to the "Reviews" tab and creates it on first write.
-    // ── VIN Review → fixed "Reviews" tab (all users, tagged by reviewer email) ──
-    async function syncReviewToSheet(payload) {
-        if (!REVIEW_SYNC_ENABLED) return;
-        try {
-            await fetch(REVIEW_WEBAPP_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
-                    sheet:       'Reviews',             // fixed tab name — matches your sheet
-                    reviewer:    payload.reviewer || '',
-                    enterprise:  payload.enterprise || '',
-                    teamName:    payload.teamName || '',
-                    teamId:      payload.teamId || '',
-                    vin:         payload.vin || '',
-                    status:      payload.status || '',
-                    issues:      payload.issues || [],
-                    comment:     payload.comment || '',
-                    reviewDate:  payload.reviewDate || '',
-                    reviewedAt:  payload.reviewedAt || '',
-                    imageCount:  payload.imageCount ?? 0
-                })
-            });
-        } catch (e) {
-            console.warn('Review sync failed (non-fatal):', e);
+    // ── VIN Review sync — queued & rate-limited ───────────────────────────────
+    const _vinSyncQueue = [];
+    let   _vinSyncRunning = false;
+
+    async function _processVinSyncQueue() {
+        if (_vinSyncRunning) return;
+        _vinSyncRunning = true;
+        while (_vinSyncQueue.length > 0) {
+            const payload = _vinSyncQueue.shift();
+            let retries = 3;
+            while (retries-- > 0) {
+                try {
+                    await fetch(REVIEW_WEBAPP_URL, {
+                        method:  'POST',
+                        mode:    'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body:    JSON.stringify({
+                            sheet:      'Reviews',
+                            reviewer:   payload.reviewer   || '',
+                            enterprise: payload.enterprise || '',
+                            teamName:   payload.teamName   || '',
+                            teamId:     payload.teamId     || '',
+                            vin:        payload.vin        || '',
+                            status:     payload.status     || '',
+                            issues:     payload.issues     || [],
+                            comment:    payload.comment    || '',
+                            reviewDate: payload.reviewDate || '',
+                            reviewedAt: payload.reviewedAt || '',
+                            imageCount: payload.imageCount ?? 0
+                        })
+                    });
+                    break;
+                } catch (e) {
+                    if (retries === 0) console.warn('VIN sync failed after retries:', e);
+                    else await new Promise(r => setTimeout(r, 400));
+                }
+            }
+            if (_vinSyncQueue.length > 0) await new Promise(r => setTimeout(r, 150));
         }
+        _vinSyncRunning = false;
     }
 
-    // ── 1st Image Review → fixed "1st_image_review" tab ──
+    async function syncReviewToSheet(payload) {
+        if (!REVIEW_SYNC_ENABLED) return;
+        _vinSyncQueue.push(payload);
+        _processVinSyncQueue();
+    }
+
+    // ── 1st Image Review sync — queued & rate-limited ─────────────────────────
+    // All saves go through a queue processed one-at-a-time with a small delay
+    // between each POST. This prevents Google Apps Script from dropping requests
+    // when many VINs are auto-approved simultaneously (e.g. Done button).
+    const _img1SyncQueue = [];
+    let   _img1SyncRunning = false;
+
+    async function _processImg1SyncQueue() {
+        if (_img1SyncRunning) return;
+        _img1SyncRunning = true;
+        while (_img1SyncQueue.length > 0) {
+            const payload = _img1SyncQueue.shift();
+            let retries = 3;
+            while (retries-- > 0) {
+                try {
+                    await fetch(REVIEW_WEBAPP_URL, {
+                        method:  'POST',
+                        mode:    'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body:    JSON.stringify({
+                            sheet:       '1st_image_review',
+                            reviewer:    payload.reviewer    || '',
+                            enterprise:  payload.enterprise  || '',
+                            teamName:    payload.teamName    || '',
+                            teamId:      payload.teamId      || '',
+                            vin:         payload.vin         || '',
+                            status:      payload.status      || '',
+                            firstImgUrl: payload.firstImgUrl || '',
+                            imageCount:  payload.imageCount  ?? 0,
+                            reviewDate:  payload.reviewDate  || '',
+                            reviewedAt:  payload.reviewedAt  || ''
+                        })
+                    });
+                    break;   // success — move to next item
+                } catch (e) {
+                    if (retries === 0) console.warn('1img sync failed after retries:', e);
+                    else await new Promise(r => setTimeout(r, 400));
+                }
+            }
+            // Small delay between requests so Apps Script isn't overwhelmed
+            if (_img1SyncQueue.length > 0) await new Promise(r => setTimeout(r, 150));
+        }
+        _img1SyncRunning = false;
+    }
+
     async function sync1ImgToSheet(payload) {
         if (!REVIEW_SYNC_ENABLED) return;
-        try {
-            await fetch(REVIEW_WEBAPP_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
-                    sheet:        '1st_image_review',   // fixed tab name
-                    reviewer:     payload.reviewer || '',
-                    enterprise:   payload.enterprise || '',
-                    teamName:     payload.teamName || '',
-                    teamId:       payload.teamId || '',
-                    vin:          payload.vin || '',
-                    status:       payload.status || '',
-                    firstImgUrl:  payload.firstImgUrl || '',
-                    imageCount:   payload.imageCount ?? 0,
-                    reviewDate:   payload.reviewDate || '',
-                    reviewedAt:   payload.reviewedAt || ''
-                })
-            });
-        } catch (e) {
-            console.warn('1img sync failed (non-fatal):', e);
-        }
+        _img1SyncQueue.push(payload);
+        _processImg1SyncQueue();  // fire-and-forget; queue ensures serialisation
     }
 
     // ── READ progress back from Sheet on login (cross-device restore) ──
