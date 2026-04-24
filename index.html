@@ -2315,13 +2315,16 @@
         const now     = new Date();
         const reviewer= getCurrentUser() || 'unknown';
 
-        // Auto-approve all pending (unmarked) VINs locally (no individual syncs)
-        const bulkRows = [];   // collect ALL reviews for one bulk POST
+        // Auto-approve all pending (unmarked) VINs locally — only these go into bulkRows.
+        // VINs already individually reviewed were already synced via the queue, so
+        // we must NOT re-send them here (that would create double entries in the sheet).
+        const bulkRows = [];   // only newly auto-approved VINs
 
         currentImg1VINs.forEach((v, idx) => {
-            // Auto-approve if still pending
-            if (!getImg1Review(teamId, v.vin)) {
-                // Update local state only — no individual sync
+            const alreadyReviewed = !!getImg1Review(teamId, v.vin);
+
+            if (!alreadyReviewed) {
+                // Auto-approve: update local state only, no individual sync
                 if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
                 img1Reviews[teamId][v.vin] = 'ok';
                 // Update tile outline
@@ -2333,22 +2336,22 @@
                         stBadge.textContent = 'OK'; stBadge.style.background = '#10b981';
                     }
                 }
+                // Only add to bulk POST if it was pending (not already synced individually)
+                bulkRows.push({
+                    reviewer:    reviewer,
+                    enterprise:  selectedEnterprise,
+                    teamName:    team.name || '',
+                    teamId:      teamId,
+                    vin:         v.vin,
+                    status:      'ok',
+                    firstImgUrl: v?.urls?.[0] || '',
+                    imageCount:  v?.urls?.length ?? 0,
+                    reviewDate:  ddmmyyyy(now),
+                    reviewedAt:  now.toISOString()
+                });
             }
-            // Collect this VIN's final status for bulk sync
-            const st     = getImg1Review(teamId, v.vin);
-            const vinObj = v;
-            bulkRows.push({
-                reviewer:    reviewer,
-                enterprise:  selectedEnterprise,
-                teamName:    team.name || '',
-                teamId:      teamId,
-                vin:         v.vin,
-                status:      st || 'ok',
-                firstImgUrl: vinObj?.urls?.[0] || '',
-                imageCount:  vinObj?.urls?.length ?? 0,
-                reviewDate:  ddmmyyyy(now),
-                reviewedAt:  now.toISOString()
-            });
+            // Already-reviewed VINs (issues/ok clicked manually) are NOT added to bulkRows
+            // — they were already sent to the sheet individually via sync1ImgToSheet()
         });
 
         // Persist all to localStorage at once
