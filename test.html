@@ -1148,139 +1148,200 @@
         });
     }
 
-    async function fetchAllData() {
-        if (imagesLoaded && allImageData.rows.length) return;
-        const loadingMsg = document.getElementById('data-loading-msg');
-        if (loadingMsg) loadingMsg.textContent = "Downloading All_Data sheet…";
-        const response = await fetch(ALL_DATA_CSV_URL, { cache: 'no-store' });
-        if (!response.ok) throw new Error('All_Data fetch failed: HTTP ' + response.status);
-        const text = await response.text();
-        allImageData = parseCSV(text);
-        imagesLoaded = true;
-        console.log('[All_Data] headers:', allImageData.headers);
-        console.log('[All_Data] rows:', allImageData.rows.length);
+    // Known VIN column names across all source CSV schemas
+    const VIN_COL_NAMES = ['VIN','vin','Vin','vin_number','VIN Number','vin_no'];
+
+    // Known image URL column names across all source CSV schemas
+    const IMG_COL_NAMES = [
+        'Photo URL list','Image URLs','Images','Photos',
+        'PhotoURLs','Image Urls','Image URL','photo_url_list','image_urls'
+    ];
+
+    // Non-URL metadata columns to skip when scanning for image column
+    const SKIP_COL_SET = new Set([
+        'version','last updated','phototimestamp','timestamp','stock',
+        'stock number','stock #','price','new/used','year','model','make',
+        'location','vehicle type','vehicle_condition','type','s3_url',
+        'created_at','row_count','ow.partnerid','dealer id','dealerid'
+    ]);
+
+    // ── Fetch & parse one team's s3_url CSV → Map<vin, url[]> ────────────────
+    async function fetchTeamVINs(s3Url, teamId) {
+        try {
+            const res = await fetch(s3Url, { cache: 'no-store' });
+            if (!res.ok) { console.warn(`[${teamId}] HTTP ${res.status}`); return new Map(); }
+            const { headers, rows } = parseCSV(await res.text());
+
+            // Resolve VIN column by name
+            let vinIdx = -1;
+            for (const name of VIN_COL_NAMES) {
+                const i = headers.findIndex(h => h.trim().toLowerCase() === name.toLowerCase());
+                if (i !== -1) { vinIdx = i; break; }
+            }
+            if (vinIdx === -1) {
+                // Partial match fallback
+                vinIdx = headers.findIndex(h =>
+                    VIN_COL_NAMES.some(n => h.trim().toLowerCase().includes(n.toLowerCase()))
+                );
+            }
+            if (vinIdx === -1) { console.warn(`[${teamId}] No VIN col. Headers:`, headers); return new Map(); }
+
+            // Resolve image URL column by name, then fallback to first non-skip col
+            let imgIdx = -1;
+            for (const name of IMG_COL_NAMES) {
+                const i = headers.findIndex(h => h.trim().toLowerCase() === name.toLowerCase());
+                if (i !== -1) { imgIdx = i; break; }
+            }
+            if (imgIdx === -1) {
+                for (let ci = 0; ci < headers.length; ci++) {
+                    if (ci === vinIdx) continue;
+                    if (SKIP_COL_SET.has(headers[ci].trim().toLowerCase())) continue;
+                    imgIdx = ci; break;
+                }
+            }
+            if (imgIdx === -1) imgIdx = vinIdx + 1;
+
+            const vinLower = VIN_COL_NAMES.map(v => v.toLowerCase());
+            const vinMap   = new Map();
+            for (const r of rows) {
+                const vin = (r[vinIdx] || '').trim();
+                if (!vin || vinLower.includes(vin.toLowerCase())) continue;
+                const urls = extractUrlsFromRow(r, imgIdx);
+                if (!vinMap.has(vin)) vinMap.set(vin, []);
+                const arr = vinMap.get(vin);
+                for (const u of urls) if (!arr.includes(u)) arr.push(u);
+            }
+            return vinMap;
+        } catch (e) {
+            console.warn(`[${teamId}] fetchTeamVINs error:`, e);
+            return new Map();
+        }
     }
 
-    // Build teamsList + vinsByTeam from All_Data.
+    // fetchAllData is now a no-op — data comes directly from s3_url CSVs
+    async function fetchAllData() { /* data loaded via buildTeamIndex */ }
+
+    // ── Build teamsList + vinsByTeam by fetching each team's s3_url CSV ───────
     //
-    // All_Data has a FIXED column layout (set by the Apps Script that populates it):
-    //   Col J (index 9)  = VIN        ← always, regardless of source CSV schema
-    //   Col K (index 10) = Image URLs ← always, regardless of source CSV schema
-    //
-    // Metabase_Data is also fetched to get the correct enterpriseId for the badge.
+    // Flow:
+    //   1. Fetch Metabase_Data → get all teams for this enterprise (name, s3_url)
+    //   2. Show X/Total counter immediately
+    //   3. Fetch each team's CSV in parallel batches of 6
+    //   4. Parse VINs + image URLs per team as each batch completes
+    //   5. Re-render dashboard after each batch so user sees incremental progress
     //
     async function buildTeamIndex(enterprise) {
-        if (!allImageData.headers.length) return;
-
-        // Always reset so badge reflects the current enterprise selection
         selectedEnterpriseId = '';
+        teamsList  = [];
+        vinsByTeam = new Map();
 
-        // ── Step 1: Get enterpriseId + total team count from Metabase_Data ────
-        let metaTotalTeams = 0;   // total teams for this enterprise in Metabase
-        try {
-            const loadingMsg = document.getElementById('data-loading-msg');
-            if (loadingMsg) loadingMsg.textContent = "Loading enterprise info…";
-            const res = await fetch(METABASE_CSV_URL, { cache: 'no-store' });
-            if (res.ok) {
-                const { headers: mh, rows: mr } = parseCSV(await res.text());
-                const mEnt   = mh.findIndex(h => h.trim().toLowerCase() === 'enterprise_name');
-                const mEntId = mh.findIndex(h => h.trim().toLowerCase() === 'enterpriseid');
-                const mTeamId= mh.findIndex(h => h.trim().toLowerCase() === 'teamid');
-                const seenMeta = new Set();
-                for (const r of mr) {
-                    if (mEnt !== -1 && (r[mEnt] || '').trim() !== enterprise) continue;
-                    const eid = mEntId !== -1 ? (r[mEntId] || '').trim() : '';
-                    if (eid && !selectedEnterpriseId) selectedEnterpriseId = eid;
-                    const tid = mTeamId !== -1 ? (r[mTeamId] || '').trim() : '';
-                    if (tid) seenMeta.add(tid);
-                }
-                metaTotalTeams = seenMeta.size;
-                console.log('[Metabase_Data] enterpriseId:', selectedEnterpriseId,
-                    'total teams:', metaTotalTeams);
-            }
-        } catch (e) {
-            console.warn('[Metabase_Data] fetch failed (non-fatal):', e);
-        }
-
-        // Show total from Metabase immediately so user sees X/Total right away
-        const updateTeamsProgress = (loaded) => {
-            const el    = document.getElementById('stat-total-teams');
-            const sub   = document.getElementById('stat-teams-progress');
-            const bar   = document.getElementById('stat-teams-bar-fill');
-            const total = metaTotalTeams || '?';
-            if (el)  el.innerText  = loaded.toLocaleString();
-            if (sub) sub.innerText = `of ${typeof total === 'number' ? total.toLocaleString() : total} total`;
-            if (bar && metaTotalTeams) {
-                bar.style.width = Math.round((loaded / metaTotalTeams) * 100) + '%';
-                bar.style.background = loaded === metaTotalTeams ? '#10b981' : '#3b82f6';
-            }
-        };
-        updateTeamsProgress(0);
-
-        // ── Step 2: Parse All_Data using fixed column positions ───────────────
-        const C = ALLDATA_COL;   // short alias
         const loadingMsg = document.getElementById('data-loading-msg');
-        if (loadingMsg) loadingMsg.textContent = "Indexing teams & VINs…";
 
-        const teamAgg = new Map();  // teamId → { name, vins: Map<vin, url[]> }
-        let   skipped = 0;
+        // ── Step 1: Fetch Metabase_Data ───────────────────────────────────────
+        if (loadingMsg) loadingMsg.textContent = 'Loading team list…';
+        const metaRes = await fetch(METABASE_CSV_URL, { cache: 'no-store' });
+        if (!metaRes.ok) throw new Error('Metabase_Data fetch failed: HTTP ' + metaRes.status);
+        const { headers: mh, rows: mr } = parseCSV(await metaRes.text());
 
-        for (const r of allImageData.rows) {
-            // Enterprise filter on col D
-            const rowEnt = (r[C.enterprise] || '').trim();
-            if (rowEnt && rowEnt !== enterprise) continue;
+        const mName   = mh.findIndex(h => h.trim().toLowerCase() === 'ow.name');
+        const mTeamId = mh.findIndex(h => h.trim().toLowerCase() === 'teamid');
+        const mEnt    = mh.findIndex(h => h.trim().toLowerCase() === 'enterprise_name');
+        const mEntId  = mh.findIndex(h => h.trim().toLowerCase() === 'enterpriseid');
+        const mS3     = mh.findIndex(h => h.trim().toLowerCase() === 's3_url');
 
-            const teamId = (r[C.teamId] || '').trim();
-            const vin    = (r[C.vin]    || '').trim();
-
-            // Skip header rows (col J contains the word "VIN") and blank rows
-            if (!teamId || !vin) continue;
-            if (vin.toLowerCase() === 'vin') continue;
-
-            const name = (r[C.name] || '').trim() || teamId;
-
-            // Capture enterpriseId from col C if still missing
-            if (!selectedEnterpriseId) {
-                const eid = (r[C.entId] || '').trim();
-                if (eid) selectedEnterpriseId = eid;
-            }
-
-            const isNew = !teamAgg.has(teamId);
-            if (isNew) teamAgg.set(teamId, { name, vins: new Map() });
-            const t = teamAgg.get(teamId);
-            if ((!t.name || t.name === teamId) && name !== teamId) t.name = name;
-
-            if (!t.vins.has(vin)) t.vins.set(vin, []);
-            const arr  = t.vins.get(vin);
-
-            // Col K (index 10) contains image URLs
-            const urls = extractUrlsFromRow(r, C.imageUrls);
-            for (const u of urls) if (!arr.includes(u)) arr.push(u);
-
-            // Update live progress counter each time a new team is first seen
-            if (isNew) updateTeamsProgress(teamAgg.size);
-        }
-
-        console.log('[buildTeamIndex] skipped rows:', skipped);
-
-        if (!teamAgg.size) {
-            showError(`No teams found for "${enterprise}". Check enterprise name matches exactly.`);
-            teamsList = []; vinsByTeam = new Map();
+        if (mTeamId === -1 || mS3 === -1) {
+            showError('Metabase_Data missing teamId or s3_url column.');
             return;
         }
 
-        // ── Step 3: Build final teamsList + vinsByTeam ────────────────────────
-        teamsList  = [];
-        vinsByTeam = new Map();
-        for (const [teamId, t] of teamAgg.entries()) {
-            let imageCount = 0;
-            for (const urls of t.vins.values()) imageCount += urls.length;
-            teamsList.push({ teamId, name: t.name, vinCount: t.vins.size, imageCount });
-            vinsByTeam.set(teamId, t.vins);
+        // Filter to selected enterprise, deduplicate by teamId
+        const seen     = new Set();
+        const teamMeta = [];   // { teamId, name, s3Url }
+
+        for (const r of mr) {
+            if (mEnt !== -1) {
+                const rowEnt = (r[mEnt] || '').trim();
+                if (!rowEnt || rowEnt !== enterprise) continue;
+            }
+            const tid   = (r[mTeamId] || '').trim();
+            const s3Url = (r[mS3]     || '').trim();
+            if (!tid || !s3Url || seen.has(tid)) continue;
+            seen.add(tid);
+
+            const name  = mName  !== -1 ? (r[mName]  || '').trim() : tid;
+            const entId = mEntId !== -1 ? (r[mEntId] || '').trim() : '';
+            if (entId && !selectedEnterpriseId) selectedEnterpriseId = entId;
+
+            teamMeta.push({ teamId: tid, name: name || tid, s3Url });
         }
-        teamsList.sort((a, b) => a.name.localeCompare(b.name));
-        console.log('[buildTeamIndex] done —', teamsList.length, 'teams,',
-            teamsList.reduce((s, t) => s + t.vinCount, 0), 'VINs total');
+
+        if (!teamMeta.length) {
+            showError(`No teams found for "${enterprise}". Check enterprise name matches exactly.`);
+            return;
+        }
+
+        const total = teamMeta.length;
+        console.log(`[buildTeamIndex] ${total} teams for "${enterprise}"`);
+
+        // ── Step 2: Show total immediately ────────────────────────────────────
+        const updateProgress = (done) => {
+            const el  = document.getElementById('stat-total-teams');
+            const sub = document.getElementById('stat-teams-progress');
+            const bar = document.getElementById('stat-teams-bar-fill');
+            if (el)  el.innerText  = done.toLocaleString();
+            if (sub) sub.innerText = `of ${total.toLocaleString()} total`;
+            if (bar) {
+                bar.style.width      = Math.round((done / total) * 100) + '%';
+                bar.style.background = done === total ? '#10b981' : '#3b82f6';
+            }
+            if (loadingMsg)
+                loadingMsg.textContent =
+                    `Loading teams… ${done} / ${total}`;
+        };
+        updateProgress(0);
+
+        // ── Step 3: Parallel-fetch all team CSVs in batches of 6 ─────────────
+        const BATCH = 6;
+        let done = 0;
+
+        for (let i = 0; i < teamMeta.length; i += BATCH) {
+            const batch = teamMeta.slice(i, i + BATCH);
+
+            // Fetch this batch in parallel
+            const results = await Promise.all(
+                batch.map(t => fetchTeamVINs(t.s3Url, t.teamId))
+            );
+
+            // Incorporate results into state
+            batch.forEach((t, bi) => {
+                const vinMap     = results[bi];
+                let   imageCount = 0;
+                for (const urls of vinMap.values()) imageCount += urls.length;
+
+                // Update or insert team entry
+                const existing = teamsList.findIndex(x => x.teamId === t.teamId);
+                if (existing !== -1) {
+                    teamsList[existing].vinCount   = vinMap.size;
+                    teamsList[existing].imageCount = imageCount;
+                } else {
+                    teamsList.push({ teamId: t.teamId, name: t.name,
+                                     vinCount: vinMap.size, imageCount });
+                }
+                vinsByTeam.set(t.teamId, vinMap);
+                done++;
+            });
+
+            // Sort and re-render dashboard after each batch so user sees progress
+            teamsList.sort((a, b) => a.name.localeCompare(b.name));
+            updateProgress(done);
+            renderDashboard();   // progressive render — cards appear/update as batches complete
+
+            // Yield to browser so UI actually updates between batches
+            await new Promise(r => setTimeout(r, 0));
+        }
+
+        console.log(`[buildTeamIndex] done — ${teamsList.length} teams,`,
+            teamsList.reduce((s, t) => s + t.vinCount, 0), 'VINs');
     }
 
     // =========================================================================
@@ -1409,10 +1470,40 @@
 
         try {
             imagesLoaded = false;
-            loadingMsg.textContent = "Downloading All_Data sheet…";
-            await fetchAllData();
-            loadingMsg.textContent = `Indexing teams & VINs for "${selectedEnterprise}"…`;
+            loadingMsg.textContent = "Loading team list from Metabase…";
+
+            // buildTeamIndex now fetches Metabase_Data + all s3_url CSVs directly.
+            // It calls renderDashboard() after each batch of 6 teams, so the page
+            // shows up with the first teams visible and progressively fills in.
+            // We switch to the dashboard page after the FIRST batch lands.
+            let firstRenderDone = false;
+            const origRender = window._origRenderDashboard || renderDashboard;
+
+            // Patch renderDashboard temporarily to also do page-switch on first call
+            const _patchedRender = () => {
+                renderDashboard();
+                if (!firstRenderDone && teamsList.length > 0) {
+                    firstRenderDone = true;
+                    showPage('page-dashboard');
+                    // Hide overlay once first batch is on screen
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        loadingOv.classList.add('hidden');
+                    }));
+                    // Restore progress & sync in background
+                    loadProgressFromSheet(selectedEnterprise).then(() => renderDashboard());
+                }
+            };
+
+            // Temporarily override renderDashboard so buildTeamIndex's internal
+            // calls use the patched version
+            const _saved = renderDashboard;
+            // eslint-disable-next-line no-func-assign
+            renderDashboard = _patchedRender;
+
             await buildTeamIndex(selectedEnterprise);
+
+            // Restore original
+            renderDashboard = _saved;
 
             if (!teamsList.length) {
                 loadingOv.classList.add('hidden');
@@ -1423,10 +1514,14 @@
                 return;
             }
 
-            loadingMsg.textContent = "Restoring your progress…";
-            await loadProgressFromSheet(selectedEnterprise);
+            // Final render after all batches complete
             renderDashboard();
-            showPage('page-dashboard');
+            if (!firstRenderDone) {
+                showPage('page-dashboard');
+                loadingOv.classList.add('hidden');
+                await loadProgressFromSheet(selectedEnterprise);
+                renderDashboard();
+            }
             requestAnimationFrame(() => requestAnimationFrame(() => {
                 loadingOv.classList.add('hidden');
             }));
@@ -1451,7 +1546,6 @@
         loader.classList.remove('hidden');
         try {
             imagesLoaded = false;
-            await fetchAllData();
             await buildTeamIndex(selectedEnterprise);
             renderDashboard();
             if (currentTeam) {
