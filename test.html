@@ -191,7 +191,7 @@
         </div>
 
         <div class="flex items-center space-x-4">
-            <button id="refresh-data-btn" class="hidden flex items-center space-x-1.5 bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1.5 rounded-md text-[11px] font-bold text-white transition active:scale-95 uppercase tracking-wider" onclick="refreshData()">
+            <button id="refresh-data-btn" class="hidden flex items-center space-x-1.5 bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1.5 rounded-md text-[11px] font-bold text-white transition active:scale-95 uppercase tracking-wider">
                 <svg id="refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                 <div id="refresh-loader" class="loading-spinner hidden" style="border-top-color: white;"></div>
                 <span>Refresh</span>
@@ -199,14 +199,14 @@
             <div id="user-info" class="hidden flex items-center space-x-2">
                 <div id="user-avatar" class="w-8 h-8 rounded-full bg-blue-800 flex items-center justify-center text-xs font-bold">?</div>
                 <span id="user-email" class="text-[12px] hidden sm:inline max-w-[160px] truncate"></span>
-                <button id="logout-btn" class="bg-white/10 hover:bg-white/20 border border-white/20 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition" title="Sign out" onclick="if(confirm('Sign out?')) logout();">
+                <button id="logout-btn" class="bg-white/10 hover:bg-white/20 border border-white/20 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition" title="Sign out">
                     Logout
                 </button>
             </div>
         </div>
     </header>
 
-    <!-- Admin page (unchanged) -->
+    <!-- Admin Page (unchanged) -->
     <div id="page-admin" class="page-view items-center justify-center p-4 bg-slate-50">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg border border-slate-100">
             <div class="flex items-center justify-between mb-6">
@@ -263,7 +263,7 @@
         </div>
     </div>
 
-    <!-- Auth page (unchanged) -->
+    <!-- Auth Page (unchanged) -->
     <div id="page-auth" class="page-view active items-center justify-center p-4">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm border border-slate-100">
             <div class="flex justify-center mb-6">
@@ -291,7 +291,7 @@
         </div>
     </div>
 
-    <!-- Enterprise selection page (searchable dropdown) -->
+    <!-- Enterprise Selection with Searchable Dropdown -->
     <div id="page-login" class="page-view items-center justify-center p-4">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100">
             <div class="flex justify-center mb-6">
@@ -501,7 +501,7 @@
         </div>
     </div>
 
-    <!-- Lightbox, Summary, Completion Modals (unchanged) -->
+    <!-- Lightbox, Summary, Completion Modals -->
     <div id="lightbox" class="lightbox" onclick="closeLightbox(event)">
         <div class="lightbox-close" onclick="closeLightbox(event)">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -737,7 +737,7 @@
         const refreshBtn = document.getElementById('refresh-data-btn');
         if (pageId === 'page-dashboard' || pageId === 'page-review') refreshBtn.classList.remove('hidden');
         else refreshBtn.classList.add('hidden');
-        if (pageId === 'page-dashboard') renderDashboard();
+        if (pageId === 'page-dashboard' && teamsList.length) renderDashboard();
     }
 
     function goHome() {
@@ -946,7 +946,7 @@
     }
 
     // -------------------------------------------------------------------------
-    // BUILD TEAM INDEX (dynamic columns + normalization, NO error toast)
+    // BUILD TEAM INDEX (dynamic columns + normalization)
     // -------------------------------------------------------------------------
     async function buildTeamIndex(enterprise) {
         if (!allImageData.headers.length) return;
@@ -1055,8 +1055,10 @@
         }
 
         console.log(`[buildTeamIndex] skipped ${skipped} rows, found ${teamAgg.size} teams`);
-        // No toast: just set empty lists and let dashboard show the empty state
         if (!teamAgg.size) {
+            let tip = `Checked for: "${normalizedSelected}". `;
+            if (distinctEnts.size > 0) tip += `Sheet contains: ${[...distinctEnts].slice(0, 5).join(', ')}.`;
+            showError(`No teams found for "${enterprise}". ${tip} Check console for details.`);
             teamsList = []; vinsByTeam = new Map();
             return;
         }
@@ -1152,7 +1154,7 @@
     }
 
     // -------------------------------------------------------------------------
-    // AUTO‑RETRY LOADER (no error toast if all retries fail)
+    // AUTO‑RETRY LOADER
     // -------------------------------------------------------------------------
     async function loadTeamsWithRetry(maxRetries = 3, delayMs = 3000) {
         const loadingOv = document.getElementById('data-loading-overlay');
@@ -1182,9 +1184,8 @@
             }
         }
 
-        // After all retries, just show the empty dashboard — no error toast
         loadingOv.classList.add('hidden');
-        showPage('page-dashboard');
+        showError('All_Data sheet is still empty or enterprise name mismatch. Check console for details.');
     }
 
     // -------------------------------------------------------------------------
@@ -1213,7 +1214,6 @@
             await loadTeamsWithRetry();
         } catch (err) {
             console.error(err);
-            loadingOv.classList.add('hidden');
             showError("Could not load All_Data. Share the sheet as 'anyone with the link → viewer' and try again.");
         } finally {
             btn.disabled = false;
@@ -1222,37 +1222,6 @@
             lStatus.classList.add('hidden');
         }
     });
-
-    // =========================================================================
-    // REFRESH DATA (now a global function for inline onclick)
-    // =========================================================================
-    async function refreshData() {
-        const icon  = document.getElementById('refresh-icon');
-        const loader= document.getElementById('refresh-loader');
-        const btn   = document.getElementById('refresh-data-btn');
-        btn.disabled = true;
-        icon.classList.add('hidden');
-        loader.classList.remove('hidden');
-        try {
-            imagesLoaded = false;
-            await fetchAllData();
-            await buildTeamIndex(selectedEnterprise);
-            renderDashboard();
-            if (currentTeam) {
-                const teamVins = vinsByTeam.get(currentTeam.teamId);
-                if (teamVins) {
-                    currentTeamVINs = [...teamVins.entries()].map(([vin, urls]) => ({ vin, urls }));
-                    renderVINSidebar();
-                    updateProgressBadge();
-                }
-            }
-        } catch (e) { showError("Refresh failed."); console.error(e); }
-        finally {
-            btn.disabled = false;
-            icon.classList.remove('hidden');
-            loader.classList.add('hidden');
-        }
-    }
 
     // =========================================================================
     // DASHBOARD
