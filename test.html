@@ -206,7 +206,7 @@
         </div>
     </header>
 
-    <!-- Admin Page (unchanged) -->
+    <!-- Admin page (unchanged) -->
     <div id="page-admin" class="page-view items-center justify-center p-4 bg-slate-50">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg border border-slate-100">
             <div class="flex items-center justify-between mb-6">
@@ -263,7 +263,7 @@
         </div>
     </div>
 
-    <!-- Auth Page (unchanged) -->
+    <!-- Auth page (unchanged) -->
     <div id="page-auth" class="page-view active items-center justify-center p-4">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-sm border border-slate-100">
             <div class="flex justify-center mb-6">
@@ -291,7 +291,7 @@
         </div>
     </div>
 
-    <!-- Enterprise Selection with Searchable Dropdown -->
+    <!-- Enterprise selection page (searchable dropdown) -->
     <div id="page-login" class="page-view items-center justify-center p-4">
         <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100">
             <div class="flex justify-center mb-6">
@@ -501,7 +501,7 @@
         </div>
     </div>
 
-    <!-- Lightbox, Summary, Completion Modals -->
+    <!-- Lightbox, Summary, Completion Modals (unchanged) -->
     <div id="lightbox" class="lightbox" onclick="closeLightbox(event)">
         <div class="lightbox-close" onclick="closeLightbox(event)">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -737,7 +737,8 @@
         const refreshBtn = document.getElementById('refresh-data-btn');
         if (pageId === 'page-dashboard' || pageId === 'page-review') refreshBtn.classList.remove('hidden');
         else refreshBtn.classList.add('hidden');
-        if (pageId === 'page-dashboard' && teamsList.length) renderDashboard();
+        // Always render dashboard when page becomes active (empty or not)
+        if (pageId === 'page-dashboard') renderDashboard();
     }
 
     function goHome() {
@@ -946,7 +947,7 @@
     }
 
     // -------------------------------------------------------------------------
-    // BUILD TEAM INDEX (dynamic columns + normalization)
+    // BUILD TEAM INDEX (dynamic columns + normalization, NO error toast)
     // -------------------------------------------------------------------------
     async function buildTeamIndex(enterprise) {
         if (!allImageData.headers.length) return;
@@ -1055,10 +1056,8 @@
         }
 
         console.log(`[buildTeamIndex] skipped ${skipped} rows, found ${teamAgg.size} teams`);
+        // No toast: just set empty lists and let dashboard show the empty state
         if (!teamAgg.size) {
-            let tip = `Checked for: "${normalizedSelected}". `;
-            if (distinctEnts.size > 0) tip += `Sheet contains: ${[...distinctEnts].slice(0, 5).join(', ')}.`;
-            showError(`No teams found for "${enterprise}". ${tip} Check console for details.`);
             teamsList = []; vinsByTeam = new Map();
             return;
         }
@@ -1154,7 +1153,7 @@
     }
 
     // -------------------------------------------------------------------------
-    // AUTO‑RETRY LOADER
+    // AUTO‑RETRY LOADER (no error toast if all retries fail)
     // -------------------------------------------------------------------------
     async function loadTeamsWithRetry(maxRetries = 3, delayMs = 3000) {
         const loadingOv = document.getElementById('data-loading-overlay');
@@ -1184,8 +1183,9 @@
             }
         }
 
+        // After all retries, just show the empty dashboard — no error toast
         loadingOv.classList.add('hidden');
-        showError('All_Data sheet is still empty or enterprise name mismatch. Check console for details.');
+        showPage('page-dashboard');
     }
 
     // -------------------------------------------------------------------------
@@ -1214,6 +1214,7 @@
             await loadTeamsWithRetry();
         } catch (err) {
             console.error(err);
+            loadingOv.classList.add('hidden');
             showError("Could not load All_Data. Share the sheet as 'anyone with the link → viewer' and try again.");
         } finally {
             btn.disabled = false;
