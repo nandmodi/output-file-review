@@ -397,23 +397,32 @@
             </div>
 
             <!-- Stats row (from All_Data) -->
-            <div id="dashboard-stats" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div id="dashboard-stats" class="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
                 <div class="stat-card">
-                    <div class="label">Total teams</div>
+                    <div class="label">Teams Loaded</div>
                     <div class="value" id="stat-total-teams">—</div>
+                    <div id="stat-teams-progress" style="font-size:10px;color:#64748b;margin-top:2px">of — total</div>
+                    <div id="stat-teams-bar" style="height:3px;background:#e2e8f0;border-radius:2px;overflow:hidden;margin-top:4px">
+                        <div id="stat-teams-bar-fill" style="height:100%;width:0%;background:#3b82f6;transition:width 0.4s"></div>
+                    </div>
                 </div>
                 <div class="stat-card">
                     <div class="label">Total VINs</div>
                     <div class="value" id="stat-total-vins">—</div>
                 </div>
                 <div class="stat-card">
-                    <div class="label">Total images</div>
+                    <div class="label">Total Images</div>
                     <div class="value" id="stat-total-images">—</div>
                 </div>
                 <div class="stat-card">
                     <div class="label">Reviewed VINs</div>
                     <div class="value" id="stat-reviewed">—</div>
-                    <div id="stat-reviewed-sub" style="font-size:10px;color:#64748b;margin-top:2px">1st img: —</div>
+                    <div id="stat-reviewed-sub" style="font-size:10px;color:#64748b;margin-top:2px"></div>
+                </div>
+                <div class="stat-card">
+                    <div class="label">Reviewed 1st Img</div>
+                    <div class="value" id="stat-reviewed-1img">—</div>
+                    <div id="stat-reviewed-1img-sub" style="font-size:10px;color:#64748b;margin-top:2px"></div>
                 </div>
             </div>
 
@@ -828,7 +837,7 @@
     const CLIENT_NAME_ENTRY_ID   = "entry.371922314";
 
     const REVIEW_SYNC_ENABLED = true;
-    const REVIEW_WEBAPP_URL   = "https://script.google.com/macros/s/AKfycbyk_puhcCuKAxC3PaZqUq-hTm8jeH8iaJuXbNFX-9Zj6c3L4Voht1HD_Wr3kxvywcxK/exec";
+    const REVIEW_WEBAPP_URL   = "https://script.google.com/macros/s/AKfycbxkTiE6QCD8x5bt5xdEY1zATDa7_WDI00zyk_rg_SlDFqhe19ora5qTn9zHXwV3DheM/exec";
 
     // Fixed column indices in All_Data (0-based, cols A-K)
     const ALLDATA_COL = {
@@ -1166,7 +1175,8 @@
         // Always reset so badge reflects the current enterprise selection
         selectedEnterpriseId = '';
 
-        // ── Step 1: Get enterpriseId from Metabase_Data ───────────────────────
+        // ── Step 1: Get enterpriseId + total team count from Metabase_Data ────
+        let metaTotalTeams = 0;   // total teams for this enterprise in Metabase
         try {
             const loadingMsg = document.getElementById('data-loading-msg');
             if (loadingMsg) loadingMsg.textContent = "Loading enterprise info…";
@@ -1175,16 +1185,37 @@
                 const { headers: mh, rows: mr } = parseCSV(await res.text());
                 const mEnt   = mh.findIndex(h => h.trim().toLowerCase() === 'enterprise_name');
                 const mEntId = mh.findIndex(h => h.trim().toLowerCase() === 'enterpriseid');
+                const mTeamId= mh.findIndex(h => h.trim().toLowerCase() === 'teamid');
+                const seenMeta = new Set();
                 for (const r of mr) {
                     if (mEnt !== -1 && (r[mEnt] || '').trim() !== enterprise) continue;
                     const eid = mEntId !== -1 ? (r[mEntId] || '').trim() : '';
-                    if (eid) { selectedEnterpriseId = eid; break; }
+                    if (eid && !selectedEnterpriseId) selectedEnterpriseId = eid;
+                    const tid = mTeamId !== -1 ? (r[mTeamId] || '').trim() : '';
+                    if (tid) seenMeta.add(tid);
                 }
-                console.log('[Metabase_Data] enterpriseId:', selectedEnterpriseId);
+                metaTotalTeams = seenMeta.size;
+                console.log('[Metabase_Data] enterpriseId:', selectedEnterpriseId,
+                    'total teams:', metaTotalTeams);
             }
         } catch (e) {
             console.warn('[Metabase_Data] fetch failed (non-fatal):', e);
         }
+
+        // Show total from Metabase immediately so user sees X/Total right away
+        const updateTeamsProgress = (loaded) => {
+            const el    = document.getElementById('stat-total-teams');
+            const sub   = document.getElementById('stat-teams-progress');
+            const bar   = document.getElementById('stat-teams-bar-fill');
+            const total = metaTotalTeams || '?';
+            if (el)  el.innerText  = loaded.toLocaleString();
+            if (sub) sub.innerText = `of ${typeof total === 'number' ? total.toLocaleString() : total} total`;
+            if (bar && metaTotalTeams) {
+                bar.style.width = Math.round((loaded / metaTotalTeams) * 100) + '%';
+                bar.style.background = loaded === metaTotalTeams ? '#10b981' : '#3b82f6';
+            }
+        };
+        updateTeamsProgress(0);
 
         // ── Step 2: Parse All_Data using fixed column positions ───────────────
         const C = ALLDATA_COL;   // short alias
@@ -1214,17 +1245,20 @@
                 if (eid) selectedEnterpriseId = eid;
             }
 
-            if (!teamAgg.has(teamId)) teamAgg.set(teamId, { name, vins: new Map() });
+            const isNew = !teamAgg.has(teamId);
+            if (isNew) teamAgg.set(teamId, { name, vins: new Map() });
             const t = teamAgg.get(teamId);
             if ((!t.name || t.name === teamId) && name !== teamId) t.name = name;
 
             if (!t.vins.has(vin)) t.vins.set(vin, []);
             const arr  = t.vins.get(vin);
 
-            // Col K (index 10) contains image URLs — may be comma/pipe/space separated
-            // Also scan the rest of the row in case URLs spill into further columns
+            // Col K (index 10) contains image URLs
             const urls = extractUrlsFromRow(r, C.imageUrls);
             for (const u of urls) if (!arr.includes(u)) arr.push(u);
+
+            // Update live progress counter each time a new team is first seen
+            if (isNew) updateTeamsProgress(teamAgg.size);
         }
 
         console.log('[buildTeamIndex] skipped rows:', skipped);
@@ -1453,14 +1487,37 @@
             reviewedVINs += Object.keys(reviews[t.teamId]    || {}).length;
             reviewed1Img += Object.keys(img1Reviews[t.teamId] || {}).length;
         });
-        document.getElementById('stat-total-teams').innerText  = teamsList.length.toLocaleString();
+
+        // Teams loaded x / Total (total from Metabase via bar already shown live;
+        // on renderDashboard we just confirm the final loaded count)
+        document.getElementById('stat-total-teams').innerText = teamsList.length.toLocaleString();
+        const subEl = document.getElementById('stat-teams-progress');
+        if (subEl) {
+            const bar = document.getElementById('stat-teams-bar-fill');
+            // Keep whatever total was set during loading; just update loaded count
+            const totalText = subEl.innerText.replace(/^\d[\d,]*/, teamsList.length.toLocaleString());
+            subEl.innerText = totalText || `of ${teamsList.length} total`;
+            if (bar) bar.style.width = '100%';
+        }
+
         document.getElementById('stat-total-vins').innerText   = totalVINs.toLocaleString();
         document.getElementById('stat-total-images').innerText = totalImages.toLocaleString();
-        // Show both counts in the stat card
+
+        // Reviewed VINs card
         document.getElementById('stat-reviewed').innerText = reviewedVINs.toLocaleString();
-        // Update sub-label if element exists (we'll add it below)
-        const sub = document.getElementById('stat-reviewed-sub');
-        if (sub) sub.innerText = '1st img: ' + reviewed1Img.toLocaleString();
+        const reviewedSub = document.getElementById('stat-reviewed-sub');
+        if (reviewedSub) {
+            const reviewPct = totalVINs > 0 ? Math.round((reviewedVINs / totalVINs) * 100) : 0;
+            reviewedSub.innerText = `${reviewPct}% of ${totalVINs.toLocaleString()} VINs`;
+        }
+
+        // Reviewed 1st Image card (new)
+        document.getElementById('stat-reviewed-1img').innerText = reviewed1Img.toLocaleString();
+        const img1Sub = document.getElementById('stat-reviewed-1img-sub');
+        if (img1Sub) {
+            const img1Pct = totalVINs > 0 ? Math.round((reviewed1Img / totalVINs) * 100) : 0;
+            img1Sub.innerText = `${img1Pct}% of ${totalVINs.toLocaleString()} VINs`;
+        }
 
         if (!teamsList.length) { empty.classList.remove('hidden'); return; }
         empty.classList.add('hidden');
