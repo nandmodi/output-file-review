@@ -191,7 +191,7 @@
         </div>
 
         <div class="flex items-center space-x-4">
-            <button id="refresh-data-btn" class="hidden flex items-center space-x-1.5 bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1.5 rounded-md text-[11px] font-bold text-white transition active:scale-95 uppercase tracking-wider">
+            <button id="refresh-data-btn" class="hidden flex items-center space-x-1.5 bg-white/10 hover:bg-white/20 border border-white/20 px-3 py-1.5 rounded-md text-[11px] font-bold text-white transition active:scale-95 uppercase tracking-wider" onclick="refreshData()">
                 <svg id="refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
                 <div id="refresh-loader" class="loading-spinner hidden" style="border-top-color: white;"></div>
                 <span>Refresh</span>
@@ -199,7 +199,7 @@
             <div id="user-info" class="hidden flex items-center space-x-2">
                 <div id="user-avatar" class="w-8 h-8 rounded-full bg-blue-800 flex items-center justify-center text-xs font-bold">?</div>
                 <span id="user-email" class="text-[12px] hidden sm:inline max-w-[160px] truncate"></span>
-                <button id="logout-btn" class="bg-white/10 hover:bg-white/20 border border-white/20 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition" title="Sign out">
+                <button id="logout-btn" class="bg-white/10 hover:bg-white/20 border border-white/20 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider transition" title="Sign out" onclick="if(confirm('Sign out?')) logout();">
                     Logout
                 </button>
             </div>
@@ -737,7 +737,6 @@
         const refreshBtn = document.getElementById('refresh-data-btn');
         if (pageId === 'page-dashboard' || pageId === 'page-review') refreshBtn.classList.remove('hidden');
         else refreshBtn.classList.add('hidden');
-        // Always render dashboard when page becomes active (empty or not)
         if (pageId === 'page-dashboard') renderDashboard();
     }
 
@@ -1223,6 +1222,37 @@
             lStatus.classList.add('hidden');
         }
     });
+
+    // =========================================================================
+    // REFRESH DATA (now a global function for inline onclick)
+    // =========================================================================
+    async function refreshData() {
+        const icon  = document.getElementById('refresh-icon');
+        const loader= document.getElementById('refresh-loader');
+        const btn   = document.getElementById('refresh-data-btn');
+        btn.disabled = true;
+        icon.classList.add('hidden');
+        loader.classList.remove('hidden');
+        try {
+            imagesLoaded = false;
+            await fetchAllData();
+            await buildTeamIndex(selectedEnterprise);
+            renderDashboard();
+            if (currentTeam) {
+                const teamVins = vinsByTeam.get(currentTeam.teamId);
+                if (teamVins) {
+                    currentTeamVINs = [...teamVins.entries()].map(([vin, urls]) => ({ vin, urls }));
+                    renderVINSidebar();
+                    updateProgressBadge();
+                }
+            }
+        } catch (e) { showError("Refresh failed."); console.error(e); }
+        finally {
+            btn.disabled = false;
+            icon.classList.remove('hidden');
+            loader.classList.add('hidden');
+        }
+    }
 
     // =========================================================================
     // DASHBOARD
