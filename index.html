@@ -1098,6 +1098,39 @@
         _processImg1SyncQueue();  // fire-and-forget; queue ensures serialisation
     }
 
+    // Bulk sync — sends ALL rows in a single POST to Apps Script.
+    // Used by openImg1Complete() to avoid N individual requests.
+    async function sync1ImgBulkToSheet(rows) {
+        if (!REVIEW_SYNC_ENABLED || !rows || !rows.length) return;
+        // Split into chunks of 100 so Apps Script doesn't time out on huge teams
+        const CHUNK = 100;
+        for (let i = 0; i < rows.length; i += CHUNK) {
+            const chunk = rows.slice(i, i + CHUNK);
+            let retries = 4;
+            while (retries-- > 0) {
+                try {
+                    await fetch(REVIEW_WEBAPP_URL, {
+                        method:  'POST',
+                        mode:    'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body:    JSON.stringify({
+                            sheet: '1st_image_review',
+                            bulk:  true,       // flag for Apps Script to handle array
+                            rows:  chunk
+                        })
+                    });
+                    break;
+                } catch (e) {
+                    if (retries === 0) console.warn('bulk 1img sync failed:', e);
+                    else await new Promise(r => setTimeout(r, 600));
+                }
+            }
+            // Small pause between chunks
+            if (i + CHUNK < rows.length) await new Promise(r => setTimeout(r, 300));
+        }
+        console.log(`[bulk sync] sent ${rows.length} 1st-image rows in ${Math.ceil(rows.length/CHUNK)} chunk(s)`);
+    }
+
     // ── READ progress back from Sheet on login (cross-device restore) ──
     // GET ?action=getReviews&reviewer=praveen@spyne.ai&enterprise=Gettel...
     async function loadProgressFromSheet(enterprise) {
@@ -2277,13 +2310,22 @@
     }
 
     function openImg1Complete() {
-        const teamId = currentImg1Team.teamId;
-        // Auto-approve all pending (unmarked) VINs
-        currentImg1VINs.forEach(v => {
+        const teamId  = currentImg1Team.teamId;
+        const team    = currentImg1Team;
+        const now     = new Date();
+        const reviewer= getCurrentUser() || 'unknown';
+
+        // Auto-approve all pending (unmarked) VINs locally (no individual syncs)
+        const bulkRows = [];   // collect ALL reviews for one bulk POST
+
+        currentImg1VINs.forEach((v, idx) => {
+            // Auto-approve if still pending
             if (!getImg1Review(teamId, v.vin)) {
-                setImg1Review(teamId, v.vin, 'ok', '');
-                // Update tile outline in gallery
-                const tile = document.getElementById('img1-tile-' + currentImg1VINs.indexOf(v));
+                // Update local state only — no individual sync
+                if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
+                img1Reviews[teamId][v.vin] = 'ok';
+                // Update tile outline
+                const tile = document.getElementById('img1-tile-' + idx);
                 if (tile) {
                     tile.style.outline = '2px solid #10b981';
                     const stBadge = tile.children[1];
@@ -2292,20 +2334,41 @@
                     }
                 }
             }
+            // Collect this VIN's final status for bulk sync
+            const st     = getImg1Review(teamId, v.vin);
+            const vinObj = v;
+            bulkRows.push({
+                reviewer:    reviewer,
+                enterprise:  selectedEnterprise,
+                teamName:    team.name || '',
+                teamId:      teamId,
+                vin:         v.vin,
+                status:      st || 'ok',
+                firstImgUrl: vinObj?.urls?.[0] || '',
+                imageCount:  vinObj?.urls?.length ?? 0,
+                reviewDate:  ddmmyyyy(now),
+                reviewedAt:  now.toISOString()
+            });
         });
+
+        // Persist all to localStorage at once
+        persist1ImgReviews();
+
+        // ONE bulk POST for all VINs — far more reliable than N individual POSTs
+        sync1ImgBulkToSheet(bulkRows);
+
         render1ImgSidebar();
         updateImg1ProgressBadge();
+
         let ok = 0, issue = 0;
         currentImg1VINs.forEach(v => {
             const st = getImg1Review(teamId, v.vin);
             if (st === 'ok') ok++; else if (st === 'issue') issue++;
         });
-        // Show a simple alert-style modal reusing complete-modal
         document.getElementById('complete-subtitle').innerText = currentImg1Team.name + ' · 1st Image Review';
         document.getElementById('complete-approved').innerText = ok;
         document.getElementById('complete-rejected').innerText = issue;
         document.getElementById('complete-total').innerText    = currentImg1VINs.length;
-        // Override ok button for 1img download
         const okBtn = document.getElementById('complete-ok-btn');
         okBtn.__1imgMode = true;
         document.getElementById('complete-modal').classList.add('active');
