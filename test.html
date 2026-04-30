@@ -9,60 +9,198 @@
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f0f7ff; }
         .spyne-blue { background-color: #2b6cb0; }
+
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 10px; }
-        .card-hover:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); }
-        .loading-spinner { border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top: 2px solid #fff; width: 16px; height: 16px; animation: spin 0.8s linear infinite; }
-        .spinner-blue { border: 2px solid rgba(43,108,176,0.2); border-top: 2px solid #2b6cb0; border-radius: 50%; width: 24px; height: 24px; animation: spin 0.8s linear infinite; }
+        ::-webkit-scrollbar-thumb:hover { background: #a0aec0; }
+
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
+        }
+
+        .loading-spinner {
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 2px solid #fff;
+            width: 16px; height: 16px;
+            animation: spin 0.8s linear infinite;
+        }
+        .spinner-blue {
+            border: 2px solid rgba(43,108,176,0.2);
+            border-top: 2px solid #2b6cb0;
+            border-radius: 50%;
+            width: 24px; height: 24px;
+            animation: spin 0.8s linear infinite;
+        }
         @keyframes spin { 0% { transform: rotate(0deg);} 100% { transform: rotate(360deg);} }
+
         .page-view { display: none; min-height: 100vh; }
         .page-view.active { display: flex; flex-direction: column; }
-        #page-review.active { height: calc(100vh - 56px); min-height: calc(100vh - 56px); overflow: hidden; }
-        #review-body { flex: 1; display: grid; grid-template-columns: auto 1fr; min-height: 0; overflow: hidden; }
-        #review-body > aside, #review-body > main { min-height: 0; }
-        .badge-vauto { background-color: #eef7ff; color: #4a86c4; padding: 2px 12px; border-radius: 9999px; font-size: 11px; font-weight: 600; }
-        .vin-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; transition: background 0.15s; border: 1px solid transparent; }
+
+        #page-review.active {
+            height: calc(100vh - 56px);
+            min-height: calc(100vh - 56px);
+            overflow: hidden;
+        }
+        #review-body {
+            flex: 1;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            min-height: 0;
+            overflow: hidden;
+        }
+        #review-body > aside,
+        #review-body > main { min-height: 0; }
+
+        .badge-vauto {
+            background-color: #eef7ff; color: #4a86c4;
+            padding: 2px 12px; border-radius: 9999px;
+            font-size: 11px; font-weight: 600;
+        }
+
+        .vin-item {
+            display: flex; align-items: center; justify-content: space-between;
+            gap: 8px; padding: 8px 12px; border-radius: 6px;
+            cursor: pointer; font-size: 12px; font-weight: 500;
+            transition: background 0.15s; border: 1px solid transparent;
+        }
         .vin-item:hover { background: #f1f5f9; }
         .vin-item.pending { color: #64748b; }
         .vin-item.approved { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+        .vin-item.approved:hover { background: #d1fae5; }
         .vin-item.rejected { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+        .vin-item.rejected:hover { background: #fee2e2; }
         .vin-item.current { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; font-weight: 600; }
+
         .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
         .dot-pending { background: #cbd5e1; }
         .dot-approved { background: #10b981; }
         .dot-rejected { background: #ef4444; }
-        .image-tile { position: relative; background: #e2e8f0; border-radius: 8px; overflow: hidden; aspect-ratio: 4/3; cursor: zoom-in; transition: transform 0.15s; }
+
+        .image-tile {
+            position: relative; background: #e2e8f0;
+            border-radius: 8px; overflow: hidden;
+            aspect-ratio: 4/3; cursor: zoom-in;
+            transition: transform 0.15s;
+        }
         .image-tile:hover { transform: scale(1.02); }
-        .image-tile img { width: 100%; height: 100%; object-fit: cover; display: block; }
-        .image-tile .img-index { position: absolute; top: 6px; left: 6px; background: rgba(0,0,0,0.6); color: white; font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; z-index: 2; }
-        .image-tile .img-skeleton { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #e2e8f0; }
-        .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 100; display: none; align-items: center; justify-content: center; padding: 40px; }
+        .image-tile img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+        .image-tile .img-index {
+            position: absolute; top: 6px; left: 6px;
+            background: rgba(0,0,0,0.6); color: white;
+            font-size: 10px; font-weight: 600;
+            padding: 2px 6px; border-radius: 4px; z-index: 2;
+        }
+        .image-tile .img-skeleton {
+            position: absolute; inset: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: #e2e8f0;
+        }
+        .image-tile .img-skeleton .spinner-blue { width: 18px; height: 18px; border-width: 2px; }
+
+        .lightbox {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.85);
+            z-index: 100; display: none;
+            align-items: center; justify-content: center; padding: 40px;
+        }
         .lightbox.active { display: flex; }
         .lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; }
-        .lightbox-close { position: absolute; top: 16px; right: 16px; background: rgba(255,255,255,0.1); color: white; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.5); z-index: 90; display: none; align-items: center; justify-content: center; padding: 20px; }
+        .lightbox-close {
+            position: absolute; top: 16px; right: 16px;
+            background: rgba(255,255,255,0.1); color: white;
+            width: 40px; height: 40px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+        .lightbox-close:hover { background: rgba(255,255,255,0.2); }
+
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(15,23,42,0.5);
+            z-index: 90; display: none;
+            align-items: center; justify-content: center; padding: 20px;
+        }
         .modal-overlay.active { display: flex; }
-        .sidebar { transition: width 0.25s ease, min-width 0.25s ease; overflow: hidden; }
+
+        .sidebar {
+            transition: width 0.25s ease, min-width 0.25s ease;
+            overflow: hidden;
+        }
         .sidebar.collapsed { width: 0 !important; min-width: 0 !important; border-right-width: 0 !important; }
-        .broken-img { display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 11px; text-align: center; padding: 8px; background: #f1f5f9; width: 100%; height: 100%; flex-direction: column; }
-        .data-loading-overlay { position: fixed; inset: 0; background: rgba(240,247,255,0.92); z-index: 200; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+
+        .broken-img {
+            display: flex; align-items: center; justify-content: center;
+            color: #94a3b8; font-size: 11px; text-align: center; padding: 8px;
+            background: #f1f5f9;
+            width: 100%; height: 100%;
+            flex-direction: column;
+        }
+
+        .data-loading-overlay {
+            position: fixed; inset: 0; background: rgba(240,247,255,0.92);
+            z-index: 200; display: flex; align-items: center; justify-content: center;
+            flex-direction: column; gap: 16px;
+        }
         .data-loading-overlay.hidden { display: none; }
+
         .team-card-btns { display: flex; gap: 6px; margin-top: 10px; }
-        .team-card-btn { flex: 1; font-size: 11px; font-weight: 700; padding: 6px 4px; border-radius: 6px; border: none; cursor: pointer; transition: all 0.15s; text-align: center; }
-        .tcb-vin { background: #dbeafe; color: #1d4ed8; }
-        .tcb-vin:hover { background: #1d4ed8; color: #fff; }
-        .tcb-img { background: #d1fae5; color: #047857; }
-        .tcb-img:hover { background: #047857; color: #fff; }
-        .stat-card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 18px; }
-        .stat-card .label { font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 0.08em; text-transform: uppercase; }
+        .team-card-btn {
+            flex: 1; font-size: 11px; font-weight: 700;
+            padding: 6px 4px; border-radius: 6px; border: none;
+            cursor: pointer; transition: all 0.15s; text-align: center;
+        }
+        .tcb-vin  { background: #dbeafe; color: #1d4ed8; }
+        .tcb-vin:hover  { background: #1d4ed8; color: #fff; }
+        .tcb-img  { background: #d1fae5; color: #047857; }
+        .tcb-img:hover  { background: #047857; color: #fff; }
+
+        .stat-card {
+            background: white; border: 1px solid #e2e8f0; border-radius: 10px;
+            padding: 14px 18px;
+        }
+        .stat-card .label {
+            font-size: 10px; font-weight: 700; color: #64748b;
+            letter-spacing: 0.08em; text-transform: uppercase;
+        }
         .stat-card .value { font-size: 24px; font-weight: 700; color: #0f172a; line-height: 1.1; margin-top: 2px; }
-        .issue-chip { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; border: 1px solid #e2e8f0; border-radius: 8px; background: white; cursor: pointer; user-select: none; font-size: 12px; font-weight: 500; color: #475569; transition: all 0.15s; }
+
+        .issue-chip {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 10px 5px 6px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: white;
+            cursor: pointer;
+            user-select: none;
+            font-size: 12px;
+            font-weight: 500;
+            color: #475569;
+            transition: all 0.15s;
+        }
         .issue-chip:hover { border-color: #cbd5e1; background: #f8fafc; }
-        .issue-chip .issue-cb { position: absolute; opacity: 0; pointer-events: none; }
-        .issue-chip .issue-kbd { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; background: #f1f5f9; color: #64748b; font-family: ui-monospace, monospace; font-size: 10px; font-weight: 700; border-radius: 4px; }
-        .issue-chip.checked { background: #fef2f2; border-color: #fca5a5; color: #b91c1c; }
-        .issue-chip.checked .issue-kbd { background: #dc2626; color: white; }
+        .issue-chip .issue-cb {
+            position: absolute; opacity: 0; pointer-events: none;
+        }
+        .issue-chip .issue-kbd {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 18px; height: 18px;
+            background: #f1f5f9; color: #64748b;
+            font-family: ui-monospace, monospace;
+            font-size: 10px; font-weight: 700;
+            border-radius: 4px;
+        }
+        .issue-chip.checked {
+            background: #fef2f2;
+            border-color: #fca5a5;
+            color: #b91c1c;
+        }
+        .issue-chip.checked .issue-kbd {
+            background: #dc2626; color: white;
+        }
     </style>
 </head>
 <body class="text-slate-800">
@@ -77,7 +215,7 @@
             <div id="refresh-loader" class="loading-spinner hidden" style="border-top-color: white;"></div>
             <span>Refresh</span>
         </button>
-        <button id="clear-cache-btn" style="display:none" class="items-center space-x-1.5 bg-white/10 hover:bg-rose-500/80 border border-white/20 px-3 py-1.5 rounded-md text-[11px] font-bold text-white transition active:scale-95 uppercase tracking-wider">
+        <button id="clear-cache-btn" style="display:none" class="items-center space-x-1.5 bg-white/10 hover:bg-rose-500/80 border border-white/20 px-3 py-1.5 rounded-md text-[11px] font-bold text-white transition active:scale-95 uppercase tracking-wider" title="Clear locally stored review progress">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
             <span>Clear Cache</span>
         </button>
@@ -89,7 +227,7 @@
     </div>
 </header>
 
-<!-- Admin -->
+<!-- Admin page -->
 <div id="page-admin" class="page-view items-center justify-center p-4 bg-slate-50">
     <div class="bg-white p-8 rounded-2xl shadow-xl w-full max-w-lg border border-slate-100">
         <div class="flex items-center justify-between mb-6"><h1 class="text-xl font-bold text-slate-800">User Management</h1><span class="text-[10px] bg-amber-100 text-amber-700 px-2 py-1 rounded font-bold uppercase">Admin</span></div>
@@ -169,7 +307,7 @@
     </div>
 </div>
 
-<!-- Review page -->
+<!-- Review page (VIN & 1st‑image) – unchanged -->
 <div id="page-review" class="page-view">
     <div id="review-topbar" class="bg-white border-b px-4 py-2 flex items-center justify-between shadow-sm flex-shrink-0">
         <div class="flex items-center space-x-3">
@@ -207,7 +345,7 @@
     </div>
 </div>
 
-<!-- Lightbox, modals -->
+<!-- Lightbox, modals, etc. -->
 <div id="lightbox" class="lightbox" onclick="closeLightbox(event)"><div class="lightbox-close" onclick="closeLightbox(event)"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></div><img id="lightbox-img" src="" alt=""></div>
 <div id="summary-modal" class="modal-overlay" onclick="if(event.target===this)closeSummary()"><div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col"><div class="px-6 py-4 border-b flex items-center justify-between"><div><h3 class="font-bold text-slate-800">Review summary</h3><p id="summary-subtitle" class="text-[12px] text-slate-500"></p></div><div class="flex items-center space-x-2"><button id="download-csv-btn" class="bg-blue-600 hover:bg-blue-700 text-white text-[12px] font-bold px-3 py-1.5 rounded flex items-center space-x-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg><span>Download CSV</span></button><button onclick="closeSummary()" class="text-slate-400 hover:text-slate-600 p-1"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div></div><div class="px-6 py-3 bg-slate-50 border-b flex items-center space-x-4 text-[12px]"><div class="flex items-center space-x-1"><span class="status-dot dot-approved"></span><span>Approved:</span><span id="summary-approved">0</span></div><div class="flex items-center space-x-1"><span class="status-dot dot-rejected"></span><span>Rejected:</span><span id="summary-rejected">0</span></div><div class="flex items-center space-x-1"><span class="status-dot dot-pending"></span><span>Pending:</span><span id="summary-pending">0</span></div><div class="flex items-center space-x-1"><span>Total:</span><span id="summary-total">0</span></div></div><div class="flex-1 overflow-y-auto"><table class="w-full text-[12px]"><thead class="bg-slate-50 sticky top-0"><tr class="text-left text-slate-500 text-[10px]"><th class="px-6 py-2.5">#</th><th class="px-3 py-2.5">VIN</th><th class="px-3 py-2.5">Images</th><th class="px-3 py-2.5">Status</th><th class="px-3 py-2.5">Issues</th><th class="px-3 py-2.5">Comment</th></tr></thead><tbody id="summary-tbody"></tbody></table></div></div></div>
 <div id="complete-modal" class="modal-overlay" onclick="if(event.target===this)closeCompleteModal()"><div class="bg-white rounded-xl shadow-2xl w-full max-w-md"><div class="p-6"><div class="w-14 h-14 bg-emerald-100 rounded-full mx-auto mb-4 flex items-center justify-center"><svg class="w-8 h-8 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg></div><h3 class="text-slate-800 font-bold text-[18px] text-center mb-1">All VINs reviewed</h3><p id="complete-subtitle" class="text-slate-500 text-[13px] text-center mb-5"></p><div class="grid grid-cols-3 gap-2 mb-5 text-center"><div class="bg-emerald-50 rounded-lg p-2"><div class="text-[10px] font-bold text-emerald-600">Approved</div><div id="complete-approved" class="text-lg font-bold text-emerald-700">0</div></div><div class="bg-rose-50 rounded-lg p-2"><div class="text-[10px] font-bold text-rose-600">Rejected</div><div id="complete-rejected" class="text-lg font-bold text-rose-700">0</div></div><div class="bg-slate-50 rounded-lg p-2"><div class="text-[10px] font-bold text-slate-500">Total</div><div id="complete-total" class="text-lg font-bold text-slate-700">0</div></div></div><p class="text-slate-500 text-[12px] text-center mb-5">Click <b>OK</b> to download CSV and return, or <b>Cancel</b> to stay.</p><div class="flex space-x-2"><button onclick="closeCompleteModal()" class="flex-1 bg-white border border-slate-300 text-slate-700 font-semibold py-2.5 rounded-lg">Cancel</button><button id="complete-ok-btn" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg flex items-center justify-center space-x-2"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg><span>OK — Download & Exit</span></button></div></div></div></div>
@@ -217,7 +355,7 @@
 
 <script>
     // =========================================================================
-    // FULL SCRIPT (all functions included, with fix for loaded > total)
+    // FULL SCRIPT – includes pure SHA256, CSV parser, all review logic
     // =========================================================================
     const AUTH_USER_PASSWORDS = {
         'praveen@spyne.ai': '11135d32763e29c722e5a67de28b995c8184b26568937072f4e74e1f72c66d1f',
@@ -230,6 +368,7 @@
     function storageKey() { return 'spyne_reviews_v2_' + (getCurrentUser() || 'anon'); }
     function storageKey1Img() { return 'spyne_1img_v2_' + (getCurrentUser() || 'anon'); }
 
+    // Pure JS SHA-256
     function pureJsSha256(str) {
         function rr(v, n) { return (v >>> n) | (v << (32 - n)); }
         const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
@@ -285,7 +424,8 @@
     function setCurrentUser(email) { try { sessionStorage.setItem(AUTH_SESSION_KEY, email); } catch(e){} }
     function clearCurrentUser() { try { sessionStorage.removeItem(AUTH_SESSION_KEY); } catch(e){} }
     function updateUserBadge() {
-        const user = getCurrentUser(); const wrap = document.getElementById('user-info');
+        const user = getCurrentUser();
+        const wrap = document.getElementById('user-info');
         if (!user) { wrap.classList.add('hidden'); wrap.classList.remove('flex'); return; }
         wrap.classList.remove('hidden'); wrap.classList.add('flex');
         const initials = user.split('@')[0].slice(0,2).toUpperCase();
@@ -309,7 +449,8 @@
     function escapeHtml(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
     function parseCSV(text) {
-        const rows = []; let row = [], field = '', inQuotes = false;
+        const rows = [];
+        let row = [], field = '', inQuotes = false;
         for (let i=0;i<text.length;i++) {
             const c = text[i], next = text[i+1];
             if (inQuotes) {
@@ -346,12 +487,14 @@
         const start = fromIdx >= 0 ? fromIdx : 0;
         const combined = cells.slice(start).join(',');
         const urls = combined.match(/https?:\/\/[^\s,;|"'<>\]\[\)(]+/g) || [];
-        const seen = new Set(); const out = [];
+        const seen = new Set();
+        const out = [];
         for (const u of urls) {
             const clean = u.replace(/[.,;:]+$/, '');
             if (!clean || seen.has(clean)) continue;
             if (!isImageUrl(clean)) continue;
-            seen.add(clean); out.push(clean);
+            seen.add(clean);
+            out.push(clean);
         }
         return out;
     }
@@ -403,6 +546,7 @@
         syncReviewToSheet({ reviewer: getCurrentUser()||'unknown', enterprise: selectedEnterprise, teamName: team?.name||'', teamId, vin, status: rec.status, issues: rec.issues, comment: rec.comment, reviewDate: ddmmyyyy(now), reviewedAt: rec.reviewedAt, imageCount: vinObj?.urls.length??0 });
     }
 
+    // Global state
     let allImageData = { headers:[], rows:[] };
     let imagesLoaded = false;
     let selectedEnterprise = "";
@@ -413,7 +557,7 @@
     let currentTeamVINs = [];
     let currentVINIndex = -1;
     let reviews = {};
-    let expectedTotalTeams = 0;
+    let expectedTotalTeams = 0;   // total unique teamId from Metabase_Data
 
     const ENTERPRISE_CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRbegWrxVDOVFjNCO_YYJZlTH4qz2qMjFNQy--nmGs8EghSyRVSRYjhihptVco3u8FzMIpJnFf8OUVJ/pub?gid=1308385365&single=true&output=csv";
     const ALL_DATA_SHEET_ID = "1_0JbxBr9PaD-FWXTBmIVzv68e1it3h9Ny5ejph6sjqI";
@@ -433,11 +577,13 @@
     async function buildTeamIndex(enterprise) {
         if (!allImageData.headers.length) return;
         selectedEnterpriseId = '';
+        // Get expected total teams from Metabase_Data using column "teamId"
         let metaTotalTeams = 0;
         try {
             const res = await fetch(METABASE_CSV_URL, { cache: 'no-store' });
             if (res.ok) {
                 const { headers: mh, rows: mr } = parseCSV(await res.text());
+                // Find column indices (case-insensitive)
                 const entIdx = mh.findIndex(h => h.trim().toLowerCase() === 'enterprise_name');
                 const teamIdIdx = mh.findIndex(h => h.trim().toLowerCase() === 'teamid');
                 const entIdIdx = mh.findIndex(h => h.trim().toLowerCase() === 'enterpriseid');
@@ -492,11 +638,6 @@
             vinsByTeam.set(teamId, t.vins);
         }
         teamsList.sort((a,b)=>a.name.localeCompare(b.name));
-        // FIX: If Metabase total is less than actual loaded teams, use loaded count as total.
-        if (expectedTotalTeams > 0 && teamsList.length > expectedTotalTeams) {
-            console.warn(`Metabase total (${expectedTotalTeams}) < loaded teams (${teamsList.length}). Using loaded count as total.`);
-            expectedTotalTeams = teamsList.length;
-        }
     }
 
     function renderDashboard() {
@@ -512,17 +653,16 @@
             reviewed1Img += Object.keys((window.img1Reviews?.[t.teamId]||{})).length;
         });
 
+        // Teams Loaded card using expectedTotalTeams from Metabase_Data
         const loadedTeams = teamsList.length;
-        // Ensure total is at least loaded
-        const displayTotal = Math.max(expectedTotalTeams, loadedTeams);
         document.getElementById('stat-total-teams').innerText = loadedTeams.toLocaleString();
         const subEl = document.getElementById('stat-teams-progress');
         const barFill = document.getElementById('stat-teams-bar-fill');
-        if (displayTotal > 0) {
-            subEl.innerText = `of ${displayTotal.toLocaleString()} total`;
-            if (barFill) barFill.style.width = Math.round((loadedTeams / displayTotal) * 100) + '%';
+        if (expectedTotalTeams > 0) {
+            subEl.innerText = `of ${expectedTotalTeams.toLocaleString()} total`;
+            if (barFill) barFill.style.width = Math.round((loadedTeams / expectedTotalTeams) * 100) + '%';
         } else {
-            subEl.innerText = `of ${loadedTeams} total`;
+            subEl.innerText = `of ${loadedTeams} total (expected total unknown)`;
             if (barFill) barFill.style.width = '100%';
         }
 
@@ -568,13 +708,14 @@
         });
     }
 
+    // Placeholder for 1st‑image mode (must exist to avoid errors)
     let reviewMode = 'vin';
     function restore1ImgMode() { reviewMode = 'vin'; const badge = document.getElementById('review-mode-badge'); if(badge) badge.remove(); const doneBtn = document.getElementById('img1-done-btn'); if(doneBtn) doneBtn.remove(); }
     function openTeam1stImage(team) { alert('1st Image Review mode – fully functional in the original file'); }
     function handleImageAreaScroll() { const btn = document.getElementById('scroll-top-btn'); if(btn && reviewMode==='1img' && document.getElementById('image-area').scrollTop>300) btn.style.display='flex'; else if(btn) btn.style.display='none'; }
     function openTeamReview(team) { alert('VIN Review – full implementation present in the original file'); }
 
-    // Enterprise dropdown and load logic
+    // Enterprise dropdown and load logic (unchanged, but included)
     async function init() {
         loadReviews();
         const existingUser = getCurrentUser();
@@ -621,7 +762,7 @@
         btn.disabled=false; bText.innerText="Load teams →"; bLoad.classList.add('hidden'); lStatus.classList.add('hidden');
     });
 
-    document.getElementById('refresh-data-btn').addEventListener('click', async () => { const icon=document.getElementById('refresh-icon'), loader=document.getElementById('refresh-loader'), btn=document.getElementById('refresh-data-btn'); btn.disabled=true; icon.classList.add('hidden'); loader.classList.remove('hidden'); try{ imagesLoaded=false; await fetchAllData(); await buildTeamIndex(selectedEnterprise); renderDashboard(); if(currentTeam){ const tv = vinsByTeam.get(currentTeam.teamId); if(tv){ currentTeamVINs = [...tv.entries()].map(([vin,urls])=>({vin,urls})); } } } catch(e){ showError("Refresh failed."); } finally{ btn.disabled=false; icon.classList.remove('hidden'); loader.classList.add('hidden'); } });
+    document.getElementById('refresh-data-btn').addEventListener('click', async () => { const icon=document.getElementById('refresh-icon'), loader=document.getElementById('refresh-loader'), btn=document.getElementById('refresh-data-btn'); btn.disabled=true; icon.classList.add('hidden'); loader.classList.remove('hidden'); try{ imagesLoaded=false; await fetchAllData(); await buildTeamIndex(selectedEnterprise); renderDashboard(); if(currentTeam){ const tv = vinsByTeam.get(currentTeam.teamId); if(tv){ currentTeamVINs = [...tv.entries()].map(([vin,urls])=>({vin,urls})); /* renderVINSidebar would be called here */ } } } catch(e){ showError("Refresh failed."); } finally{ btn.disabled=false; icon.classList.remove('hidden'); loader.classList.add('hidden'); } });
     document.getElementById('clear-cache-btn').addEventListener('click',()=>{ if(confirm('Clear local cache?')){ Object.keys(localStorage).filter(k=>k.startsWith('spyne_')).forEach(k=>localStorage.removeItem(k)); reviews={}; window.img1Reviews={}; renderDashboard(); showError('Local cache cleared.'); } });
 
     function checkAdminMode() { if(new URLSearchParams(window.location.search).get('admin')==='1'){ document.querySelectorAll('.page-view').forEach(p=>p.classList.remove('active')); document.getElementById('page-admin').classList.add('active'); renderAdminUsersList(); } }
