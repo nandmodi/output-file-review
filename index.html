@@ -1453,6 +1453,9 @@
                 if (imgCol === -1) { showError('CSV must have an "Image URLs" column.'); return; }
 
                 const enterpriseName = file.name.replace(/\.csv$/i, '');
+
+                // One row per VIN — image URLs are already pipe-separated in the cell.
+                // CSV is expected to have unique VINs (one row per vehicle).
                 const syntheticRows = parsed.rows
                     .filter(r => String(r[vinCol] || '').trim().length > 0)
                     .map(r => {
@@ -1469,7 +1472,7 @@
                             '',             // 7 s3Url
                             '',             // 8 createdAt
                             vin,            // 9 VIN
-                            imgUrls         // 10 imageUrls
+                            imgUrls         // 10 imageUrls (pipe-separated)
                         ];
                     });
 
