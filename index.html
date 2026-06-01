@@ -1598,6 +1598,21 @@
     let selectedVINIndices = new Set();  // indices into currentImg1VINs
     let lastCheckedIdx = null;           // for shift-click range select
 
+    function updateTileSelectionStyle(idx) {
+        const tile = document.getElementById('img1-tile-' + idx);
+        if (!tile) return;
+        const isSelected = selectedVINIndices.has(idx);
+        const st = getImg1Review(currentImg1Team?.teamId, currentImg1VINs?.[idx]?.vin) || 'pending';
+        if (isSelected) {
+            tile.style.outline = '3px solid #3b82f6';
+        } else {
+            tile.style.outline = st === 'ok' ? '2px solid #10b981'
+                               : st === 'issue' ? '2px solid #ef4444'
+                               : '2px solid transparent';
+        }
+        if (tile._checkbox) tile._checkbox.checked = isSelected;
+    }
+
     function toggleVINSelect(idx, event) {
         if (event.shiftKey && lastCheckedIdx !== null) {
             // Range select
@@ -1615,6 +1630,13 @@
         lastCheckedIdx = idx;
         updateBulkBar();
         render1ImgVinList();
+        // Update gallery tile borders to reflect new selection state
+        if (event.shiftKey && lastCheckedIdx !== null) {
+            // Range was changed — update all tiles in range
+            currentImg1VINs.forEach((_, i) => updateTileSelectionStyle(i));
+        } else {
+            updateTileSelectionStyle(idx);
+        }
     }
 
     function selectAllVINs() {
@@ -1622,6 +1644,7 @@
         currentImg1VINs.forEach((_, i) => selectedVINIndices.add(i));
         updateBulkBar();
         render1ImgVinList();
+        currentImg1VINs.forEach((_, i) => updateTileSelectionStyle(i));
     }
 
     function clearVINSelection() {
@@ -1629,6 +1652,7 @@
         lastCheckedIdx = null;
         updateBulkBar();
         render1ImgVinList();
+        currentImg1VINs?.forEach((_, i) => updateTileSelectionStyle(i));
     }
 
     function updateBulkBar() {
@@ -1650,6 +1674,44 @@
         }
     }
 
+    // Fetch a single image as a Blob using the original full-resolution URL.
+    // Strategy: try fetch() with no-referrer first (works for CORS-open CDNs like S3/CloudFront).
+    // If that fails (CORS block), load into a hidden <img> and draw to canvas to get the blob.
+    // Canvas approach works for images that display fine in browser but block fetch().
+    function fetchImageBlob(url) {
+        return new Promise(async (resolve) => {
+            // Try direct fetch first (fastest, full quality)
+            try {
+                const res = await fetch(url, { referrerPolicy: 'no-referrer', cache: 'force-cache' });
+                if (res.ok) { resolve(await res.blob()); return; }
+            } catch(e) {}
+
+            // Fallback: draw to canvas (bypasses CORS fetch restriction for displayable images)
+            try {
+                await new Promise((res2, rej2) => {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+                    img.referrerPolicy = 'no-referrer';
+                    img.onload = () => {
+                        try {
+                            const c = document.createElement('canvas');
+                            c.width = img.naturalWidth || img.width;
+                            c.height = img.naturalHeight || img.height;
+                            c.getContext('2d').drawImage(img, 0, 0);
+                            c.toBlob(blob => { resolve(blob); res2(); }, 'image/jpeg', 0.95);
+                        } catch(e) { rej2(e); }
+                    };
+                    img.onerror = rej2;
+                    img.src = url;
+                });
+                return;
+            } catch(e) {}
+
+            // Both failed — resolve null so we skip this image
+            resolve(null);
+        });
+    }
+
     async function downloadSelectedVINImages() {
         if (selectedVINIndices.size === 0) return;
         if (typeof JSZip === 'undefined') {
@@ -1665,57 +1727,56 @@
         const totalImgs = selectedVINs.reduce((s, v) => s + v.urls.length, 0);
 
         const zip = new JSZip();
-        let done = 0;
+        let done = 0, failed = 0;
 
         const updateProgress = () => {
             btnText.textContent = `${done}/${totalImgs} fetched…`;
         };
         updateProgress();
 
-        // Fetch all images in parallel (capped at 6 concurrent)
-        const CONCURRENCY = 6;
+        const CONCURRENCY = 4;
         const tasks = [];
         for (const v of selectedVINs) {
             const folder = zip.folder(v.vin);
             v.urls.forEach((url, imgIdx) => {
-                const ext  = url.split('.').pop().split('?')[0] || 'jpg';
-                const name = (imgIdx + 1) + '.' + ext;
+                // Use the ORIGINAL full-resolution URL directly (not thumbUrl proxy)
+                const ext  = (url.split('.').pop().split('?')[0] || 'jpg').toLowerCase();
+                const name = (imgIdx + 1) + '.' + (ext.length <= 4 ? ext : 'jpg');
                 tasks.push({ folder, name, url });
             });
         }
 
-        // Process in batches of CONCURRENCY
         for (let i = 0; i < tasks.length; i += CONCURRENCY) {
             const batch = tasks.slice(i, i + CONCURRENCY);
             await Promise.allSettled(batch.map(async ({ folder, name, url }) => {
-                try {
-                    const res = await fetch(url, { mode: 'cors', referrerPolicy: 'no-referrer' });
-                    if (!res.ok) throw new Error(res.status);
-                    const blob = await res.blob();
-                    folder.file(name, blob);
-                } catch {
-                    // If CORS blocks fetch, try no-cors (gets opaque response — skip)
-                    // Just skip failed images silently
-                }
+                const blob = await fetchImageBlob(url);
+                if (blob) folder.file(name, blob);
+                else failed++;
                 done++;
                 updateProgress();
             }));
         }
 
         btnText.textContent = 'Generating ZIP…';
-        const zipBlob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 3 } });
+        const zipBlob = await zip.generateAsync({
+            type: 'blob',
+            compression: 'STORE',   // images are already compressed — STORE is faster
+        });
 
         const a = document.createElement('a');
         a.href = URL.createObjectURL(zipBlob);
         const safe = (currentImg1Team?.teamId || 'vins').replace(/[^a-z0-9_-]/gi, '_');
-        a.download = `images_${safe}_${selectedVINs.length}vins_${new Date().toISOString().slice(0,10)}.zip`;
+        const dateStr = new Date().toISOString().slice(0,10);
+        a.download = `images_${safe}_${selectedVINs.length}vins_${dateStr}.zip`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
 
         btn.disabled = false;
-        btnText.textContent = 'Download ZIP';
+        const failNote = failed > 0 ? ` (${failed} failed)` : '';
+        btnText.textContent = `Done${failNote} — Download ZIP`;
+        setTimeout(() => { btnText.textContent = 'Download ZIP'; }, 4000);
     }
 
     // =========================================================================
@@ -2627,6 +2688,23 @@
             badge.textContent = v.vin.slice(-8);  // last 8 chars of VIN
             tile.appendChild(badge);
 
+            // Checkbox (top-left corner) — select VIN for bulk download
+            const cbWrap = document.createElement('div');
+            cbWrap.style.cssText = 'position:absolute;top:5px;left:5px;z-index:6;display:flex;align-items:center;justify-content:center;width:20px;height:20px;background:rgba(255,255,255,0.92);border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.2);';
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.style.cssText = 'width:13px;height:13px;cursor:pointer;accent-color:#3b82f6;';
+            cb.checked = selectedVINIndices.has(idx);
+            cb.addEventListener('click', (e) => {
+                e.stopPropagation();
+                toggleVINSelect(idx, e);
+                // Update tile border to reflect selection
+                updateTileSelectionStyle(idx);
+            });
+            cbWrap.appendChild(cb);
+            tile.appendChild(cbWrap);
+            tile._checkbox = cb;   // keep reference for updateTileSelectionStyle
+
             // Status overlay (top-right corner)
             const stBadge = document.createElement('div');
             stBadge.style.cssText = 'position:absolute;top:4px;right:4px;z-index:3;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;';
@@ -2672,9 +2750,16 @@
                 tile.appendChild(img);
             }
 
-            // Click = toggle issue/ok AND sync sidebar highlight
-            tile.addEventListener('click', () => {
-                select1ImgVIN(idx);   // highlights tile + syncs sidebar
+            // Apply selection border immediately if already selected
+            if (selectedVINIndices.has(idx)) {
+                tile.style.outline = '3px solid #3b82f6';
+            }
+            tile.dataset.vinIdx = idx;
+
+            // Click on tile body = navigate + toggle review (NOT on checkbox)
+            tile.addEventListener('click', (e) => {
+                if (e.target.type === 'checkbox' || e.target.closest('[style*="z-index:6"]')) return;
+                select1ImgVIN(idx);
                 toggle1ImgIssue(idx);
             });
 
