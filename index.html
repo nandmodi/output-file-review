@@ -388,14 +388,12 @@
 
             <!-- CSV Mode -->
             <div id="csv-mode-panel" class="space-y-4 hidden">
-                <label class="block w-full cursor-pointer">
-                    <div id="csv-drop-zone" class="w-full border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 hover:bg-blue-50 transition-all" ondragover="event.preventDefault()" ondrop="handleCsvDrop(event)">
-                        <svg class="mx-auto mb-2 w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                        <p id="csv-file-label" class="text-[13px] text-slate-500">Drop CSV here or <span class="text-blue-600 font-semibold">click to browse</span></p>
-                        <p class="text-[11px] text-slate-400 mt-1">Required columns: VIN, Image URLs</p>
-                    </div>
-                    <input id="csv-file-input" type="file" accept=".csv" class="hidden" onchange="handleCsvFileSelect(event)">
-                </label>
+                <div id="csv-drop-zone" class="w-full border-2 border-dashed border-slate-300 rounded-lg p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-all" ondragover="event.preventDefault()" ondrop="handleCsvDrop(event)">
+                    <svg class="mx-auto mb-2 w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                    <p id="csv-file-label" class="text-[13px] text-slate-500">Drop CSV here or <span class="text-blue-600 font-semibold">click to browse</span></p>
+                    <p class="text-[11px] text-slate-400 mt-1">Any columns OK — needs VIN and Image URLs</p>
+                </div>
+                <input id="csv-file-input" type="file" accept=".csv" class="hidden" onchange="handleCsvFileSelect(event)">
                 <div id="csv-info-bar" class="hidden bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-[12px] text-green-800 flex items-center justify-between">
                     <span id="csv-info-text"></span>
                     <button onclick="clearCsvFile()" class="text-green-600 hover:text-red-500 font-bold ml-2 transition">✕</button>
@@ -1002,7 +1000,10 @@
         // explicit exclusions
         if (/\.(csv|tsv|xlsx?|pdf|docx?|pptx?|zip)$/i.test(u)) return false;
         if (/docs\.google\.com/i.test(url) || /sheets\.google\.com/i.test(url)) return false;
-        return false;
+        // allow any URL with a recognised image extension from any host
+        if (imgExts.test(u)) return true;
+        // allow extensionless URLs from any host (may be image CDN)
+        return true;
     }
 
     // Extract URLs from ALL cells of the row from a given start index onward.
@@ -2385,9 +2386,24 @@
         }
         document.getElementById('current-vin-image-count').innerText = '1/' + v.urls.length + ' shown';
 
-        // Scroll gallery tile into view
+        // Remove highlight from previously selected tile
+        const prevTile = document.querySelector('.img1-tile-selected');
+        if (prevTile) {
+            prevTile.classList.remove('img1-tile-selected');
+            prevTile.style.boxShadow = '';
+            prevTile.style.zIndex = '';
+            prevTile.style.transform = '';
+        }
+
+        // Highlight newly selected tile with a bright blue ring
         const tile = document.getElementById('img1-tile-' + idx);
-        if (tile) tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (tile) {
+            tile.classList.add('img1-tile-selected');
+            tile.style.boxShadow = '0 0 0 3px #3b82f6, 0 0 0 5px rgba(59,130,246,0.3)';
+            tile.style.zIndex = '10';
+            tile.style.transform = 'scale(1.03)';
+            tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
 
         render1ImgSidebar();
     }
@@ -2484,6 +2500,7 @@
 
             // Click = toggle issue/ok AND sync sidebar highlight
             tile.addEventListener('click', () => {
+                select1ImgVIN(idx);   // highlights tile + syncs sidebar
                 toggle1ImgIssue(idx);
             });
 
