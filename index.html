@@ -1997,9 +1997,23 @@
         return `https://wsrv.nl/?url=${encodeURIComponent(stripped)}&w=${widthPx}&q=${quality}&output=webp`;
     }
 
+    // Returns true if the URL is hosted on Spyne/AWS infrastructure where
+    // the Spyne Thumbor proxy is known to work.
+    function isSpyneHostedUrl(url) {
+        if (!url) return false;
+        try {
+            const host = new URL(url).hostname.toLowerCase();
+            return host.includes('spyne') || host.includes('amazonaws.com') || host.includes('cloudfront.net');
+        } catch(e) { return false; }
+    }
+
     function thumbUrl(originalUrl, widthPx = 500, quality = 75) {
         if (!originalUrl) return '';
         if (IMG_PROXY_PRIMARY === 'none') return originalUrl;
+        // For non-Spyne URLs (e.g. dealer websites), skip the proxy entirely —
+        // <img src> loads cross-origin images fine without CORS headers.
+        // Proxying an external URL through Spyne CDN will just return an error.
+        if (!isSpyneHostedUrl(originalUrl)) return originalUrl;
         if (IMG_PROXY_PRIMARY === 'wsrv') return wsrvThumbUrl(originalUrl, widthPx, quality);
         return spyneThumbUrl(originalUrl, widthPx, quality);
     }
@@ -2489,8 +2503,8 @@
                 img.addEventListener('load', () => skel.remove());
                 img.addEventListener('error', () => {
                     fallbackStep++;
-                    if (fallbackStep === 1) { img.src = wsrvThumbUrl(firstUrl, 400, 70); return; }
-                    if (fallbackStep === 2) { img.src = firstUrl; return; }
+                    // Step 1: if proxy was used, try direct URL
+                    if (fallbackStep === 1 && img.src !== firstUrl) { img.src = firstUrl; return; }
                     skel.remove();
                     tile.innerHTML += '<div class="broken-img" style="position:absolute;inset:0;font-size:9px">failed</div>';
                 });
