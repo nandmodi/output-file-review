@@ -360,7 +360,17 @@
             <h1 class="text-xl font-bold text-slate-800 mb-2">Image review</h1>
             <p class="text-slate-500 text-sm mb-6 leading-snug">Select your Enterprise to load teams and begin reviewing vehicle images.</p>
 
-            <div class="space-y-4">
+            <!-- Data Source Toggle -->
+            <div class="flex items-center justify-center mb-4 space-x-3">
+                <span class="text-[12px] text-slate-500 font-medium">Data source:</span>
+                <div class="flex rounded-lg border border-slate-200 overflow-hidden text-[12px] font-semibold">
+                    <button id="toggle-sheet-btn" onclick="setDataSource('sheet')" class="px-3 py-1.5 bg-blue-600 text-white transition">Google Sheet</button>
+                    <button id="toggle-csv-btn" onclick="setDataSource('csv')" class="px-3 py-1.5 bg-white text-slate-500 hover:bg-slate-50 transition">Upload CSV</button>
+                </div>
+            </div>
+
+            <!-- Sheet Mode -->
+            <div id="sheet-mode-panel" class="space-y-4">
                 <div class="relative">
                     <select id="enterprise-select" class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none appearance-none bg-white pr-10">
                         <option value="" disabled selected>Loading enterprises...</option>
@@ -376,9 +386,30 @@
                 <p id="load-status" class="text-[11px] text-slate-400 text-center hidden"></p>
             </div>
 
+            <!-- CSV Mode -->
+            <div id="csv-mode-panel" class="space-y-4 hidden">
+                <label class="block w-full cursor-pointer">
+                    <div id="csv-drop-zone" class="w-full border-2 border-dashed border-slate-300 rounded-lg p-6 text-center hover:border-blue-400 hover:bg-blue-50 transition-all" ondragover="event.preventDefault()" ondrop="handleCsvDrop(event)">
+                        <svg class="mx-auto mb-2 w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <p id="csv-file-label" class="text-[13px] text-slate-500">Drop CSV here or <span class="text-blue-600 font-semibold">click to browse</span></p>
+                        <p class="text-[11px] text-slate-400 mt-1">Required columns: VIN, Image URLs</p>
+                    </div>
+                    <input id="csv-file-input" type="file" accept=".csv" class="hidden" onchange="handleCsvFileSelect(event)">
+                </label>
+                <div id="csv-info-bar" class="hidden bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-[12px] text-green-800 flex items-center justify-between">
+                    <span id="csv-info-text"></span>
+                    <button onclick="clearCsvFile()" class="text-green-600 hover:text-red-500 font-bold ml-2 transition">✕</button>
+                </div>
+                <button id="load-csv-btn" class="w-full spyne-blue text-white font-semibold py-3 rounded-lg hover:bg-blue-700 transition flex items-center justify-center space-x-2 disabled:opacity-70 opacity-50 cursor-not-allowed" disabled>
+                    <span id="csv-btn-text">Select a CSV to continue →</span>
+                    <div id="csv-btn-loader" class="loading-spinner hidden"></div>
+                </button>
+                <p id="csv-load-status" class="text-[11px] text-slate-400 text-center hidden"></p>
+            </div>
+
             <div class="mt-8 text-center text-[11px] text-slate-400 leading-relaxed">
                 <p>Press Enter after selecting to continue quickly.</p>
-                <p>Images load live from the All_Data sheet.</p>
+                <p id="data-source-hint">Images load live from the All_Data sheet.</p>
             </div>
         </div>
     </div>
@@ -1363,6 +1394,169 @@
         console.log('[buildTeamIndex] done —', teamsList.length, 'teams,',
             teamsList.reduce((s, t) => s + t.vinCount, 0), 'VINs total');
     }
+
+    // =========================================================================
+    // CSV MODE
+    // =========================================================================
+    let dataSourceMode = 'sheet';   // 'sheet' | 'csv'
+    let csvFileData    = null;       // { name, enterprise, headers, rows, vinCount }
+
+    function setDataSource(mode) {
+        dataSourceMode = mode;
+        document.getElementById('sheet-mode-panel').classList.toggle('hidden', mode !== 'sheet');
+        document.getElementById('csv-mode-panel').classList.toggle('hidden', mode !== 'csv');
+        document.getElementById('toggle-sheet-btn').className =
+            'px-3 py-1.5 transition ' + (mode === 'sheet' ? 'bg-blue-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50');
+        document.getElementById('toggle-csv-btn').className =
+            'px-3 py-1.5 transition ' + (mode === 'csv' ? 'bg-blue-600 text-white' : 'bg-white text-slate-500 hover:bg-slate-50');
+        document.getElementById('data-source-hint').textContent =
+            mode === 'csv' ? 'VINs and images are read from your uploaded CSV file.'
+                           : 'Images load live from the All_Data sheet.';
+    }
+
+    function handleCsvDrop(event) {
+        event.preventDefault();
+        const file = event.dataTransfer.files[0];
+        if (file) processCsvFile(file);
+    }
+
+    function handleCsvFileSelect(event) {
+        const file = event.target.files[0];
+        if (file) processCsvFile(file);
+    }
+
+    function clearCsvFile() {
+        csvFileData = null;
+        document.getElementById('csv-file-label').innerHTML =
+            'Drop CSV here or <span class="text-blue-600 font-semibold">click to browse</span>';
+        document.getElementById('csv-info-bar').classList.add('hidden');
+        const btn = document.getElementById('load-csv-btn');
+        btn.disabled = true;
+        btn.classList.add('opacity-50', 'cursor-not-allowed');
+        document.getElementById('csv-btn-text').textContent = 'Select a CSV to continue \u2192';
+        document.getElementById('csv-file-input').value = '';
+    }
+
+    function processCsvFile(file) {
+        if (!file.name.toLowerCase().endsWith('.csv')) {
+            showError('Please select a .csv file.');
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                const parsed = parseCSV(e.target.result);
+                const hLower = parsed.headers.map(h => h.trim().toLowerCase());
+                const vinCol  = hLower.findIndex(h => h === 'vin');
+                const imgCol  = hLower.findIndex(h => h === 'image urls' || h === 'image_urls' || h === 'imageurls');
+                if (vinCol === -1) { showError('CSV must have a "VIN" column.'); return; }
+                if (imgCol === -1) { showError('CSV must have an "Image URLs" column.'); return; }
+
+                const enterpriseName = file.name.replace(/\.csv$/i, '');
+                const syntheticRows = parsed.rows
+                    .filter(r => String(r[vinCol] || '').trim().length > 0)
+                    .map(r => {
+                        const vin     = String(r[vinCol] || '').trim();
+                        const imgUrls = String(r[imgCol] || '').trim();
+                        return [
+                            vin,            // 0 name
+                            'csv-team-001', // 1 teamId
+                            'csv-ent-001',  // 2 entId
+                            enterpriseName, // 3 enterprise_name
+                            '',             // 4 dealerId
+                            '',             // 5 partnerId
+                            '1',            // 6 rowCount
+                            '',             // 7 s3Url
+                            '',             // 8 createdAt
+                            vin,            // 9 VIN
+                            imgUrls         // 10 imageUrls
+                        ];
+                    });
+
+                csvFileData = {
+                    name: file.name,
+                    enterprise: enterpriseName,
+                    headers: ['name','teamId','enterpriseId','enterprise_name','dealerId',
+                              'partnerId','row_count','s3_url','created_at','VIN','Image URLs'],
+                    rows: syntheticRows,
+                    vinCount: syntheticRows.length
+                };
+
+                document.getElementById('csv-file-label').textContent = '\ud83d\udcc4 ' + file.name;
+                document.getElementById('csv-info-text').textContent =
+                    '\u2713  ' + syntheticRows.length + ' VINs loaded from ' + file.name;
+                document.getElementById('csv-info-bar').classList.remove('hidden');
+                const btn = document.getElementById('load-csv-btn');
+                btn.disabled = false;
+                btn.classList.remove('opacity-50', 'cursor-not-allowed');
+                document.getElementById('csv-btn-text').textContent = 'Review "' + enterpriseName + '" \u2192';
+            } catch (err) {
+                showError('Failed to parse CSV: ' + err.message);
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const loadCsvBtn = document.getElementById('load-csv-btn');
+        if (loadCsvBtn) {
+            loadCsvBtn.addEventListener('click', async () => {
+                if (!csvFileData) { showError('Please select a CSV file first.'); return; }
+                const btn   = document.getElementById('load-csv-btn');
+                const bText = document.getElementById('csv-btn-text');
+                const bLoad = document.getElementById('csv-btn-loader');
+                btn.disabled = true;
+                bLoad.classList.remove('hidden');
+                bText.textContent = 'Loading\u2026';
+
+                const loadingOv  = document.getElementById('data-loading-overlay');
+                const loadingMsg = document.getElementById('data-loading-msg');
+                loadingOv.classList.remove('hidden');
+                loadingMsg.textContent = 'Building team index from CSV\u2026';
+
+                try {
+                    allImageData         = { headers: csvFileData.headers, rows: csvFileData.rows };
+                    imagesLoaded         = true;
+                    selectedEnterprise   = csvFileData.enterprise;
+                    selectedEnterpriseId = 'csv-ent-001';
+
+                    await buildTeamIndex(selectedEnterprise);
+
+                    if (!teamsList.length) {
+                        loadingOv.classList.add('hidden');
+                        btn.disabled = false;
+                        bLoad.classList.add('hidden');
+                        bText.textContent = 'Review "' + selectedEnterprise + '" \u2192';
+                        showError('No VINs found in CSV.');
+                        return;
+                    }
+
+                    loadingMsg.textContent = 'Restoring your progress\u2026';
+                    await loadProgressFromSheet(selectedEnterprise);
+                    renderDashboard();
+                    showPage('page-dashboard');
+                    requestAnimationFrame(() => requestAnimationFrame(() => {
+                        loadingOv.classList.add('hidden');
+                    }));
+                } catch (err) {
+                    loadingOv.classList.add('hidden');
+                    console.error(err);
+                    showError('Could not load CSV data: ' + err.message);
+                } finally {
+                    btn.disabled = !csvFileData;
+                    bLoad.classList.add('hidden');
+                    if (csvFileData) bText.textContent = 'Review "' + selectedEnterprise + '" \u2192';
+                }
+            });
+        }
+
+        const dropZone = document.getElementById('csv-drop-zone');
+        if (dropZone) {
+            dropZone.addEventListener('click', () => {
+                document.getElementById('csv-file-input').click();
+            });
+        }
+    });
 
     // =========================================================================
     // INIT
