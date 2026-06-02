@@ -1675,36 +1675,48 @@
     }
 
     // Fetch a single image as a Blob at full resolution.
-    // Strategy 1: fetch() with no-cors — browser fetches the image exactly like <img src> does.
-    //   Returns an opaque response (can't read headers/status) but blob contains real image bytes.
-    //   Works for any URL that displays in the browser, regardless of CORS policy.
-    // Strategy 2: fetch() with cors + no-referrer — for S3/CloudFront URLs with CORS headers.
-    // Strategy 3: resolve null — image is skipped in ZIP.
+    //
+    // Problem: covertford.com (and most dealer CDNs) do NOT send CORS headers.
+    //   - fetch(cors)    → browser blocks it (no Access-Control-Allow-Origin header)
+    //   - fetch(no-cors) → returns opaque response; blob.size is ALWAYS 0 by browser spec
+    //   - canvas trick   → crossOrigin='anonymous' triggers CORS check → fails → canvas tainted
+    //
+    // Solution: route download through images.weserv.nl (wsrv.nl) — a dedicated image proxy.
+    //   It fetches the image server-side (no CORS restriction) and returns it with
+    //   Access-Control-Allow-Origin: * so the browser can read the blob.
+    //   No resize params = original full resolution.
+    //
+    // Strategy order:
+    //   1. Direct fetch (works for Spyne/S3/CloudFront URLs that have CORS headers)
+    //   2. images.weserv.nl proxy (works for any publicly accessible image URL)
+    //   3. null — image skipped in ZIP
     function fetchImageBlob(url) {
         return new Promise(async (resolve) => {
-            // Try no-cors first — opaque response, but blob has real data for any displayable image
-            try {
-                const res = await fetch(url, {
-                    mode: 'no-cors',
-                    referrerPolicy: 'no-referrer',
-                    cache: 'force-cache'
-                });
-                const blob = await res.blob();
-                // Opaque blobs have size > 0 even though type is empty string
-                if (blob && blob.size > 0) { resolve(blob); return; }
-            } catch(e) {}
-
-            // Fallback: try regular CORS fetch (works for S3/CloudFront with CORS headers)
+            // Strategy 1: direct fetch — works for CORS-enabled CDNs (Spyne, AWS S3, CloudFront)
             try {
                 const res = await fetch(url, {
                     mode: 'cors',
                     referrerPolicy: 'no-referrer',
                     cache: 'force-cache'
                 });
-                if (res.ok) { resolve(await res.blob()); return; }
+                if (res.ok) {
+                    const blob = await res.blob();
+                    if (blob && blob.size > 0) { resolve(blob); return; }
+                }
             } catch(e) {}
 
-            // Could not fetch — skip this image
+            // Strategy 2: weserv.nl proxy — server-side fetch, returns with CORS headers
+            // Works for any publicly accessible image regardless of CORS policy
+            try {
+                const proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(url) + '&n=-1';
+                const res = await fetch(proxyUrl, { mode: 'cors', cache: 'force-cache' });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    if (blob && blob.size > 0) { resolve(blob); return; }
+                }
+            } catch(e) {}
+
+            // Both strategies failed — skip this image
             resolve(null);
         });
     }
