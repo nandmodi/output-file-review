@@ -2689,14 +2689,14 @@
             // Index badge (reuse existing style) — show VIN truncated
             const badge = document.createElement('div');
             badge.className = 'img-index';
-            badge.style.cssText = 'max-width:90%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;bottom:6px;top:auto;';
+            badge.style.cssText = 'position:absolute;bottom:6px;left:6px;top:auto;max-width:calc(100% - 12px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
             badge.title = v.vin;
             badge.textContent = v.vin.slice(-8);  // last 8 chars of VIN
             tile.appendChild(badge);
 
-            // Checkbox (top-left corner) — select VIN for bulk download
+            // Checkbox — top-left corner
             const cbWrap = document.createElement('div');
-            cbWrap.style.cssText = 'position:absolute;top:5px;left:5px;z-index:6;display:flex;align-items:center;justify-content:center;width:20px;height:20px;background:rgba(255,255,255,0.92);border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.2);';
+            cbWrap.style.cssText = 'position:absolute;top:5px;left:5px;z-index:6;display:flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,255,255,0.95);border-radius:5px;box-shadow:0 1px 4px rgba(0,0,0,0.25);';
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.style.cssText = 'width:13px;height:13px;cursor:pointer;accent-color:#3b82f6;';
@@ -2704,17 +2704,16 @@
             cb.addEventListener('click', (e) => {
                 e.stopPropagation();
                 toggleVINSelect(idx, e);
-                // Update tile border to reflect selection
                 updateTileSelectionStyle(idx);
             });
             cbWrap.appendChild(cb);
             tile.appendChild(cbWrap);
-            tile._checkbox = cb;   // keep reference for updateTileSelectionStyle
+            tile._checkbox = cb;
 
-            // Status overlay (top-right corner)
+            // Status badge — top-right corner (separate from checkbox)
             const stBadge = document.createElement('div');
-            stBadge.style.cssText = 'position:absolute;top:4px;right:4px;z-index:3;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;';
-            if (st === 'ok')    { stBadge.style.background='#10b981'; stBadge.style.color='#fff'; stBadge.textContent='OK'; }
+            stBadge.style.cssText = 'position:absolute;top:5px;right:5px;z-index:5;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;';
+            if (st === 'ok')         { stBadge.style.background='#10b981'; stBadge.style.color='#fff'; stBadge.textContent='OK'; }
             else if (st === 'issue') { stBadge.style.background='#ef4444'; stBadge.style.color='#fff'; stBadge.textContent='ISSUE'; }
             tile.appendChild(stBadge);
 
