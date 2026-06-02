@@ -89,9 +89,12 @@
 
         .image-tile {
             position: relative; background: #e2e8f0;
-            border-radius: 8px; overflow: hidden;
+            border-radius: 8px; overflow: visible;
             aspect-ratio: 4/3; cursor: zoom-in;
             transition: transform 0.15s;
+        }
+        .image-tile img, .image-tile .img-skeleton {
+            border-radius: 8px;
         }
         .image-tile:hover { transform: scale(1.02); }
         .image-tile img {
@@ -2694,9 +2697,16 @@
             badge.textContent = v.vin.slice(-8);  // last 8 chars of VIN
             tile.appendChild(badge);
 
-            // Checkbox — top-left corner
+            // Status badge — top-LEFT corner
+            const stBadge = document.createElement('div');
+            stBadge.style.cssText = 'position:absolute;top:5px;left:5px;z-index:5;font-size:8px;font-weight:800;padding:2px 5px;border-radius:4px;letter-spacing:0.3px;white-space:nowrap;';
+            if (st === 'ok')         { stBadge.style.background='#10b981'; stBadge.style.color='#fff'; stBadge.textContent='✓ OK'; }
+            else if (st === 'issue') { stBadge.style.background='#ef4444'; stBadge.style.color='#fff'; stBadge.textContent='✕ ISSUE'; }
+            tile.appendChild(stBadge);
+
+            // Checkbox — top-RIGHT corner
             const cbWrap = document.createElement('div');
-            cbWrap.style.cssText = 'position:absolute;top:5px;left:5px;z-index:6;display:flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,255,255,0.95);border-radius:5px;box-shadow:0 1px 4px rgba(0,0,0,0.25);';
+            cbWrap.style.cssText = 'position:absolute;top:5px;right:5px;z-index:6;display:flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,255,255,0.95);border-radius:5px;box-shadow:0 1px 4px rgba(0,0,0,0.25);';
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.style.cssText = 'width:13px;height:13px;cursor:pointer;accent-color:#3b82f6;';
@@ -2709,13 +2719,6 @@
             cbWrap.appendChild(cb);
             tile.appendChild(cbWrap);
             tile._checkbox = cb;
-
-            // Status badge — top-right corner (separate from checkbox)
-            const stBadge = document.createElement('div');
-            stBadge.style.cssText = 'position:absolute;top:5px;right:5px;z-index:5;font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;';
-            if (st === 'ok')         { stBadge.style.background='#10b981'; stBadge.style.color='#fff'; stBadge.textContent='OK'; }
-            else if (st === 'issue') { stBadge.style.background='#ef4444'; stBadge.style.color='#fff'; stBadge.textContent='ISSUE'; }
-            tile.appendChild(stBadge);
 
             // Hover overlay
             const hoverOv = document.createElement('div');
@@ -2796,11 +2799,11 @@
             // Update status badge (second child after img-index)
             const stBadge = tile.children[1];
             if (stBadge && !stBadge.classList.contains('img-skeleton') && stBadge.style.position === 'absolute') {
-                if (newSt === 'ok')    { stBadge.textContent='OK';    stBadge.style.background='#10b981'; }
-                else                   { stBadge.textContent='ISSUE'; stBadge.style.background='#ef4444'; }
+                if (newSt === 'ok')    { stBadge.textContent='✓ OK';    stBadge.style.background='#10b981'; }
+                else                   { stBadge.textContent='✕ ISSUE'; stBadge.style.background='#ef4444'; }
             }
-            // Update hover overlay text (third child)
-            const hoverOv = tile.children[2];
+            // Update hover overlay text (fourth child after badge+stBadge+cbWrap)
+            const hoverOv = tile.children[3];
             if (hoverOv && hoverOv.style.transition) {
                 if (newSt === 'issue') { hoverOv.style.background='rgba(16,185,129,0.8)'; hoverOv.textContent='✓ Mark OK'; }
                 else                   { hoverOv.style.background='rgba(239,68,68,0.8)';  hoverOv.textContent='✕ Mark Issue'; }
@@ -2840,7 +2843,7 @@
                     tile.style.outline = '2px solid #10b981';
                     const stBadge = tile.children[1];
                     if (stBadge && stBadge.style.position === 'absolute') {
-                        stBadge.textContent = 'OK'; stBadge.style.background = '#10b981';
+                        stBadge.textContent = '✓ OK'; stBadge.style.background = '#10b981';
                     }
                 }
                 // Only add to bulk POST if it was pending (not already synced individually)
