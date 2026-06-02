@@ -1674,40 +1674,37 @@
         }
     }
 
-    // Fetch a single image as a Blob using the original full-resolution URL.
-    // Strategy: try fetch() with no-referrer first (works for CORS-open CDNs like S3/CloudFront).
-    // If that fails (CORS block), load into a hidden <img> and draw to canvas to get the blob.
-    // Canvas approach works for images that display fine in browser but block fetch().
+    // Fetch a single image as a Blob at full resolution.
+    // Strategy 1: fetch() with no-cors — browser fetches the image exactly like <img src> does.
+    //   Returns an opaque response (can't read headers/status) but blob contains real image bytes.
+    //   Works for any URL that displays in the browser, regardless of CORS policy.
+    // Strategy 2: fetch() with cors + no-referrer — for S3/CloudFront URLs with CORS headers.
+    // Strategy 3: resolve null — image is skipped in ZIP.
     function fetchImageBlob(url) {
         return new Promise(async (resolve) => {
-            // Try direct fetch first (fastest, full quality)
+            // Try no-cors first — opaque response, but blob has real data for any displayable image
             try {
-                const res = await fetch(url, { referrerPolicy: 'no-referrer', cache: 'force-cache' });
+                const res = await fetch(url, {
+                    mode: 'no-cors',
+                    referrerPolicy: 'no-referrer',
+                    cache: 'force-cache'
+                });
+                const blob = await res.blob();
+                // Opaque blobs have size > 0 even though type is empty string
+                if (blob && blob.size > 0) { resolve(blob); return; }
+            } catch(e) {}
+
+            // Fallback: try regular CORS fetch (works for S3/CloudFront with CORS headers)
+            try {
+                const res = await fetch(url, {
+                    mode: 'cors',
+                    referrerPolicy: 'no-referrer',
+                    cache: 'force-cache'
+                });
                 if (res.ok) { resolve(await res.blob()); return; }
             } catch(e) {}
 
-            // Fallback: draw to canvas (bypasses CORS fetch restriction for displayable images)
-            try {
-                await new Promise((res2, rej2) => {
-                    const img = new Image();
-                    img.crossOrigin = 'anonymous';
-                    img.referrerPolicy = 'no-referrer';
-                    img.onload = () => {
-                        try {
-                            const c = document.createElement('canvas');
-                            c.width = img.naturalWidth || img.width;
-                            c.height = img.naturalHeight || img.height;
-                            c.getContext('2d').drawImage(img, 0, 0);
-                            c.toBlob(blob => { resolve(blob); res2(); }, 'image/jpeg', 0.95);
-                        } catch(e) { rej2(e); }
-                    };
-                    img.onerror = rej2;
-                    img.src = url;
-                });
-                return;
-            } catch(e) {}
-
-            // Both failed — resolve null so we skip this image
+            // Could not fetch — skip this image
             resolve(null);
         });
     }
