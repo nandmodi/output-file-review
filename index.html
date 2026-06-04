@@ -73,7 +73,35 @@
         .vin-item.approved:hover { background: #d1fae5; }
         .vin-item.rejected { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
         .vin-item.rejected:hover { background: #fee2e2; }
-        .vin-item.vin-selected {
+        /* 1st image preview pane */
+        #img1-preview-pane {
+            width: 360px; min-width: 360px;
+            background: #fff;
+            border-left: 1px solid #e2e8f0;
+            display: flex; flex-direction: column;
+            transition: width 0.2s, min-width 0.2s;
+        }
+        #img1-preview-pane.hidden-pane { width: 0; min-width: 0; border: none; overflow: hidden; }
+        #img1-preview-img {
+            width: 100%; height: 100%; object-fit: contain;
+            background: #0f172a;
+        }
+        .img1-preview-circle {
+            width: 38px; height: 38px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px; font-weight: 800; cursor: pointer;
+            transition: all 0.12s; user-select: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .img1-nav-btn {
+            width: 34px; height: 34px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; background: #f1f5f9; color: #475569;
+            transition: background 0.1s;
+        }
+        .img1-nav-btn:hover { background: #e2e8f0; }
+
+                .vin-item.vin-selected {
         background: #eff6ff !important;
         border-left: 3px solid #3b82f6 !important;
     }
@@ -642,6 +670,64 @@
                     </div>
                 </div>
             </main>
+
+            <!-- 1st Image Preview Pane — shown when a VIN is selected in 1img mode -->
+            <div id="img1-preview-pane" class="hidden-pane flex-shrink-0">
+                <!-- Header -->
+                <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
+                    <div class="min-w-0">
+                        <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Preview</p>
+                        <p id="preview-vin-text" class="font-mono text-[12px] font-bold text-slate-700 truncate mt-0.5"></p>
+                    </div>
+                    <div class="flex items-center space-x-1.5">
+                        <!-- Nav arrows -->
+                        <div class="img1-nav-btn" onclick="previewNav(-1)" title="Previous (←)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                        </div>
+                        <span id="preview-idx-label" class="text-[10px] text-slate-400 font-medium w-12 text-center"></span>
+                        <div class="img1-nav-btn" onclick="previewNav(1)" title="Next (→)">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                        </div>
+                        <!-- Close -->
+                        <div class="img1-nav-btn ml-1" onclick="closeImg1Preview()" title="Close preview">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Image -->
+                <div class="flex-1 min-h-0 relative bg-slate-900 flex items-center justify-center">
+                    <img id="img1-preview-img" src="" alt="" class="max-w-full max-h-full object-contain">
+                    <div id="img1-preview-skeleton" class="absolute inset-0 flex items-center justify-center bg-slate-800">
+                        <div class="spinner-blue"></div>
+                    </div>
+                </div>
+
+                <!-- Issue controls -->
+                <div class="px-4 py-3 border-t border-slate-100 flex-shrink-0 bg-white">
+                    <p class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-2">Mark Issue <span class="text-slate-300 font-normal normal-case">(r = Raw · s = Stock)</span></p>
+                    <div class="flex items-center space-x-3">
+                        <!-- R circle -->
+                        <div id="preview-r-btn" class="img1-preview-circle" onclick="previewToggleIssue('raw')"
+                            title="Raw issue (R)">R</div>
+                        <!-- S circle -->
+                        <div id="preview-s-btn" class="img1-preview-circle" onclick="previewToggleIssue('stock')"
+                            title="Stock issue (S)">S</div>
+                        <!-- OK button -->
+                        <button onclick="previewMarkOk()" id="preview-ok-btn"
+                            class="flex-1 py-2 rounded-lg text-[12px] font-bold transition flex items-center justify-center space-x-1.5 bg-emerald-500 hover:bg-emerald-600 text-white">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            <span>OK</span>
+                        </button>
+                        <!-- Clear button -->
+                        <button onclick="previewClearIssue()"
+                            class="px-3 py-2 rounded-lg text-[11px] font-semibold text-slate-500 hover:bg-slate-100 transition border border-slate-200">
+                            Clear
+                        </button>
+                    </div>
+                    <p id="preview-status-text" class="text-[10px] text-center mt-2 font-semibold text-slate-400"></p>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1596,6 +1682,134 @@
             });
         }
     });
+
+    // =========================================================================
+    // 1ST IMAGE PREVIEW PANE
+    // =========================================================================
+    function openImg1Preview(idx) {
+        const pane = document.getElementById('img1-preview-pane');
+        pane.classList.remove('hidden-pane');
+        renderImg1Preview(idx);
+    }
+
+    function closeImg1Preview() {
+        document.getElementById('img1-preview-pane').classList.add('hidden-pane');
+    }
+
+    function previewNav(dir) {
+        if (!currentImg1VINs.length) return;
+        const next = Math.max(0, Math.min(currentImg1VINs.length - 1, currentImg1Idx + dir));
+        select1ImgVIN(next);
+    }
+
+    function renderImg1Preview(idx) {
+        if (idx < 0 || idx >= currentImg1VINs.length) return;
+        const v   = currentImg1VINs[idx];
+        const st  = getImg1Review(currentImg1Team?.teamId, v.vin);
+        const url = v.urls[0] || '';
+
+        document.getElementById('preview-vin-text').textContent  = v.vin;
+        document.getElementById('preview-idx-label').textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
+
+        // Image load
+        const img  = document.getElementById('img1-preview-img');
+        const skel = document.getElementById('img1-preview-skeleton');
+        img.style.opacity = '0';
+        skel.style.display = 'flex';
+        img.onload = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
+        img.onerror = () => { skel.style.display = 'none'; img.style.opacity = '1'; };
+        img.src = url;
+        img.referrerPolicy = 'no-referrer';
+
+        // Update R / S buttons
+        updatePreviewButtons(st);
+    }
+
+    function updatePreviewButtons(st) {
+        const rBtn = document.getElementById('preview-r-btn');
+        const sBtn = document.getElementById('preview-s-btn');
+        const statusTxt = document.getElementById('preview-status-text');
+
+        // R button
+        if (st === 'raw') {
+            rBtn.style.cssText = 'background:#f97316;color:#fff;box-shadow:0 2px 8px rgba(249,115,22,0.4);';
+        } else {
+            rBtn.style.cssText = 'background:#fff;color:#f97316;outline:2px solid #f97316;box-shadow:0 1px 3px rgba(0,0,0,0.1);';
+        }
+        // S button
+        if (st === 'stock') {
+            sBtn.style.cssText = 'background:#3b82f6;color:#fff;box-shadow:0 2px 8px rgba(59,130,246,0.4);';
+        } else {
+            sBtn.style.cssText = 'background:#fff;color:#3b82f6;outline:2px solid #3b82f6;box-shadow:0 1px 3px rgba(0,0,0,0.1);';
+        }
+        // Apply base class styles
+        [rBtn, sBtn].forEach(b => {
+            b.className = 'img1-preview-circle';
+            b.style.cssText += 'width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;cursor:pointer;transition:all 0.12s;user-select:none;';
+        });
+        if (st === 'raw') {
+            rBtn.style.background = '#f97316'; rBtn.style.color = '#fff';
+            rBtn.style.outline = 'none'; rBtn.style.boxShadow = '0 2px 8px rgba(249,115,22,0.4)';
+        } else {
+            rBtn.style.background = '#fff'; rBtn.style.color = '#f97316';
+            rBtn.style.outline = '2px solid #f97316';
+        }
+        if (st === 'stock') {
+            sBtn.style.background = '#3b82f6'; sBtn.style.color = '#fff';
+            sBtn.style.outline = 'none'; sBtn.style.boxShadow = '0 2px 8px rgba(59,130,246,0.4)';
+        } else {
+            sBtn.style.background = '#fff'; sBtn.style.color = '#3b82f6';
+            sBtn.style.outline = '2px solid #3b82f6';
+        }
+
+        // OK button state
+        const okBtn = document.getElementById('preview-ok-btn');
+        if (st === 'ok') {
+            okBtn.classList.remove('bg-emerald-500','hover:bg-emerald-600');
+            okBtn.classList.add('bg-emerald-700','ring-2','ring-emerald-400');
+        } else {
+            okBtn.classList.add('bg-emerald-500','hover:bg-emerald-600');
+            okBtn.classList.remove('bg-emerald-700','ring-2','ring-emerald-400');
+        }
+
+        const labels = { 'raw':'⚑ Marked as Raw', 'stock':'⚑ Marked as Stock', 'ok':'✓ Marked OK' };
+        statusTxt.textContent = labels[st] || '';
+        statusTxt.style.color = st === 'raw' ? '#f97316' : st === 'stock' ? '#3b82f6' : st === 'ok' ? '#10b981' : '#94a3b8';
+    }
+
+    function previewToggleIssue(value) {
+        if (currentImg1Idx < 0) return;
+        const v   = currentImg1VINs[currentImg1Idx];
+        const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+        const newSt = (cur === value) ? null : value;
+        setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
+        updateImg1ProgressBadge();
+        updateTileIssueState(currentImg1Idx, newSt);
+        updatePreviewButtons(newSt);
+        render1ImgSidebar();
+    }
+
+    function previewMarkOk() {
+        if (currentImg1Idx < 0) return;
+        const v = currentImg1VINs[currentImg1Idx];
+        const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+        const newSt = cur === 'ok' ? null : 'ok';
+        setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
+        updateImg1ProgressBadge();
+        updateTileIssueState(currentImg1Idx, newSt);
+        updatePreviewButtons(newSt);
+        render1ImgSidebar();
+    }
+
+    function previewClearIssue() {
+        if (currentImg1Idx < 0) return;
+        const v = currentImg1VINs[currentImg1Idx];
+        setImg1Review(currentImg1Team.teamId, v.vin, null, '');
+        updateImg1ProgressBadge();
+        updateTileIssueState(currentImg1Idx, null);
+        updatePreviewButtons(null);
+        render1ImgSidebar();
+    }
 
     // =========================================================================
     // BULK VIN SELECTION & IMAGE DOWNLOAD
@@ -2633,6 +2847,8 @@
     function select1ImgVIN(idx) {
         if (idx < 0 || idx >= currentImg1VINs.length) return;
         currentImg1Idx = idx;
+        // Open preview pane
+        openImg1Preview(idx);
         const v = currentImg1VINs[idx];
 
         // Update header VIN display
@@ -3162,18 +3378,32 @@
                 toggle1ImgIssue(currentImg1Idx);
                 return;
             }
-            // Arrow keys to move between VINs in sidebar
-            if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+            // Arrow keys — navigate VINs
+            if (e.key === 'ArrowRight') {
                 e.preventDefault();
-                const next = Math.min(currentImg1Idx + 1, currentImg1VINs.length - 1);
-                select1ImgVIN(next);
-                return;
+                previewNav(1); return;
             }
-            if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+            if (e.key === 'ArrowLeft') {
                 e.preventDefault();
-                const prev = Math.max(currentImg1Idx - 1, 0);
-                select1ImgVIN(prev);
-                return;
+                previewNav(-1); return;
+            }
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                previewNav(1); return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                previewNav(-1); return;
+            }
+            // r / R → toggle Raw issue
+            if (e.key === 'r' || e.key === 'R') {
+                e.preventDefault();
+                previewToggleIssue('raw'); return;
+            }
+            // s / S → toggle Stock issue
+            if (e.key === 's' || e.key === 'S') {
+                e.preventDefault();
+                previewToggleIssue('stock'); return;
             }
             return;
         }
@@ -3261,6 +3491,7 @@
     function closeSummary() {
         document.getElementById('summary-modal').classList.remove('active');
         clearVINSelection();
+        closeImg1Preview();
 
         // Reset 1img mode flag on download button
         const dlBtn = document.getElementById('download-csv-btn');
