@@ -2439,26 +2439,18 @@
     function getImg1Review(teamId, vin) { return (img1Reviews[teamId] && img1Reviews[teamId][vin]) || null; }
 
     // Helpers to work with raw/stock sub-states
-    function isRaw(st)   { return st === 'raw'  || st === 'both'; }
-    function isStock(st) { return st === 'stock' || st === 'both'; }
-    function combineRawStock(raw, stock) {
-        if (raw && stock) return 'both';
-        if (raw)          return 'raw';
-        if (stock)        return 'stock';
-        return 'ok';
-    }
+    function isRaw(st)   { return st === 'raw'; }
+    function isStock(st) { return st === 'stock'; }
     function stateColor(st) {
         if (st === 'ok')    return '#10b981';  // green
         if (st === 'raw')   return '#f97316';  // orange
         if (st === 'stock') return '#3b82f6';  // blue
-        if (st === 'both')  return '#ef4444';  // red
         return 'transparent';
     }
     function stateBadgeText(st) {
         if (st === 'ok')    return '✓ OK';
-        if (st === 'raw')   return '⚑ RAW';
-        if (st === 'stock') return '⚑ STOCK';
-        if (st === 'both')  return '⚑ RAW+STOCK';
+        if (st === 'raw')   return 'R';
+        if (st === 'stock') return 'S';
         return '';
     }
     function setImg1Review(teamId, vin, status, comment) {
@@ -2614,7 +2606,7 @@
             if (st === 'ok')    { stateClass = 'approved'; dotClass = 'dot-approved'; }
             if (st === 'raw')   { stateClass = 'rejected'; dotClass = 'dot-raw'; }
             if (st === 'stock') { stateClass = 'rejected'; dotClass = 'dot-stock'; }
-            if (st === 'both')  { stateClass = 'rejected'; dotClass = 'dot-rejected'; }
+
             if (idx === currentImg1Idx) stateClass += ' current';
 
             const item = document.createElement('div');
@@ -2726,27 +2718,36 @@
             // Status badge — top-LEFT (shows ok/raw/stock/both)
             const stBadge = document.createElement('div');
             const badgeTxt = stateBadgeText(st);
-            stBadge.style.cssText = 'position:absolute;top:5px;left:5px;z-index:5;font-size:8px;font-weight:800;padding:2px 5px;border-radius:4px;letter-spacing:0.3px;white-space:nowrap;';
-            if (badgeTxt) { stBadge.style.background = stateColor(st); stBadge.style.color = '#fff'; stBadge.textContent = badgeTxt; }
+            // Circle badge for R/S, pill for OK
+            if (st === 'raw' || st === 'stock') {
+                stBadge.style.cssText = 'position:absolute;top:5px;left:5px;z-index:5;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;box-shadow:0 1px 3px rgba(0,0,0,0.25);';
+                stBadge.style.background = stateColor(st);
+                stBadge.style.color = '#fff';
+                stBadge.textContent = badgeTxt;
+            } else if (st === 'ok') {
+                stBadge.style.cssText = 'position:absolute;top:5px;left:5px;z-index:5;font-size:8px;font-weight:800;padding:2px 5px;border-radius:4px;white-space:nowrap;';
+                stBadge.style.background = '#10b981';
+                stBadge.style.color = '#fff';
+                stBadge.textContent = '✓ OK';
+            }
             tile.appendChild(stBadge);
 
             // Issue radio buttons — top-RIGHT (RAW / STOCK, mutually exclusive)
             // Single click selects; clicking the already-selected one deselects it.
             const issueWrap = document.createElement('div');
-            issueWrap.style.cssText = 'position:absolute;top:5px;right:5px;z-index:6;display:flex;flex-direction:column;gap:3px;';
+            issueWrap.style.cssText = 'position:absolute;top:5px;right:5px;z-index:6;display:flex;flex-direction:column;gap:2px;';
 
-            function makeIssueRadio(label, color, value, currentSt) {
+            function makeIssueCircle(letter, color, value, currentSt) {
                 const btn = document.createElement('div');
                 const active = currentSt === value;
-                btn.style.cssText = 'display:flex;align-items:center;gap:3px;border-radius:4px;padding:2px 5px;'
-                    + 'box-shadow:0 1px 3px rgba(0,0,0,0.2);cursor:pointer;user-select:none;font-size:9px;font-weight:700;'
-                    + 'transition:all 0.1s;'
+                btn.style.cssText = 'width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;'
+                    + 'font-size:10px;font-weight:800;cursor:pointer;user-select:none;transition:all 0.12s;'
+                    + 'box-shadow:0 1px 3px rgba(0,0,0,0.25);'
                     + (active
                         ? 'background:' + color + ';color:#fff;'
-                        : 'background:rgba(255,255,255,0.95);color:' + color + ';border:1px solid ' + color + ';');
-                btn.textContent = label;
+                        : 'background:rgba(255,255,255,0.95);color:' + color + ';outline:2px solid ' + color + ';');
+                btn.textContent = letter;
                 btn.dataset.value = value;
-                btn.dataset.active = active ? '1' : '0';
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     setImg1IssueType(idx, btn);
@@ -2754,8 +2755,8 @@
                 return btn;
             }
 
-            const rawBtn   = makeIssueRadio('RAW',   '#f97316', 'raw',   st);
-            const stockBtn = makeIssueRadio('STOCK', '#3b82f6', 'stock', st);
+            const rawBtn   = makeIssueCircle('R', '#f97316', 'raw',   st);
+            const stockBtn = makeIssueCircle('S', '#3b82f6', 'stock', st);
             issueWrap.appendChild(rawBtn);
             issueWrap.appendChild(stockBtn);
             tile.appendChild(issueWrap);
@@ -2869,19 +2870,25 @@
         const stBadge = tile.children[1];
         if (stBadge && stBadge.style.position === 'absolute') {
             const txt = stateBadgeText(st);
-            stBadge.textContent = txt;
-            stBadge.style.background = txt ? color : 'transparent';
-            stBadge.style.color = txt ? '#fff' : 'transparent';
+            stBadge.textContent = txt || '';
+            if (st === 'raw' || st === 'stock') {
+                stBadge.style.cssText = 'position:absolute;top:5px;left:5px;z-index:5;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;box-shadow:0 1px 3px rgba(0,0,0,0.25);';
+                stBadge.style.background = color; stBadge.style.color = '#fff';
+            } else if (st === 'ok') {
+                stBadge.style.cssText = 'position:absolute;top:5px;left:5px;z-index:5;font-size:8px;font-weight:800;padding:2px 5px;border-radius:4px;white-space:nowrap;';
+                stBadge.style.background = '#10b981'; stBadge.style.color = '#fff';
+            } else {
+                stBadge.style.background = 'transparent'; stBadge.style.color = 'transparent';
+            }
         }
-        // Refresh radio button appearance
+        // Refresh circle button appearance
         const refreshBtn = (btn, value) => {
             if (!btn) return;
             const active = (st === value);
             const c = value === 'raw' ? '#f97316' : '#3b82f6';
             btn.style.background = active ? c : 'rgba(255,255,255,0.95)';
             btn.style.color      = active ? '#fff' : c;
-            btn.style.border     = active ? 'none' : '1px solid ' + c;
-            btn.dataset.active   = active ? '1' : '0';
+            btn.style.outline    = active ? 'none' : '2px solid ' + c;
         };
         refreshBtn(tile._rawBtn,   'raw');
         refreshBtn(tile._stockBtn, 'stock');
@@ -2974,7 +2981,7 @@
             const stClass = st === 'ok'    ? 'bg-emerald-100 text-emerald-700'
                           : st === 'raw'   ? 'bg-orange-100 text-orange-700'
                           : st === 'stock' ? 'bg-blue-100 text-blue-700'
-                          : st === 'both'  ? 'bg-rose-100 text-rose-700'
+
                           : 'bg-slate-100 text-slate-500';
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50';
