@@ -73,34 +73,6 @@
         .vin-item.approved:hover { background: #d1fae5; }
         .vin-item.rejected { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
         .vin-item.rejected:hover { background: #fee2e2; }
-        /* 1st image preview pane */
-        #img1-preview-pane {
-            width: 360px; min-width: 360px;
-            background: #fff;
-            border-left: 1px solid #e2e8f0;
-            display: flex; flex-direction: column;
-            transition: width 0.2s, min-width 0.2s;
-        }
-        #img1-preview-pane.hidden-pane { width: 0; min-width: 0; border: none; overflow: hidden; }
-        #img1-preview-img {
-            width: 100%; height: 100%; object-fit: contain;
-            background: #0f172a;
-        }
-        .img1-preview-circle {
-            width: 38px; height: 38px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 15px; font-weight: 800; cursor: pointer;
-            transition: all 0.12s; user-select: none;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
-        }
-        .img1-nav-btn {
-            width: 34px; height: 34px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            cursor: pointer; background: #f1f5f9; color: #475569;
-            transition: background 0.1s;
-        }
-        .img1-nav-btn:hover { background: #e2e8f0; }
-
                 .vin-item.vin-selected {
         background: #eff6ff !important;
         border-left: 3px solid #3b82f6 !important;
@@ -188,6 +160,30 @@
             flex-direction: column; gap: 16px;
         }
         .data-loading-overlay.hidden { display: none; }
+
+        /* View toggle & single view */
+        .view-toggle-btn { transition: all 0.15s; }
+        .view-toggle-btn.active { background: #3b82f6; color: #fff; }
+        .view-toggle-btn:not(.active) { background: #f1f5f9; color: #64748b; }
+        .view-toggle-btn:not(.active):hover { background: #e2e8f0; }
+        #single-view-area {
+            display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;
+        }
+        #single-view-area.active { display: flex; }
+        .sv-circle {
+            width: 44px; height: 44px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 800; cursor: pointer;
+            transition: all 0.12s; user-select: none;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .sv-nav {
+            width: 38px; height: 38px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            background: rgba(255,255,255,0.15); color: #fff; cursor: pointer;
+            transition: background 0.1s; flex-shrink: 0;
+        }
+        .sv-nav:hover { background: rgba(255,255,255,0.3); }
 
         /* 1st image review mode */
         .img1-card {
@@ -578,9 +574,22 @@
                             <span id="copy-vin-feedback" class="text-[10px] font-semibold text-emerald-600 opacity-0 transition-opacity">Copied!</span>
                         </div>
                     </div>
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-3">
                         <span id="current-vin-image-count" class="text-[11px] text-slate-500"></span>
                         <span id="current-vin-status-badge" class="px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider">pending</span>
+                        <!-- View toggle — only visible in 1img mode -->
+                        <div id="img1-view-toggle" class="hidden items-center rounded-lg border border-slate-200 overflow-hidden">
+                            <button id="vt-grid" onclick="setImg1View('grid')"
+                                class="view-toggle-btn active px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1" title="Grid view">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                                <span>Grid</span>
+                            </button>
+                            <button id="vt-single" onclick="setImg1View('single')"
+                                class="view-toggle-btn px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1" title="Single view">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/></svg>
+                                <span>Single</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -597,6 +606,53 @@
                             <span id="bulk-dl-btn-text">Download ZIP</span>
                         </button>
                         <button onclick="clearVINSelection()" class="text-blue-200 hover:text-white text-[11px] transition">✕ Clear</button>
+                    </div>
+                </div>
+
+                <!-- ── Single View ── -->
+                <div id="single-view-area">
+                    <!-- Dark image panel -->
+                    <div class="flex-1 min-h-0 relative bg-slate-900 flex items-center justify-center overflow-hidden">
+                        <img id="sv-img" src="" alt="" referrerpolicy="no-referrer"
+                            class="max-w-full max-h-full object-contain transition-opacity duration-150" style="opacity:0">
+                        <div id="sv-skeleton" class="absolute inset-0 flex items-center justify-center">
+                            <div class="spinner-blue"></div>
+                        </div>
+                        <!-- Nav arrows overlaid on image -->
+                        <div class="sv-nav absolute left-3 top-1/2 -translate-y-1/2" onclick="svNav(-1)" title="← Previous">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                        </div>
+                        <div class="sv-nav absolute right-3 top-1/2 -translate-y-1/2" onclick="svNav(1)" title="Next →">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                        </div>
+                        <!-- VIN + counter overlay at top -->
+                        <div class="absolute top-3 left-1/2 -translate-x-1/2 bg-black/60 text-white rounded-lg px-4 py-1.5 flex items-center space-x-3 text-[11px]">
+                            <span id="sv-vin" class="font-mono font-bold tracking-wide"></span>
+                            <span id="sv-counter" class="text-white/60"></span>
+                        </div>
+                    </div>
+                    <!-- Controls bar -->
+                    <div class="flex-shrink-0 bg-white border-t border-slate-100 px-6 py-3 flex items-center space-x-4">
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mark:</span>
+                        <!-- R circle -->
+                        <div id="sv-r-btn" onclick="svToggleIssue('raw')" title="Raw (R)"
+                            class="sv-circle" style="background:#fff;color:#f97316;outline:2px solid #f97316;">R</div>
+                        <!-- S circle -->
+                        <div id="sv-s-btn" onclick="svToggleIssue('stock')" title="Stock (S)"
+                            class="sv-circle" style="background:#fff;color:#3b82f6;outline:2px solid #3b82f6;">S</div>
+                        <!-- OK -->
+                        <button id="sv-ok-btn" onclick="svMarkOk()"
+                            class="px-5 py-2 rounded-lg text-[12px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1.5">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                            <span>OK</span>
+                        </button>
+                        <!-- Clear -->
+                        <button onclick="svClear()"
+                            class="px-3 py-2 rounded-lg text-[11px] font-semibold text-slate-500 hover:bg-slate-100 border border-slate-200 transition">Clear</button>
+                        <!-- Status label -->
+                        <span id="sv-status" class="text-[11px] font-semibold ml-2"></span>
+                        <span class="flex-1"></span>
+                        <span class="text-[10px] text-slate-300">r = Raw · s = Stock · ← → navigate</span>
                     </div>
                 </div>
 
@@ -1684,132 +1740,123 @@
     });
 
     // =========================================================================
-    // 1ST IMAGE PREVIEW PANE
+    // 1ST IMAGE VIEW TOGGLE (grid / single)
     // =========================================================================
-    function openImg1Preview(idx) {
-        const pane = document.getElementById('img1-preview-pane');
-        pane.classList.remove('hidden-pane');
-        renderImg1Preview(idx);
+    let img1ViewMode = 'grid'; // 'grid' | 'single'
+
+    function setImg1View(mode) {
+        img1ViewMode = mode;
+        const gridArea   = document.getElementById('image-area');
+        const singleArea = document.getElementById('single-view-area');
+        const vtGrid     = document.getElementById('vt-grid');
+        const vtSingle   = document.getElementById('vt-single');
+
+        if (mode === 'single') {
+            gridArea.classList.add('hidden');
+            singleArea.classList.add('active');
+            vtGrid.classList.remove('active');
+            vtSingle.classList.add('active');
+            // Show current VIN in single view (use currentImg1Idx, or first)
+            const idx = currentImg1Idx >= 0 ? currentImg1Idx : 0;
+            svShow(idx);
+        } else {
+            gridArea.classList.remove('hidden');
+            singleArea.classList.remove('active');
+            vtGrid.classList.add('active');
+            vtSingle.classList.remove('active');
+        }
     }
 
-    function closeImg1Preview() {
-        document.getElementById('img1-preview-pane').classList.add('hidden-pane');
-    }
-
-    function previewNav(dir) {
-        if (!currentImg1VINs.length) return;
-        const next = Math.max(0, Math.min(currentImg1VINs.length - 1, currentImg1Idx + dir));
-        select1ImgVIN(next);
-    }
-
-    function renderImg1Preview(idx) {
-        if (idx < 0 || idx >= currentImg1VINs.length) return;
+    function svShow(idx) {
+        if (!currentImg1VINs || idx < 0 || idx >= currentImg1VINs.length) return;
+        currentImg1Idx = idx;
         const v   = currentImg1VINs[idx];
         const st  = getImg1Review(currentImg1Team?.teamId, v.vin);
         const url = v.urls[0] || '';
 
-        document.getElementById('preview-vin-text').textContent  = v.vin;
-        document.getElementById('preview-idx-label').textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
+        document.getElementById('sv-vin').textContent     = v.vin;
+        document.getElementById('sv-counter').textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
 
-        // Image load
-        const img  = document.getElementById('img1-preview-img');
-        const skel = document.getElementById('img1-preview-skeleton');
+        const img  = document.getElementById('sv-img');
+        const skel = document.getElementById('sv-skeleton');
         img.style.opacity = '0';
         skel.style.display = 'flex';
-        img.onload = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
+        img.onload  = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
         img.onerror = () => { skel.style.display = 'none'; img.style.opacity = '1'; };
         img.src = url;
-        img.referrerPolicy = 'no-referrer';
 
-        // Update R / S buttons
-        updatePreviewButtons(st);
+        svUpdateControls(st);
+        // Also sync sidebar highlight
+        render1ImgSidebar();
+        // Update header VIN text / status badge
+        document.getElementById('current-vin-text').innerText = v.vin;
+        const badge = document.getElementById('current-vin-status-badge');
+        const badgeStyles = {
+            ok:    ['bg-emerald-100 text-emerald-700', 'ok'],
+            raw:   ['bg-orange-100 text-orange-700',   'raw'],
+            stock: ['bg-blue-100 text-blue-700',       'stock'],
+        };
+        const [cls, lbl] = badgeStyles[st] || ['bg-orange-100 text-orange-600', 'pending'];
+        badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ' + cls;
+        badge.innerText = lbl;
     }
 
-    function updatePreviewButtons(st) {
-        const rBtn = document.getElementById('preview-r-btn');
-        const sBtn = document.getElementById('preview-s-btn');
-        const statusTxt = document.getElementById('preview-status-text');
+    function svUpdateControls(st) {
+        const rBtn     = document.getElementById('sv-r-btn');
+        const sBtn     = document.getElementById('sv-s-btn');
+        const okBtn    = document.getElementById('sv-ok-btn');
+        const statusEl = document.getElementById('sv-status');
 
         // R button
-        if (st === 'raw') {
-            rBtn.style.cssText = 'background:#f97316;color:#fff;box-shadow:0 2px 8px rgba(249,115,22,0.4);';
-        } else {
-            rBtn.style.cssText = 'background:#fff;color:#f97316;outline:2px solid #f97316;box-shadow:0 1px 3px rgba(0,0,0,0.1);';
-        }
+        rBtn.style.cssText = st === 'raw'
+            ? 'background:#f97316;color:#fff;outline:none;box-shadow:0 2px 8px rgba(249,115,22,0.4);'
+            : 'background:#fff;color:#f97316;outline:2px solid #f97316;';
+        rBtn.className = 'sv-circle';
+
         // S button
-        if (st === 'stock') {
-            sBtn.style.cssText = 'background:#3b82f6;color:#fff;box-shadow:0 2px 8px rgba(59,130,246,0.4);';
-        } else {
-            sBtn.style.cssText = 'background:#fff;color:#3b82f6;outline:2px solid #3b82f6;box-shadow:0 1px 3px rgba(0,0,0,0.1);';
-        }
-        // Apply base class styles
-        [rBtn, sBtn].forEach(b => {
-            b.className = 'img1-preview-circle';
-            b.style.cssText += 'width:38px;height:38px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;cursor:pointer;transition:all 0.12s;user-select:none;';
-        });
-        if (st === 'raw') {
-            rBtn.style.background = '#f97316'; rBtn.style.color = '#fff';
-            rBtn.style.outline = 'none'; rBtn.style.boxShadow = '0 2px 8px rgba(249,115,22,0.4)';
-        } else {
-            rBtn.style.background = '#fff'; rBtn.style.color = '#f97316';
-            rBtn.style.outline = '2px solid #f97316';
-        }
-        if (st === 'stock') {
-            sBtn.style.background = '#3b82f6'; sBtn.style.color = '#fff';
-            sBtn.style.outline = 'none'; sBtn.style.boxShadow = '0 2px 8px rgba(59,130,246,0.4)';
-        } else {
-            sBtn.style.background = '#fff'; sBtn.style.color = '#3b82f6';
-            sBtn.style.outline = '2px solid #3b82f6';
-        }
+        sBtn.style.cssText = st === 'stock'
+            ? 'background:#3b82f6;color:#fff;outline:none;box-shadow:0 2px 8px rgba(59,130,246,0.4);'
+            : 'background:#fff;color:#3b82f6;outline:2px solid #3b82f6;';
+        sBtn.className = 'sv-circle';
 
-        // OK button state
-        const okBtn = document.getElementById('preview-ok-btn');
-        if (st === 'ok') {
-            okBtn.classList.remove('bg-emerald-500','hover:bg-emerald-600');
-            okBtn.classList.add('bg-emerald-700','ring-2','ring-emerald-400');
-        } else {
-            okBtn.classList.add('bg-emerald-500','hover:bg-emerald-600');
-            okBtn.classList.remove('bg-emerald-700','ring-2','ring-emerald-400');
-        }
+        // OK button
+        okBtn.style.background = st === 'ok' ? '#059669' : '';
+        okBtn.style.boxShadow  = st === 'ok' ? '0 0 0 3px rgba(16,185,129,0.35)' : '';
 
-        const labels = { 'raw':'⚑ Marked as Raw', 'stock':'⚑ Marked as Stock', 'ok':'✓ Marked OK' };
-        statusTxt.textContent = labels[st] || '';
-        statusTxt.style.color = st === 'raw' ? '#f97316' : st === 'stock' ? '#3b82f6' : st === 'ok' ? '#10b981' : '#94a3b8';
+        // Status
+        const labels = { raw: '⚑ Raw', stock: '⚑ Stock', ok: '✓ OK' };
+        const colors = { raw: '#f97316', stock: '#3b82f6', ok: '#10b981' };
+        statusEl.textContent = labels[st] || '';
+        statusEl.style.color = colors[st] || '#94a3b8';
     }
 
-    function previewToggleIssue(value) {
+    function svNav(dir) {
+        if (!currentImg1VINs.length) return;
+        const next = Math.max(0, Math.min(currentImg1VINs.length - 1, currentImg1Idx + dir));
+        svShow(next);
+    }
+
+    function svSetIssue(newSt) {
         if (currentImg1Idx < 0) return;
-        const v   = currentImg1VINs[currentImg1Idx];
-        const cur = getImg1Review(currentImg1Team.teamId, v.vin);
-        const newSt = (cur === value) ? null : value;
+        const v = currentImg1VINs[currentImg1Idx];
         setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
         updateImg1ProgressBadge();
         updateTileIssueState(currentImg1Idx, newSt);
-        updatePreviewButtons(newSt);
+        svUpdateControls(newSt);
         render1ImgSidebar();
     }
 
-    function previewMarkOk() {
-        if (currentImg1Idx < 0) return;
-        const v = currentImg1VINs[currentImg1Idx];
-        const cur = getImg1Review(currentImg1Team.teamId, v.vin);
-        const newSt = cur === 'ok' ? null : 'ok';
-        setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
-        updateImg1ProgressBadge();
-        updateTileIssueState(currentImg1Idx, newSt);
-        updatePreviewButtons(newSt);
-        render1ImgSidebar();
+    function svToggleIssue(value) {
+        const cur = getImg1Review(currentImg1Team.teamId, currentImg1VINs[currentImg1Idx]?.vin);
+        svSetIssue(cur === value ? null : value);
     }
 
-    function previewClearIssue() {
-        if (currentImg1Idx < 0) return;
-        const v = currentImg1VINs[currentImg1Idx];
-        setImg1Review(currentImg1Team.teamId, v.vin, null, '');
-        updateImg1ProgressBadge();
-        updateTileIssueState(currentImg1Idx, null);
-        updatePreviewButtons(null);
-        render1ImgSidebar();
+    function svMarkOk() {
+        const cur = getImg1Review(currentImg1Team.teamId, currentImg1VINs[currentImg1Idx]?.vin);
+        svSetIssue(cur === 'ok' ? null : 'ok');
     }
+
+    function svClear() { svSetIssue(null); }
 
     // =========================================================================
     // BULK VIN SELECTION & IMAGE DOWNLOAD
@@ -2694,6 +2741,16 @@
 
     function openTeam1stImage(team) {
         reviewMode = '1img';
+        img1ViewMode = 'grid';
+        // Show view toggle in header
+        const vt = document.getElementById('img1-view-toggle');
+        if (vt) { vt.style.display = 'flex'; }
+        // Ensure grid view active on entry
+        document.getElementById('image-area').classList.remove('hidden');
+        document.getElementById('single-view-area').classList.remove('active');
+        const vtG = document.getElementById('vt-grid');
+        const vtS = document.getElementById('vt-single');
+        if (vtG) { vtG.classList.add('active'); vtS.classList.remove('active'); }
         currentImg1Team = team;
         currentImg1Idx  = -1;
         const teamVins  = vinsByTeam.get(team.teamId);
@@ -2778,6 +2835,11 @@
 
     function restore1ImgMode() {
         reviewMode = 'vin';
+        // Hide view toggle
+        const vt2 = document.getElementById('img1-view-toggle');
+        if (vt2) vt2.style.display = 'none';
+        // Reset to grid view
+        setImg1View('grid');
         // Clear VIN search box so highlights don't bleed into VIN review
         const searchEl = document.getElementById('vin-search');
         if (searchEl) searchEl.value = '';
@@ -2836,7 +2898,11 @@
                 </div>
                 <span class="text-[10px] text-slate-400 flex-shrink-0">${v.urls.length > 0 ? '1/'+v.urls.length : '0'}</span>
             `;
-            item.onclick = (e) => { if (!e.target.classList.contains('vin-checkbox')) select1ImgVIN(idx); };
+            item.onclick = (e) => {
+                if (e.target.classList.contains('vin-checkbox')) return;
+                if (reviewMode === '1img' && img1ViewMode === 'single') svShow(idx);
+                else select1ImgVIN(idx);
+            };
             list.appendChild(item);
         });
         document.getElementById('sidebar-count').innerText = currentImg1VINs.length + ' total';
@@ -2847,8 +2913,6 @@
     function select1ImgVIN(idx) {
         if (idx < 0 || idx >= currentImg1VINs.length) return;
         currentImg1Idx = idx;
-        // Open preview pane
-        openImg1Preview(idx);
         const v = currentImg1VINs[idx];
 
         // Update header VIN display
@@ -3378,32 +3442,47 @@
                 toggle1ImgIssue(currentImg1Idx);
                 return;
             }
-            // Arrow keys — navigate VINs
-            if (e.key === 'ArrowRight') {
+            // Arrow keys — navigate VINs (works in both grid + single view)
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
                 e.preventDefault();
-                previewNav(1); return;
+                if (img1ViewMode === 'single') svNav(1);
+                else { const n = Math.min(currentImg1Idx+1, currentImg1VINs.length-1); select1ImgVIN(n); }
+                return;
             }
-            if (e.key === 'ArrowLeft') {
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
                 e.preventDefault();
-                previewNav(-1); return;
+                if (img1ViewMode === 'single') svNav(-1);
+                else { const p = Math.max(currentImg1Idx-1, 0); select1ImgVIN(p); }
+                return;
             }
-            if (e.key === 'ArrowDown') {
+            // r → Raw, s → Stock
+            if ((e.key === 'r' || e.key === 'R') && currentImg1Idx >= 0) {
                 e.preventDefault();
-                previewNav(1); return;
+                if (img1ViewMode === 'single') svToggleIssue('raw');
+                else {
+                    const v = currentImg1VINs[currentImg1Idx];
+                    const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+                    const ns = cur === 'raw' ? null : 'raw';
+                    setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
+                    updateImg1ProgressBadge();
+                    updateTileIssueState(currentImg1Idx, ns);
+                    render1ImgSidebar();
+                }
+                return;
             }
-            if (e.key === 'ArrowUp') {
+            if ((e.key === 's' || e.key === 'S') && currentImg1Idx >= 0) {
                 e.preventDefault();
-                previewNav(-1); return;
-            }
-            // r / R → toggle Raw issue
-            if (e.key === 'r' || e.key === 'R') {
-                e.preventDefault();
-                previewToggleIssue('raw'); return;
-            }
-            // s / S → toggle Stock issue
-            if (e.key === 's' || e.key === 'S') {
-                e.preventDefault();
-                previewToggleIssue('stock'); return;
+                if (img1ViewMode === 'single') svToggleIssue('stock');
+                else {
+                    const v = currentImg1VINs[currentImg1Idx];
+                    const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+                    const ns = cur === 'stock' ? null : 'stock';
+                    setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
+                    updateImg1ProgressBadge();
+                    updateTileIssueState(currentImg1Idx, ns);
+                    render1ImgSidebar();
+                }
+                return;
             }
             return;
         }
@@ -3491,7 +3570,6 @@
     function closeSummary() {
         document.getElementById('summary-modal').classList.remove('active');
         clearVINSelection();
-        closeImg1Preview();
 
         // Reset 1img mode flag on download button
         const dlBtn = document.getElementById('download-csv-btn');
