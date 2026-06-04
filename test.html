@@ -1571,10 +1571,20 @@
             try {
                 const parsed = parseCSV(e.target.result);
                 const hLower = parsed.headers.map(h => h.trim().toLowerCase());
-                const vinCol  = hLower.findIndex(h => h === 'vin');
-                const imgCol  = hLower.findIndex(h => h === 'image urls' || h === 'image_urls' || h === 'imageurls');
-                if (vinCol === -1) { showError('CSV must have a "VIN" column.'); return; }
-                if (imgCol === -1) { showError('CSV must have an "Image URLs" column.'); return; }
+                const vinCol     = hLower.findIndex(h => h === 'vin' || h === 'vin_number' || h === 'vehicle_vin');
+                const imgCol  = hLower.findIndex(h =>
+                    h === 'image urls' || h === 'image_urls' || h === 'imageurls' ||
+                    h === 'images' || h === 'image' || h === 'image url' || h === 'image_url' ||
+                    h === 'photos' || h === 'photo_urls' || h === 'photo urls' ||
+                    h === 'media' || h === 'media_urls' || h.includes('image') || h.includes('photo') || h.includes('url')
+                );
+                const rooftopCol = hLower.findIndex(h =>
+                    h === 'rooftop' || h === 'rooftop_name' || h === 'dealer' ||
+                    h === 'dealer_name' || h === 'dealership' || h === 'dealership_name' ||
+                    h === 'location' || h === 'store'
+                );
+                if (vinCol === -1) { showError('CSV must have a "VIN" column (or vin_number, vehicle_vin).'); return; }
+                if (imgCol === -1) { showError('CSV must have an image URL column (e.g. images, image_urls, photos, media).'); return; }
 
                 const enterpriseName = file.name.replace(/\.csv$/i, '');
 
