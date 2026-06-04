@@ -84,6 +84,8 @@
 
         .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
         .dot-pending { background: #cbd5e1; }
+        .dot-raw     { background: #f97316; }
+        .dot-stock   { background: #3b82f6; }
         .dot-approved { background: #10b981; }
         .dot-rejected { background: #ef4444; }
 
@@ -1605,13 +1607,11 @@
         const tile = document.getElementById('img1-tile-' + idx);
         if (!tile) return;
         const isSelected = selectedVINIndices.has(idx);
-        const st = getImg1Review(currentImg1Team?.teamId, currentImg1VINs?.[idx]?.vin) || 'pending';
+        const st = getImg1Review(currentImg1Team?.teamId, currentImg1VINs?.[idx]?.vin);
         if (isSelected) {
-            tile.style.outline = '3px solid #3b82f6';
+            tile.style.outline = '3px solid #6366f1'; // indigo for selection
         } else {
-            tile.style.outline = st === 'ok' ? '2px solid #10b981'
-                               : st === 'issue' ? '2px solid #ef4444'
-                               : '2px solid transparent';
+            tile.style.outline = st ? '2px solid ' + stateColor(st) : '2px solid transparent';
         }
         if (tile._checkbox) tile._checkbox.checked = isSelected;
     }
@@ -2429,7 +2429,7 @@
     // =========================================================================
     // 1ST IMAGE REVIEW
     // =========================================================================
-    let img1Reviews = {};    // { teamId: { vin: 'ok'|'issue' } }
+    let img1Reviews = {};    // { teamId: { vin: 'ok'|'raw'|'stock'|'both'|'pending' } }
     let img1Comments = {};   // { teamId: { vin: string } }
     let currentImg1Team = null;
     let currentImg1VINs = [];
@@ -2437,6 +2437,30 @@
     let reviewMode = 'vin'; // 'vin' | '1img'
 
     function getImg1Review(teamId, vin) { return (img1Reviews[teamId] && img1Reviews[teamId][vin]) || null; }
+
+    // Helpers to work with raw/stock sub-states
+    function isRaw(st)   { return st === 'raw'  || st === 'both'; }
+    function isStock(st) { return st === 'stock' || st === 'both'; }
+    function combineRawStock(raw, stock) {
+        if (raw && stock) return 'both';
+        if (raw)          return 'raw';
+        if (stock)        return 'stock';
+        return 'ok';
+    }
+    function stateColor(st) {
+        if (st === 'ok')    return '#10b981';  // green
+        if (st === 'raw')   return '#f97316';  // orange
+        if (st === 'stock') return '#3b82f6';  // blue
+        if (st === 'both')  return '#ef4444';  // red
+        return 'transparent';
+    }
+    function stateBadgeText(st) {
+        if (st === 'ok')    return '✓ OK';
+        if (st === 'raw')   return '⚑ RAW';
+        if (st === 'stock') return '⚑ STOCK';
+        if (st === 'both')  return '⚑ RAW+STOCK';
+        return '';
+    }
     function setImg1Review(teamId, vin, status, comment) {
         if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
         if (!img1Comments[teamId]) img1Comments[teamId] = {};
@@ -2583,12 +2607,14 @@
         currentImg1VINs.forEach((v, idx) => {
             const st = getImg1Review(currentImg1Team.teamId, v.vin);
             if (st === 'ok') ok++;
-            if (st === 'issue') issue++;
+            if (st === 'raw' || st === 'stock' || st === 'both') issue++;
             if (searchTerm && !v.vin.toLowerCase().includes(searchTerm)) return;
 
             let stateClass = 'pending', dotClass = 'dot-pending';
             if (st === 'ok')    { stateClass = 'approved'; dotClass = 'dot-approved'; }
-            if (st === 'issue') { stateClass = 'rejected'; dotClass = 'dot-rejected'; }
+            if (st === 'raw')   { stateClass = 'rejected'; dotClass = 'dot-raw'; }
+            if (st === 'stock') { stateClass = 'rejected'; dotClass = 'dot-stock'; }
+            if (st === 'both')  { stateClass = 'rejected'; dotClass = 'dot-rejected'; }
             if (idx === currentImg1Idx) stateClass += ' current';
 
             const item = document.createElement('div');
@@ -2697,19 +2723,51 @@
             badge.textContent = v.vin.slice(-8);  // last 8 chars of VIN
             tile.appendChild(badge);
 
-            // Status badge — top-LEFT corner
+            // Status badge — top-LEFT (shows ok/raw/stock/both)
             const stBadge = document.createElement('div');
+            const badgeTxt = stateBadgeText(st);
             stBadge.style.cssText = 'position:absolute;top:5px;left:5px;z-index:5;font-size:8px;font-weight:800;padding:2px 5px;border-radius:4px;letter-spacing:0.3px;white-space:nowrap;';
-            if (st === 'ok')         { stBadge.style.background='#10b981'; stBadge.style.color='#fff'; stBadge.textContent='✓ OK'; }
-            else if (st === 'issue') { stBadge.style.background='#ef4444'; stBadge.style.color='#fff'; stBadge.textContent='✕ ISSUE'; }
+            if (badgeTxt) { stBadge.style.background = stateColor(st); stBadge.style.color = '#fff'; stBadge.textContent = badgeTxt; }
             tile.appendChild(stBadge);
 
-            // Checkbox — top-RIGHT corner
+            // Issue radio buttons — top-RIGHT (RAW / STOCK, mutually exclusive)
+            // Single click selects; clicking the already-selected one deselects it.
+            const issueWrap = document.createElement('div');
+            issueWrap.style.cssText = 'position:absolute;top:5px;right:5px;z-index:6;display:flex;flex-direction:column;gap:3px;';
+
+            function makeIssueRadio(label, color, value, currentSt) {
+                const btn = document.createElement('div');
+                const active = currentSt === value;
+                btn.style.cssText = 'display:flex;align-items:center;gap:3px;border-radius:4px;padding:2px 5px;'
+                    + 'box-shadow:0 1px 3px rgba(0,0,0,0.2);cursor:pointer;user-select:none;font-size:9px;font-weight:700;'
+                    + 'transition:all 0.1s;'
+                    + (active
+                        ? 'background:' + color + ';color:#fff;'
+                        : 'background:rgba(255,255,255,0.95);color:' + color + ';border:1px solid ' + color + ';');
+                btn.textContent = label;
+                btn.dataset.value = value;
+                btn.dataset.active = active ? '1' : '0';
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    setImg1IssueType(idx, btn);
+                });
+                return btn;
+            }
+
+            const rawBtn   = makeIssueRadio('RAW',   '#f97316', 'raw',   st);
+            const stockBtn = makeIssueRadio('STOCK', '#3b82f6', 'stock', st);
+            issueWrap.appendChild(rawBtn);
+            issueWrap.appendChild(stockBtn);
+            tile.appendChild(issueWrap);
+            tile._rawBtn   = rawBtn;
+            tile._stockBtn = stockBtn;
+
+            // Selection checkbox — bottom-RIGHT corner
             const cbWrap = document.createElement('div');
-            cbWrap.style.cssText = 'position:absolute;top:5px;right:5px;z-index:6;display:flex;align-items:center;justify-content:center;width:22px;height:22px;background:rgba(255,255,255,0.95);border-radius:5px;box-shadow:0 1px 4px rgba(0,0,0,0.25);';
+            cbWrap.style.cssText = 'position:absolute;bottom:5px;right:5px;z-index:6;display:flex;align-items:center;justify-content:center;width:20px;height:20px;background:rgba(255,255,255,0.95);border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,0.2);';
             const cb = document.createElement('input');
             cb.type = 'checkbox';
-            cb.style.cssText = 'width:13px;height:13px;cursor:pointer;accent-color:#3b82f6;';
+            cb.style.cssText = 'width:12px;height:12px;cursor:pointer;accent-color:#3b82f6;';
             cb.checked = selectedVINIndices.has(idx);
             cb.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -2764,11 +2822,10 @@
             }
             tile.dataset.vinIdx = idx;
 
-            // Click on tile body = navigate + toggle review (NOT on checkbox)
+            // Click on tile body = navigate to VIN (issue set via checkboxes only)
             tile.addEventListener('click', (e) => {
-                if (e.target.type === 'checkbox' || e.target.closest('[style*="z-index:6"]')) return;
+                if (e.target.type === 'checkbox' || e.target.tagName === 'LABEL') return;
                 select1ImgVIN(idx);
-                toggle1ImgIssue(idx);
             });
 
             frag.appendChild(tile);
@@ -2785,31 +2842,49 @@
         if (tile) tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    function toggle1ImgIssue(idx) {
-        const v = currentImg1VINs[idx];
-        const cur = getImg1Review(currentImg1Team.teamId, v.vin);
-        const newSt = cur === 'issue' ? 'ok' : 'issue';
+    // Radio button click: selecting an already-active value deselects (clears to null/ok)
+    function setImg1IssueType(idx, btn) {
+        const v      = currentImg1VINs[idx];
+        const value  = btn.dataset.value;           // 'raw' or 'stock'
+        const cur    = getImg1Review(currentImg1Team.teamId, v.vin);
+        // If already this value → deselect (set to null = pending/ok)
+        const newSt  = (cur === value) ? null : value;
         setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
         updateImg1ProgressBadge();
         currentImg1Idx = idx;
-        // Update just this tile's outline + status badge without re-rendering whole gallery
-        const tile = document.getElementById('img1-tile-' + idx);
-        if (tile) {
-            tile.style.outline = newSt === 'ok' ? '2px solid #10b981' : '2px solid #ef4444';
-            // Update status badge (second child after img-index)
-            const stBadge = tile.children[1];
-            if (stBadge && !stBadge.classList.contains('img-skeleton') && stBadge.style.position === 'absolute') {
-                if (newSt === 'ok')    { stBadge.textContent='✓ OK';    stBadge.style.background='#10b981'; }
-                else                   { stBadge.textContent='✕ ISSUE'; stBadge.style.background='#ef4444'; }
-            }
-            // Update hover overlay text (fourth child after badge+stBadge+cbWrap)
-            const hoverOv = tile.children[3];
-            if (hoverOv && hoverOv.style.transition) {
-                if (newSt === 'issue') { hoverOv.style.background='rgba(16,185,129,0.8)'; hoverOv.textContent='✓ Mark OK'; }
-                else                   { hoverOv.style.background='rgba(239,68,68,0.8)';  hoverOv.textContent='✕ Mark Issue'; }
-            }
-        }
+        updateTileIssueState(idx, newSt);
         render1ImgSidebar();
+    }
+
+    // Kept for tile body click / submit path — no-op now (issue set via radio only)
+    function toggle1ImgIssue(idx) { /* handled by radio buttons */ }
+
+    // Update tile border + badge + radio button appearance in-place
+    function updateTileIssueState(idx, st) {
+        const tile = document.getElementById('img1-tile-' + idx);
+        if (!tile) return;
+        const color = stateColor(st);
+        tile.style.outline = st ? '2px solid ' + color : '2px solid transparent';
+        // stBadge = children[1]
+        const stBadge = tile.children[1];
+        if (stBadge && stBadge.style.position === 'absolute') {
+            const txt = stateBadgeText(st);
+            stBadge.textContent = txt;
+            stBadge.style.background = txt ? color : 'transparent';
+            stBadge.style.color = txt ? '#fff' : 'transparent';
+        }
+        // Refresh radio button appearance
+        const refreshBtn = (btn, value) => {
+            if (!btn) return;
+            const active = (st === value);
+            const c = value === 'raw' ? '#f97316' : '#3b82f6';
+            btn.style.background = active ? c : 'rgba(255,255,255,0.95)';
+            btn.style.color      = active ? '#fff' : c;
+            btn.style.border     = active ? 'none' : '1px solid ' + c;
+            btn.dataset.active   = active ? '1' : '0';
+        };
+        refreshBtn(tile._rawBtn,   'raw');
+        refreshBtn(tile._stockBtn, 'stock');
     }
 
     function submit1ImgReview(idx, status) {
@@ -2876,7 +2951,7 @@
         let ok = 0, issue = 0;
         currentImg1VINs.forEach(v => {
             const st = getImg1Review(teamId, v.vin);
-            if (st === 'ok') ok++; else if (st === 'issue') issue++;
+            if (st === 'ok') ok++; else if (st && st !== 'ok') issue++;
         });
         document.getElementById('complete-subtitle').innerText = currentImg1Team.name + ' · 1st Image Review';
         document.getElementById('complete-approved').innerText = ok;
@@ -2895,9 +2970,11 @@
         let ok = 0, issue = 0, pending = 0;
         currentImg1VINs.forEach((v, idx) => {
             const st = getImg1Review(currentImg1Team.teamId, v.vin) || 'pending';
-            if (st === 'ok') ok++; else if (st === 'issue') issue++; else pending++;
-            const stClass = st === 'ok' ? 'bg-emerald-100 text-emerald-700'
-                          : st === 'issue' ? 'bg-rose-100 text-rose-700'
+            if (st === 'ok') ok++; else if (st !== 'ok' && st !== 'pending') issue++; else pending++;
+            const stClass = st === 'ok'    ? 'bg-emerald-100 text-emerald-700'
+                          : st === 'raw'   ? 'bg-orange-100 text-orange-700'
+                          : st === 'stock' ? 'bg-blue-100 text-blue-700'
+                          : st === 'both'  ? 'bg-rose-100 text-rose-700'
                           : 'bg-slate-100 text-slate-500';
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50';
