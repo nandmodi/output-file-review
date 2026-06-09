@@ -523,6 +523,22 @@
                     <h2 id="review-team-name" class="font-bold text-slate-800 text-[15px]"></h2>
                     <span id="review-team-id" class="text-[11px] font-semibold text-slate-400 uppercase tracking-wide"></span>
                 </div>
+                <!-- Progress summary bar — 1st image mode -->
+                <div id="img1-progress-bar" class="hidden items-center space-x-1 flex-wrap gap-y-1">
+                    <span id="pg-reviewed"  class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600"></span>
+                    <span class="text-slate-300 text-[10px]">|</span>
+                    <span id="pg-ok"        class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 hidden"></span>
+                    <span id="pg-raw"       class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-700 hidden"></span>
+                    <span id="pg-stock"     class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700 hidden"></span>
+                    <span id="pg-internal"  class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-purple-100 text-purple-700 hidden"></span>
+                    <span class="text-slate-300 text-[10px]" id="pg-sub-sep" style="display:none">|</span>
+                    <span id="pg-banner"    class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
+                    <span id="pg-bg"        class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
+                    <span id="pg-quality"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
+                    <span id="pg-hero"      class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
+                    <span id="pg-pending"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700 hidden"></span>
+                </div>
+                <!-- Normal progress pill — non-1img modes -->
                 <span id="review-progress" class="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full text-[11px] font-semibold"></span>
             </div>
 
@@ -651,7 +667,7 @@
                             <button onclick="svClear()" class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-slate-500 hover:bg-slate-100 border border-slate-200 transition">Clear</button>
                             <span id="sv-status" class="text-[11px] font-semibold"></span>
                             <span class="flex-1"></span>
-                            <span class="text-[10px] text-slate-300">r=Raw · s=Stock · i=Internal · ← →</span>
+                            <span class="text-[10px] text-slate-300">r/s/i · o=Banner · b=BG · q=Quality · h=Hero · ← →</span>
                         </div>
                         <!-- Row 2: extended sub-issue tags -->
                         <div class="flex items-center space-x-2">
@@ -2791,8 +2807,8 @@
     // Sub-issues (single view only) — stored separately keyed by teamId+vin
     // Format: { 'teamId::vin': Set<string> }
     const subIssues = {};
-    const SUB_ISSUE_LIST = ['Sequence', 'Banner', 'Background', 'Quality', 'Hero Angle'];
-    const SUB_ISSUE_KEYS = {'Sequence':'seq','Banner':'ban','Background':'bg','Quality':'qty','Hero Angle':'hero'};
+    const SUB_ISSUE_LIST = ['Banner', 'Background', 'Quality', 'Hero Angle'];
+    const SUB_ISSUE_KEYS = {'Banner':'ban','Background':'bg','Quality':'qty','Hero Angle':'hero'};
 
     function getSubIssues(teamId, vin) {
         const k = teamId + '::' + vin;
@@ -2836,9 +2852,13 @@
     function openTeam1stImage(team) {
         reviewMode = '1img';
         img1ViewMode = 'grid';
-        // Show view toggle in header
+        // Show view toggle + progress bar; hide normal pill
         const vt = document.getElementById('img1-view-toggle');
         if (vt) { vt.style.display = 'flex'; }
+        const pgBar = document.getElementById('img1-progress-bar');
+        if (pgBar) pgBar.classList.replace('hidden', 'flex') || pgBar.classList.remove('hidden') || (pgBar.style.display='flex');
+        const pgPill = document.getElementById('review-progress');
+        if (pgPill) pgPill.classList.add('hidden');
         // Ensure grid view active on entry
         document.getElementById('image-area').classList.remove('hidden');
         document.getElementById('single-view-area').classList.remove('active');
@@ -2929,9 +2949,13 @@
 
     function restore1ImgMode() {
         reviewMode = 'vin';
-        // Hide view toggle
+        // Hide view toggle + progress bar; restore normal pill
         const vt2 = document.getElementById('img1-view-toggle');
         if (vt2) vt2.style.display = 'none';
+        const pgBar2 = document.getElementById('img1-progress-bar');
+        if (pgBar2) pgBar2.style.display = 'none';
+        const pgPill2 = document.getElementById('review-progress');
+        if (pgPill2) pgPill2.classList.remove('hidden');
         // Reset to grid view
         setImg1View('grid');
         // Clear VIN search box so highlights don't bleed into VIN review
@@ -2956,9 +2980,55 @@
     }
 
     function updateImg1ProgressBadge() {
-        const total = currentImg1VINs.length;
-        const done  = currentImg1VINs.filter(v => getImg1Review(currentImg1Team.teamId, v.vin)).length;
-        document.getElementById('review-progress').innerText = `${done} / ${total} reviewed`;
+        const teamId = currentImg1Team?.teamId;
+        const total  = currentImg1VINs.length;
+        let ok = 0, raw = 0, stock = 0, internal = 0, pending = 0;
+        let banner = 0, bg = 0, quality = 0, hero = 0;
+
+        currentImg1VINs.forEach(v => {
+            const st   = getImg1Review(teamId, v.vin);
+            const subs = getSubIssues(teamId, v.vin);
+            if      (st === 'ok')       ok++;
+            else if (st === 'raw')      raw++;
+            else if (st === 'stock')    stock++;
+            else if (st === 'internal') internal++;
+            else                        pending++;
+            if (subs.has('Banner'))     banner++;
+            if (subs.has('Background')) bg++;
+            if (subs.has('Quality'))    quality++;
+            if (subs.has('Hero Angle')) hero++;
+        });
+        const done = ok + raw + stock + internal;
+
+        document.getElementById('review-progress').innerText = done + ' / ' + total + ' reviewed';
+
+        const bar = document.getElementById('img1-progress-bar');
+        if (!bar) return;
+
+        const setpill = (id, count, label) => {
+            const el = document.getElementById(id);
+            if (!el) return;
+            if (count > 0) { el.textContent = label + ': ' + count; el.classList.remove('hidden'); el.style.display = ''; }
+            else           { el.classList.add('hidden'); el.style.display = 'none'; }
+        };
+
+        const rv = document.getElementById('pg-reviewed');
+        if (rv) { rv.textContent = done + '/' + total + ' reviewed'; rv.classList.remove('hidden'); }
+
+        setpill('pg-ok',       ok,       '✓ OK');
+        setpill('pg-raw',      raw,      'R Raw');
+        setpill('pg-stock',    stock,    'S Stock');
+        setpill('pg-internal', internal, 'I Internal');
+        setpill('pg-pending',  pending,  '⏳ Pending');
+        setpill('pg-banner',   banner,   'Banner');
+        setpill('pg-bg',       bg,       'Background');
+        setpill('pg-quality',  quality,  'Quality');
+        setpill('pg-hero',     hero,     'Hero Angle');
+
+        // Show separator before sub-issue pills if any sub-issues exist
+        const anySub = banner + bg + quality + hero > 0;
+        const sep = document.getElementById('pg-sub-sep');
+        if (sep) sep.style.display = anySub ? '' : 'none';
     }
 
     function render1ImgSidebar() {
@@ -2969,7 +3039,7 @@
         currentImg1VINs.forEach((v, idx) => {
             const st = getImg1Review(currentImg1Team.teamId, v.vin);
             if (st === 'ok') ok++;
-            if (st === 'raw' || st === 'stock' || st === 'both') issue++;
+            if (st === 'raw' || st === 'stock' || st === 'internal') issue++;
             if (searchTerm && !v.vin.toLowerCase().includes(searchTerm)) return;
 
             let stateClass = 'pending', dotClass = 'dot-pending';
@@ -3363,13 +3433,15 @@
                           : 'bg-slate-100 text-slate-500';
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50';
+            const subs = getSubIssues(currentImg1Team.teamId, v.vin);
+            const subTags = [...subs].map(s => `<span class="bg-slate-200 text-slate-600 text-[9px] font-semibold px-1.5 py-0.5 rounded">${escapeHtml(s)}</span>`).join(' ');
             tr.innerHTML = `
                 <td class="px-6 py-2 text-slate-400 text-[11px]">${idx+1}</td>
                 <td class="px-3 py-2 font-mono text-[11px] text-slate-700">${escapeHtml(v.vin)}</td>
                 <td class="px-3 py-2 text-slate-500">1 / ${v.urls.length}</td>
                 <td class="px-3 py-2"><span class="${stClass} px-2 py-0.5 rounded text-[10px] font-bold uppercase">${st}</span></td>
+                <td class="px-3 py-2 text-[10px]">${subTags || '<span class="text-slate-300">—</span>'}</td>
                 <td class="px-3 py-2 text-slate-500 text-[11px]">${escapeHtml(v.urls[0] || '')}</td>
-                <td class="px-3 py-2 text-slate-500 text-[11px]">${escapeHtml(img1Comments[currentImg1Team.teamId]?.[v.vin] || '')}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -3389,18 +3461,38 @@
 
     function download1ImgCSV() {
         if (!currentImg1Team) return;
-        const header = ['#', 'Team Name', 'Team ID', 'VIN', 'Total Images', '1st Image Status', '1st Image URL', 'Comment'];
+        const header = [
+            '#', 'Rooftop', 'Team ID', 'VIN', 'Total Images',
+            'Issue Type',    // all issues in one column: Raw | Stock | Internal | Banner | Background | Quality | Hero Angle
+            '1st Image URL', 'Comment'
+        ];
         const lines = [header.join(',')];
         currentImg1VINs.forEach((v, idx) => {
-            const st  = getImg1Review(currentImg1Team.teamId, v.vin) || 'pending';
-            const cm  = img1Comments[currentImg1Team.teamId]?.[v.vin] || '';
+            const teamId = currentImg1Team.teamId;
+            const st     = getImg1Review(teamId, v.vin) || 'pending';
+            const subs   = getSubIssues(teamId, v.vin);
+            const cm     = img1Comments[teamId]?.[v.vin] || '';
+
+            // Build combined issue type string — primary first, then sub-issues
+            const parts = [];
+            if      (st === 'raw')      parts.push('Raw');
+            else if (st === 'stock')    parts.push('Stock');
+            else if (st === 'internal') parts.push('Internal');
+            else if (st === 'ok')       parts.push('OK');
+            else                        parts.push('Pending');
+            if (subs.has('Banner'))     parts.push('Banner');
+            if (subs.has('Background')) parts.push('Background');
+            if (subs.has('Quality'))    parts.push('Quality');
+            if (subs.has('Hero Angle')) parts.push('Hero Angle');
+            const issueType = parts.join(' | ');
+
             const row = [
                 idx + 1,
-                csvCell(currentImg1Team.name),
-                csvCell(currentImg1Team.teamId),
+                csvCell(currentImg1Team.rooftop || currentImg1Team.name),
+                csvCell(teamId),
                 csvCell(v.vin),
                 v.urls.length,
-                csvCell(st),
+                csvCell(issueType),
                 csvCell(v.urls[0] || ''),
                 csvCell(cm)
             ];
@@ -3410,7 +3502,7 @@
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         const safe = currentImg1Team.teamId.replace(/[^a-z0-9_-]/gi, '_');
-        a.download = `1st_image_review_${safe}_${new Date().toISOString().slice(0,10)}.csv`;
+        a.download = '1st_image_review_' + safe + '_' + new Date().toISOString().slice(0,10) + '.csv';
         document.body.appendChild(a); a.click(); document.body.removeChild(a);
         URL.revokeObjectURL(a.href);
     }
@@ -3593,6 +3685,18 @@
                     updateImg1ProgressBadge();
                     updateTileIssueState(currentImg1Idx, ns);
                     render1ImgSidebar();
+                }
+                return;
+            }
+            // Sub-issue shortcuts (single view only)
+            const subShortcuts = { 'o':'Banner', 'O':'Banner', 'b':'Background', 'B':'Background', 'q':'Quality', 'Q':'Quality', 'h':'Hero Angle', 'H':'Hero Angle' };
+            if (img1ViewMode === 'single' && subShortcuts[e.key] && currentImg1Idx >= 0) {
+                e.preventDefault();
+                const teamId = currentImg1Team?.teamId;
+                const vin    = currentImg1VINs[currentImg1Idx]?.vin;
+                if (teamId && vin) {
+                    toggleSubIssue(teamId, vin, subShortcuts[e.key]);
+                    svUpdateControls(getImg1Review(teamId, vin));
                 }
                 return;
             }
