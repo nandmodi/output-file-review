@@ -1005,7 +1005,8 @@
         s3Url:      7,   // H: s3_url
         createdAt:  8,   // I: created_at
         vin:        9,   // J: VIN  ← always col J regardless of source schema
-        imageUrls:  10   // K: Image URLs ← always col K regardless of source schema
+        imageUrls:  10,  // K: Image URLs ← always col K regardless of source schema
+        rooftop:    11   // L: Rooftop / dealer name (optional, from CSV)
     };
 
     // =========================================================================
@@ -1478,10 +1479,12 @@
                 if (eid) selectedEnterpriseId = eid;
             }
 
+            const rooftop = (r[C.rooftop] || '').trim();
             const isNew = !teamAgg.has(teamId);
-            if (isNew) teamAgg.set(teamId, { name, vins: new Map() });
+            if (isNew) teamAgg.set(teamId, { name, vins: new Map(), rooftop: rooftop || '' });
             const t = teamAgg.get(teamId);
             if ((!t.name || t.name === teamId) && name !== teamId) t.name = name;
+            if (!t.rooftop && rooftop) t.rooftop = rooftop;
 
             if (!t.vins.has(vin)) t.vins.set(vin, []);
             const arr  = t.vins.get(vin);
@@ -1508,7 +1511,7 @@
         for (const [teamId, t] of teamAgg.entries()) {
             let imageCount = 0;
             for (const urls of t.vins.values()) imageCount += urls.length;
-            teamsList.push({ teamId, name: t.name, vinCount: t.vins.size, imageCount });
+            teamsList.push({ teamId, name: t.name, rooftop: t.rooftop || '', vinCount: t.vins.size, imageCount });
             vinsByTeam.set(teamId, t.vins);
         }
         teamsList.sort((a, b) => a.name.localeCompare(b.name));
@@ -1568,23 +1571,42 @@
             try {
                 const parsed = parseCSV(e.target.result);
                 const hLower = parsed.headers.map(h => h.trim().toLowerCase());
-                const vinCol  = hLower.findIndex(h => h === 'vin');
-                const imgCol  = hLower.findIndex(h => h === 'image urls' || h === 'image_urls' || h === 'imageurls');
-                if (vinCol === -1) { showError('CSV must have a "VIN" column.'); return; }
-                if (imgCol === -1) { showError('CSV must have an "Image URLs" column.'); return; }
+                const vinCol     = hLower.findIndex(h => h === 'vin' || h === 'vin_number' || h === 'vehicle_vin');
+                const imgCol  = hLower.findIndex(h =>
+                    h === 'image urls' || h === 'image_urls' || h === 'imageurls' ||
+                    h === 'images' || h === 'image' || h === 'image url' || h === 'image_url' ||
+                    h === 'photos' || h === 'photo_urls' || h === 'photo urls' ||
+                    h === 'media' || h === 'media_urls' || h.includes('image') || h.includes('photo') || h.includes('url')
+                );
+                const rooftopCol = hLower.findIndex(h =>
+                    h === 'rooftop' || h === 'rooftop_name' || h === 'dealer' ||
+                    h === 'dealer_name' || h === 'dealership' || h === 'dealership_name' ||
+                    h === 'location' || h === 'store'
+                );
+                if (vinCol === -1) { showError('CSV must have a "VIN" column (or vin_number, vehicle_vin).'); return; }
+                if (imgCol === -1) { showError('CSV must have an image URL column (e.g. images, image_urls, photos, media).'); return; }
 
                 const enterpriseName = file.name.replace(/\.csv$/i, '');
 
-                // One row per VIN — image URLs are already pipe-separated in the cell.
-                // CSV is expected to have unique VINs (one row per vehicle).
+                // Build a stable teamId from a rooftop name
+                const toTeamId = (rooftop) =>
+                    'csv-' + rooftop.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+                // One row per VIN — if rooftop column exists, each unique rooftop = separate team.
+                // Without rooftop, all VINs go into one team named after the file.
                 const syntheticRows = parsed.rows
                     .filter(r => String(r[vinCol] || '').trim().length > 0)
                     .map(r => {
                         const vin     = String(r[vinCol] || '').trim();
                         const imgUrls = String(r[imgCol] || '').trim();
+                        const rooftop = rooftopCol >= 0 ? String(r[rooftopCol] || '').trim() : '';
+                        // teamId: per-rooftop when available, otherwise single team
+                        const teamId  = rooftop ? toTeamId(rooftop) : 'csv-team-001';
+                        // team name shown on card: rooftop name or filename
+                        const teamName = rooftop || enterpriseName;
                         return [
                             vin,            // 0 name
-                            'csv-team-001', // 1 teamId
+                            teamId,         // 1 teamId  ← unique per rooftop
                             'csv-ent-001',  // 2 entId
                             enterpriseName, // 3 enterprise_name
                             '',             // 4 dealerId
@@ -1593,22 +1615,28 @@
                             '',             // 7 s3Url
                             '',             // 8 createdAt
                             vin,            // 9 VIN
-                            imgUrls         // 10 imageUrls (pipe-separated)
+                            imgUrls,        // 10 imageUrls (pipe-separated)
+                            rooftop         // 11 rooftop
                         ];
                     });
+
+                // Count unique rooftops for the info bar
+                const uniqueTeams = new Set(syntheticRows.map(r => r[1])).size;
 
                 csvFileData = {
                     name: file.name,
                     enterprise: enterpriseName,
                     headers: ['name','teamId','enterpriseId','enterprise_name','dealerId',
-                              'partnerId','row_count','s3_url','created_at','VIN','Image URLs'],
+                              'partnerId','row_count','s3_url','created_at','VIN','Image URLs','rooftop'],
                     rows: syntheticRows,
-                    vinCount: syntheticRows.length
+                    vinCount: syntheticRows.length,
+                    teamCount: uniqueTeams
                 };
 
                 document.getElementById('csv-file-label').textContent = '\ud83d\udcc4 ' + file.name;
+                const teamInfo = uniqueTeams > 1 ? ` · ${uniqueTeams} rooftops` : '';
                 document.getElementById('csv-info-text').textContent =
-                    '\u2713  ' + syntheticRows.length + ' VINs loaded from ' + file.name;
+                    '\u2713  ' + syntheticRows.length + ' VINs loaded from ' + file.name + teamInfo;
                 document.getElementById('csv-info-bar').classList.remove('hidden');
                 const btn = document.getElementById('load-csv-btn');
                 btn.disabled = false;
@@ -2258,9 +2286,42 @@
         empty.classList.add('hidden');
 
         const searchTerm = (document.getElementById('team-search').value || '').toLowerCase().trim();
-        teamsList
-            .filter(t => !searchTerm || t.name.toLowerCase().includes(searchTerm) || t.teamId.toLowerCase().includes(searchTerm))
-            .forEach(t => {
+
+        const visibleTeams = teamsList.filter(t =>
+            !searchTerm ||
+            (t.rooftop||'').toLowerCase().includes(searchTerm) ||
+            t.name.toLowerCase().includes(searchTerm) ||
+            t.teamId.toLowerCase().includes(searchTerm)
+        );
+
+        // "Review All" card — only when multiple rooftops and no search active
+        if (visibleTeams.length > 1 && !searchTerm) {
+            const allCard = document.createElement('div');
+            allCard.className = 'bg-gradient-to-br from-blue-600 to-blue-700 p-5 rounded-xl shadow-sm card-hover transition cursor-pointer flex flex-col justify-between min-h-[128px]';
+            const totalVins    = teamsList.reduce((s,t) => s + t.vinCount, 0);
+            const totalImgs    = teamsList.reduce((s,t) => s + t.imageCount, 0);
+            const totalImg1    = teamsList.reduce((s,t) => s + Object.keys(img1Reviews[t.teamId]||{}).length, 0);
+            const allImg1Pct   = totalVins > 0 ? Math.round(totalImg1/totalVins*100) : 0;
+            allCard.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-white text-[15px] leading-tight">&#9654; Review All Rooftops</h3>
+                        <p class="text-blue-200 text-[11px] mt-0.5">${teamsList.length} rooftops &middot; ${totalVins.toLocaleString()} VINs &middot; ${totalImgs.toLocaleString()} imgs</p>
+                    </div>
+                    <svg class="w-7 h-7 text-blue-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                </div>
+                <div style="margin-top:14px;display:flex;flex-direction:column;gap:3px">
+                    <button class="team-card-btn" style="background:#1e40af;border:none;color:#fff;width:100%" onclick="event.stopPropagation();openAllRooftops1stImage()">&#9654; 1st Image Review — All Rooftops</button>
+                    <div style="height:5px;background:rgba(255,255,255,0.25);border-radius:3px;overflow:hidden">
+                        <div style="height:100%;width:${allImg1Pct}%;background:#fff;transition:width 0.3s"></div>
+                    </div>
+                    <span style="font-size:9px;color:#bfdbfe;text-align:center">${totalImg1}/${totalVins} &nbsp;${allImg1Pct}%</span>
+                </div>
+            `;
+            grid.appendChild(allCard);
+        }
+
+        visibleTeams.forEach(t => {
                 const reviewedCount = Object.keys(reviews[t.teamId] || {}).length;
                 const pct = t.vinCount > 0 ? Math.round((reviewedCount / t.vinCount) * 100) : 0;
 
@@ -2273,11 +2334,10 @@
 
                 card.innerHTML = `
                     <div class="flex flex-col space-y-0.5">
-                        <h3 class="font-bold text-[#1a202c] text-[15px] leading-tight truncate" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</h3>
-                        <p class="text-[12px] font-medium text-slate-400 mt-0.5 uppercase tracking-wide">${escapeHtml(t.teamId)}</p>
+                        <h3 class="font-bold text-[#1a202c] text-[15px] leading-tight truncate" title="${escapeHtml(t.rooftop || t.name)}">${escapeHtml(t.rooftop || t.name)}</h3>
                     </div>
                     <div class="flex items-center justify-between mt-3">
-                        <span class="badge-vauto">VAuto</span>
+                        <span class="badge-vauto">${escapeHtml(t.rooftop ? t.name.length < 20 && !t.name.match(/^[0-9A-Z]{17}$/) ? t.name : 'VAuto' : 'VAuto')}</span>
                         <div class="flex items-center space-x-3 text-[11px]">
                             <span class="text-slate-600 font-semibold">${t.vinCount.toLocaleString()} VINs</span>
                             <span class="text-slate-400">${t.imageCount.toLocaleString()} imgs</span>
@@ -2306,6 +2366,29 @@
     }
 
     document.getElementById('team-search').addEventListener('input', renderDashboard);
+
+    // Open 1st image review across ALL rooftops merged into one virtual team
+    function openAllRooftops1stImage() {
+        // Build a merged virtual team from all teams
+        const allVins = [];
+        const seenVins = new Set();
+        for (const t of teamsList) {
+            const team = teamData[t.teamId];
+            if (!team) continue;
+            for (const v of team.vins) {
+                if (!seenVins.has(v.vin)) { seenVins.add(v.vin); allVins.push(v); }
+            }
+        }
+        const virtualTeam = {
+            teamId:    'csv-all-rooftops',
+            name:      selectedEnterprise + ' — All',
+            rooftop:   '',
+            vinCount:  allVins.length,
+            imageCount: allVins.reduce((s,v) => s + v.urls.length, 0),
+            vins:      allVins,
+        };
+        openTeam1stImage(virtualTeam);
+    }
 
     // =========================================================================
     // TEAM REVIEW
