@@ -1773,9 +1773,31 @@
         const skel = document.getElementById('sv-skeleton');
         img.style.opacity = '0';
         skel.style.display = 'flex';
-        img.onload  = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
-        img.onerror = () => { skel.style.display = 'none'; img.style.opacity = '1'; };
-        img.src = url;
+        img.referrerPolicy = 'no-referrer';
+
+        const showFull = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
+        const thumb = thumbUrl(url, 800, 80);
+
+        if (thumb !== url) {
+            // Show thumbnail immediately, then swap to full-res silently
+            img.onload = () => {
+                showFull();
+                const full = new Image();
+                full.referrerPolicy = 'no-referrer';
+                full.onload = () => { img.src = url; };
+                full.src = url;
+            };
+            img.onerror = () => {
+                img.onload = showFull;
+                img.onerror = () => { skel.style.display = 'none'; img.style.opacity = '0.5'; };
+                img.src = url;
+            };
+            img.src = thumb;
+        } else {
+            img.onload  = showFull;
+            img.onerror = () => { skel.style.display = 'none'; img.style.opacity = '0.5'; };
+            img.src = url;
+        }
 
         svUpdateControls(st);
         // Also sync sidebar highlight
@@ -2988,11 +3010,13 @@
         currentImg1VINs.forEach(v => {
             const st   = getImg1Review(teamId, v.vin);
             const subs = getSubIssues(teamId, v.vin);
-            if      (st === 'ok')       ok++;
-            else if (st === 'raw')      raw++;
-            else if (st === 'stock')    stock++;
+            const hasSub = subs.size > 0;
+            if (st === 'ok')         ok++;
+            else if (st === 'raw')   raw++;
+            else if (st === 'stock') stock++;
             else if (st === 'internal') internal++;
-            else                        pending++;
+            else if (hasSub)         ok++;   // sub-issues only = counted as reviewed
+            else                     pending++;
             if (subs.has('Banner'))     banner++;
             if (subs.has('Background')) bg++;
             if (subs.has('Quality'))    quality++;
@@ -3016,16 +3040,15 @@
         if (rv) { rv.textContent = done + '/' + total + ' reviewed'; rv.classList.remove('hidden'); }
 
         setpill('pg-ok',       ok,       '✓ OK');
-        setpill('pg-raw',      raw,      'R Raw');
-        setpill('pg-stock',    stock,    'S Stock');
-        setpill('pg-internal', internal, 'I Internal');
-        setpill('pg-pending',  pending,  '⏳ Pending');
+        setpill('pg-raw',      raw,      'R');
+        setpill('pg-stock',    stock,    'S');
+        setpill('pg-internal', internal, 'I');
         setpill('pg-banner',   banner,   'Banner');
-        setpill('pg-bg',       bg,       'Background');
+        setpill('pg-bg',       bg,       'BG');
         setpill('pg-quality',  quality,  'Quality');
-        setpill('pg-hero',     hero,     'Hero Angle');
+        setpill('pg-hero',     hero,     'Hero');
+        setpill('pg-pending',  pending,  '⏳');
 
-        // Show separator before sub-issue pills if any sub-issues exist
         const anySub = banner + bg + quality + hero > 0;
         const sep = document.getElementById('pg-sub-sep');
         if (sep) sep.style.display = anySub ? '' : 'none';
@@ -3473,18 +3496,18 @@
             const subs   = getSubIssues(teamId, v.vin);
             const cm     = img1Comments[teamId]?.[v.vin] || '';
 
-            // Build combined issue type string — primary first, then sub-issues
-            const parts = [];
-            if      (st === 'raw')      parts.push('Raw');
-            else if (st === 'stock')    parts.push('Stock');
-            else if (st === 'internal') parts.push('Internal');
-            else if (st === 'ok')       parts.push('OK');
-            else                        parts.push('Pending');
-            if (subs.has('Banner'))     parts.push('Banner');
-            if (subs.has('Background')) parts.push('Background');
-            if (subs.has('Quality'))    parts.push('Quality');
-            if (subs.has('Hero Angle')) parts.push('Hero Angle');
-            const issueType = parts.join(' | ');
+            // Issue Type: list all problems; if none → OK; unreviewed → Pending
+            const issueParts = [];
+            if (st === 'raw')      issueParts.push('Raw');
+            if (st === 'stock')    issueParts.push('Stock');
+            if (st === 'internal') issueParts.push('Internal');
+            if (subs.has('Banner'))     issueParts.push('Banner');
+            if (subs.has('Background')) issueParts.push('Background');
+            if (subs.has('Quality'))    issueParts.push('Quality');
+            if (subs.has('Hero Angle')) issueParts.push('Hero Angle');
+            const issueType = issueParts.length > 0 ? issueParts.join(' | ')
+                            : st === 'ok'           ? 'OK'
+                            : 'Pending';
 
             const row = [
                 idx + 1,
