@@ -631,28 +631,33 @@
                             <span id="sv-counter" class="text-white/60"></span>
                         </div>
                     </div>
-                    <!-- Controls bar -->
-                    <div class="flex-shrink-0 bg-white border-t border-slate-100 px-6 py-3 flex items-center space-x-4">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mark:</span>
-                        <!-- R circle -->
-                        <div id="sv-r-btn" onclick="svToggleIssue('raw')" title="Raw (R)"
-                            class="sv-circle" style="background:#fff;color:#f97316;outline:2px solid #f97316;">R</div>
-                        <!-- S circle -->
-                        <div id="sv-s-btn" onclick="svToggleIssue('stock')" title="Stock (S)"
-                            class="sv-circle" style="background:#fff;color:#3b82f6;outline:2px solid #3b82f6;">S</div>
-                        <!-- OK -->
-                        <button id="sv-ok-btn" onclick="svMarkOk()"
-                            class="px-5 py-2 rounded-lg text-[12px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1.5">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                            <span>OK</span>
-                        </button>
-                        <!-- Clear -->
-                        <button onclick="svClear()"
-                            class="px-3 py-2 rounded-lg text-[11px] font-semibold text-slate-500 hover:bg-slate-100 border border-slate-200 transition">Clear</button>
-                        <!-- Status label -->
-                        <span id="sv-status" class="text-[11px] font-semibold ml-2"></span>
-                        <span class="flex-1"></span>
-                        <span class="text-[10px] text-slate-300">r = Raw · s = Stock · ← → navigate</span>
+                    <!-- Controls bar — two rows -->
+                    <div class="flex-shrink-0 bg-white border-t border-slate-100 px-5 py-2.5">
+                        <!-- Row 1: primary issue circles + OK + Clear + status -->
+                        <div class="flex items-center space-x-3 mb-2">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex-shrink-0">Issue:</span>
+                            <div id="sv-r-btn" onclick="svToggleIssue('raw')" title="Raw (r)"
+                                class="sv-circle" style="background:#fff;color:#f97316;outline:2px solid #f97316;">R</div>
+                            <div id="sv-s-btn" onclick="svToggleIssue('stock')" title="Stock (s)"
+                                class="sv-circle" style="background:#fff;color:#3b82f6;outline:2px solid #3b82f6;">S</div>
+                            <div id="sv-i-btn" onclick="svToggleIssue('internal')" title="Internal (i)"
+                                class="sv-circle" style="background:#fff;color:#8b5cf6;outline:2px solid #8b5cf6;">I</div>
+                            <div class="w-px h-7 bg-slate-200 mx-1"></div>
+                            <button id="sv-ok-btn" onclick="svMarkOk()"
+                                class="px-4 py-1.5 rounded-lg text-[12px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1.5">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+                                <span>OK</span>
+                            </button>
+                            <button onclick="svClear()" class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-slate-500 hover:bg-slate-100 border border-slate-200 transition">Clear</button>
+                            <span id="sv-status" class="text-[11px] font-semibold"></span>
+                            <span class="flex-1"></span>
+                            <span class="text-[10px] text-slate-300">r=Raw · s=Stock · i=Internal · ← →</span>
+                        </div>
+                        <!-- Row 2: extended sub-issue tags -->
+                        <div class="flex items-center space-x-2">
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex-shrink-0">Tags:</span>
+                            <div id="sv-sub-issues" class="flex items-center space-x-1.5 flex-wrap gap-y-1"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -1775,30 +1780,53 @@
     function svUpdateControls(st) {
         const rBtn     = document.getElementById('sv-r-btn');
         const sBtn     = document.getElementById('sv-s-btn');
+        const iBtn     = document.getElementById('sv-i-btn');
         const okBtn    = document.getElementById('sv-ok-btn');
         const statusEl = document.getElementById('sv-status');
 
-        // R button
-        rBtn.style.cssText = st === 'raw'
-            ? 'background:#f97316;color:#fff;outline:none;box-shadow:0 2px 8px rgba(249,115,22,0.4);'
-            : 'background:#fff;color:#f97316;outline:2px solid #f97316;';
-        rBtn.className = 'sv-circle';
+        const setCircle = (btn, value, color, shadow) => {
+            if (!btn) return;
+            btn.className = 'sv-circle';
+            btn.style.cssText = st === value
+                ? 'background:' + color + ';color:#fff;outline:none;box-shadow:0 2px 8px ' + shadow + ';'
+                : 'background:#fff;color:' + color + ';outline:2px solid ' + color + ';';
+        };
+        setCircle(rBtn, 'raw',      '#f97316', 'rgba(249,115,22,0.4)');
+        setCircle(sBtn, 'stock',    '#3b82f6', 'rgba(59,130,246,0.4)');
+        setCircle(iBtn, 'internal', '#8b5cf6', 'rgba(139,92,246,0.4)');
 
-        // S button
-        sBtn.style.cssText = st === 'stock'
-            ? 'background:#3b82f6;color:#fff;outline:none;box-shadow:0 2px 8px rgba(59,130,246,0.4);'
-            : 'background:#fff;color:#3b82f6;outline:2px solid #3b82f6;';
-        sBtn.className = 'sv-circle';
-
-        // OK button
         okBtn.style.background = st === 'ok' ? '#059669' : '';
         okBtn.style.boxShadow  = st === 'ok' ? '0 0 0 3px rgba(16,185,129,0.35)' : '';
 
-        // Status
-        const labels = { raw: '⚑ Raw', stock: '⚑ Stock', ok: '✓ OK' };
-        const colors = { raw: '#f97316', stock: '#3b82f6', ok: '#10b981' };
+        const labels = { raw: '⚑ Raw', stock: '⚑ Stock', internal: '⚑ Internal', ok: '✓ OK' };
+        const colors = { raw: '#f97316', stock: '#3b82f6', internal: '#8b5cf6', ok: '#10b981' };
         statusEl.textContent = labels[st] || '';
         statusEl.style.color = colors[st] || '#94a3b8';
+
+        // Render sub-issue tags
+        const teamId = currentImg1Team?.teamId;
+        const vin    = currentImg1VINs[currentImg1Idx]?.vin;
+        const active = teamId && vin ? getSubIssues(teamId, vin) : new Set();
+        const wrap   = document.getElementById('sv-sub-issues');
+        if (wrap) {
+            wrap.innerHTML = '';
+            SUB_ISSUE_LIST.forEach(label => {
+                const isActive = active.has(label);
+                const tag = document.createElement('div');
+                tag.style.cssText = 'padding:3px 9px;border-radius:12px;font-size:10px;font-weight:600;cursor:pointer;user-select:none;transition:all 0.1s;'
+                    + (isActive
+                        ? 'background:#334155;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);'
+                        : 'background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;');
+                tag.textContent = label;
+                tag.onclick = () => {
+                    if (teamId && vin) {
+                        toggleSubIssue(teamId, vin, label);
+                        svUpdateControls(getImg1Review(teamId, vin));
+                    }
+                };
+                wrap.appendChild(tag);
+            });
+        }
     }
 
     function svNav(dir) {
@@ -1827,7 +1855,12 @@
         svSetIssue(cur === 'ok' ? null : 'ok');
     }
 
-    function svClear() { svSetIssue(null); }
+    function svClear() {
+        const teamId = currentImg1Team?.teamId;
+        const vin    = currentImg1VINs[currentImg1Idx]?.vin;
+        if (teamId && vin) clearSubIssues(teamId, vin);
+        svSetIssue(null);
+    }
 
     // =========================================================================
     // BULK VIN SELECTION & IMAGE DOWNLOAD
@@ -2286,9 +2319,42 @@
         empty.classList.add('hidden');
 
         const searchTerm = (document.getElementById('team-search').value || '').toLowerCase().trim();
-        teamsList
-            .filter(t => !searchTerm || t.name.toLowerCase().includes(searchTerm) || t.teamId.toLowerCase().includes(searchTerm))
-            .forEach(t => {
+
+        const visibleTeams = teamsList.filter(t =>
+            !searchTerm ||
+            (t.rooftop||'').toLowerCase().includes(searchTerm) ||
+            t.name.toLowerCase().includes(searchTerm) ||
+            t.teamId.toLowerCase().includes(searchTerm)
+        );
+
+        // "Review All" card — only when multiple rooftops and no search active
+        if (visibleTeams.length > 1 && !searchTerm) {
+            const allCard = document.createElement('div');
+            allCard.className = 'bg-gradient-to-br from-blue-600 to-blue-700 p-5 rounded-xl shadow-sm card-hover transition cursor-pointer flex flex-col justify-between min-h-[128px]';
+            const totalVins    = teamsList.reduce((s,t) => s + t.vinCount, 0);
+            const totalImgs    = teamsList.reduce((s,t) => s + t.imageCount, 0);
+            const totalImg1    = teamsList.reduce((s,t) => s + Object.keys(img1Reviews[t.teamId]||{}).length, 0);
+            const allImg1Pct   = totalVins > 0 ? Math.round(totalImg1/totalVins*100) : 0;
+            allCard.innerHTML = `
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold text-white text-[15px] leading-tight">&#9654; Review All Rooftops</h3>
+                        <p class="text-blue-200 text-[11px] mt-0.5">${teamsList.length} rooftops &middot; ${totalVins.toLocaleString()} VINs &middot; ${totalImgs.toLocaleString()} imgs</p>
+                    </div>
+                    <svg class="w-7 h-7 text-blue-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                </div>
+                <div style="margin-top:14px;display:flex;flex-direction:column;gap:3px">
+                    <button class="team-card-btn" style="background:#1e40af;border:none;color:#fff;width:100%" onclick="event.stopPropagation();openAllRooftops1stImage()">&#9654; 1st Image Review — All Rooftops</button>
+                    <div style="height:5px;background:rgba(255,255,255,0.25);border-radius:3px;overflow:hidden">
+                        <div style="height:100%;width:${allImg1Pct}%;background:#fff;transition:width 0.3s"></div>
+                    </div>
+                    <span style="font-size:9px;color:#bfdbfe;text-align:center">${totalImg1}/${totalVins} &nbsp;${allImg1Pct}%</span>
+                </div>
+            `;
+            grid.appendChild(allCard);
+        }
+
+        visibleTeams.forEach(t => {
                 const reviewedCount = Object.keys(reviews[t.teamId] || {}).length;
                 const pct = t.vinCount > 0 ? Math.round((reviewedCount / t.vinCount) * 100) : 0;
 
@@ -2301,11 +2367,10 @@
 
                 card.innerHTML = `
                     <div class="flex flex-col space-y-0.5">
-                        <h3 class="font-bold text-[#1a202c] text-[15px] leading-tight truncate" title="${escapeHtml(t.name)}">${escapeHtml(t.name)}</h3>
-                        <p class="text-[12px] font-medium text-slate-400 mt-0.5 uppercase tracking-wide">${escapeHtml(t.teamId)}</p>
+                        <h3 class="font-bold text-[#1a202c] text-[15px] leading-tight truncate" title="${escapeHtml(t.rooftop || t.name)}">${escapeHtml(t.rooftop || t.name)}</h3>
                     </div>
                     <div class="flex items-center justify-between mt-3">
-                        <span class="badge-vauto">${escapeHtml(t.rooftop || 'VAuto')}</span>
+                        <span class="badge-vauto">${escapeHtml(t.rooftop ? t.name.length < 20 && !t.name.match(/^[0-9A-Z]{17}$/) ? t.name : 'VAuto' : 'VAuto')}</span>
                         <div class="flex items-center space-x-3 text-[11px]">
                             <span class="text-slate-600 font-semibold">${t.vinCount.toLocaleString()} VINs</span>
                             <span class="text-slate-400">${t.imageCount.toLocaleString()} imgs</span>
@@ -2334,6 +2399,39 @@
     }
 
     document.getElementById('team-search').addEventListener('input', renderDashboard);
+
+    // Open 1st image review across ALL rooftops merged into one virtual team
+    function openAllRooftops1stImage() {
+        // Collect all VINs from every team via vinsByTeam
+        const allVins = [];
+        const seenVins = new Set();
+        for (const t of teamsList) {
+            const teamVins = vinsByTeam.get(t.teamId);
+            if (!teamVins) continue;
+            for (const [vin, urls] of teamVins.entries()) {
+                if (!seenVins.has(vin)) {
+                    seenVins.add(vin);
+                    allVins.push({ vin, urls });
+                }
+            }
+        }
+
+        // Build a virtual team and inject — then call openTeam1stImage
+        // We register the merged VINs under a virtual teamId in vinsByTeam
+        const virtualTeamId = 'csv-all-rooftops';
+        const mergedMap = new Map();
+        allVins.forEach(v => mergedMap.set(v.vin, v.urls));
+        vinsByTeam.set(virtualTeamId, mergedMap);
+
+        const virtualTeam = {
+            teamId:    virtualTeamId,
+            name:      selectedEnterprise,
+            rooftop:   'All Rooftops (' + teamsList.length + ')',
+            vinCount:  allVins.length,
+            imageCount: allVins.reduce((s, v) => s + v.urls.length, 0),
+        };
+        openTeam1stImage(virtualTeam);
+    }
 
     // =========================================================================
     // TEAM REVIEW
@@ -2671,19 +2769,44 @@
     function getImg1Review(teamId, vin) { return (img1Reviews[teamId] && img1Reviews[teamId][vin]) || null; }
 
     // Helpers to work with raw/stock sub-states
-    function isRaw(st)   { return st === 'raw'; }
-    function isStock(st) { return st === 'stock'; }
+    function isRaw(st)      { return st === 'raw'; }
+    function isStock(st)    { return st === 'stock'; }
+    function isInternal(st) { return st === 'internal'; }
+
     function stateColor(st) {
-        if (st === 'ok')    return '#10b981';  // green
-        if (st === 'raw')   return '#f97316';  // orange
-        if (st === 'stock') return '#3b82f6';  // blue
+        if (st === 'ok')       return '#10b981';  // green
+        if (st === 'raw')      return '#f97316';  // orange
+        if (st === 'stock')    return '#3b82f6';  // blue
+        if (st === 'internal') return '#8b5cf6';  // purple
         return 'transparent';
     }
     function stateBadgeText(st) {
-        if (st === 'ok')    return '✓ OK';
-        if (st === 'raw')   return 'R';
-        if (st === 'stock') return 'S';
+        if (st === 'ok')       return '✓ OK';
+        if (st === 'raw')      return 'R';
+        if (st === 'stock')    return 'S';
+        if (st === 'internal') return 'I';
         return '';
+    }
+
+    // Sub-issues (single view only) — stored separately keyed by teamId+vin
+    // Format: { 'teamId::vin': Set<string> }
+    const subIssues = {};
+    const SUB_ISSUE_LIST = ['Sequence', 'Banner', 'Background', 'Quality', 'Hero Angle'];
+    const SUB_ISSUE_KEYS = {'Sequence':'seq','Banner':'ban','Background':'bg','Quality':'qty','Hero Angle':'hero'};
+
+    function getSubIssues(teamId, vin) {
+        const k = teamId + '::' + vin;
+        return subIssues[k] || new Set();
+    }
+    function toggleSubIssue(teamId, vin, label) {
+        const k = teamId + '::' + vin;
+        if (!subIssues[k]) subIssues[k] = new Set();
+        if (subIssues[k].has(label)) subIssues[k].delete(label);
+        else subIssues[k].add(label);
+    }
+    function clearSubIssues(teamId, vin) {
+        const k = teamId + '::' + vin;
+        delete subIssues[k];
     }
     function setImg1Review(teamId, vin, status, comment) {
         if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
@@ -3006,13 +3129,16 @@
                 return btn;
             }
 
-            const rawBtn   = makeIssueCircle('R', '#f97316', 'raw',   st);
-            const stockBtn = makeIssueCircle('S', '#3b82f6', 'stock', st);
+            const rawBtn      = makeIssueCircle('R', '#f97316', 'raw',      st);
+            const stockBtn    = makeIssueCircle('S', '#3b82f6', 'stock',    st);
+            const internalBtn = makeIssueCircle('I', '#8b5cf6', 'internal', st);
             issueWrap.appendChild(rawBtn);
             issueWrap.appendChild(stockBtn);
+            issueWrap.appendChild(internalBtn);
             tile.appendChild(issueWrap);
-            tile._rawBtn   = rawBtn;
-            tile._stockBtn = stockBtn;
+            tile._rawBtn      = rawBtn;
+            tile._stockBtn    = stockBtn;
+            tile._internalBtn = internalBtn;
 
             // Selection checkbox — bottom-RIGHT corner
             const cbWrap = document.createElement('div');
@@ -3122,7 +3248,7 @@
         if (stBadge && stBadge.style.position === 'absolute') {
             const txt = stateBadgeText(st);
             stBadge.textContent = txt || '';
-            if (st === 'raw' || st === 'stock') {
+            if (st === 'raw' || st === 'stock' || st === 'internal') {
                 stBadge.style.cssText = 'position:absolute;top:5px;left:5px;z-index:5;width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;box-shadow:0 1px 3px rgba(0,0,0,0.25);';
                 stBadge.style.background = color; stBadge.style.color = '#fff';
             } else if (st === 'ok') {
@@ -3141,8 +3267,9 @@
             btn.style.color      = active ? '#fff' : c;
             btn.style.outline    = active ? 'none' : '2px solid ' + c;
         };
-        refreshBtn(tile._rawBtn,   'raw');
-        refreshBtn(tile._stockBtn, 'stock');
+        refreshBtn(tile._rawBtn,      'raw');
+        refreshBtn(tile._stockBtn,   'stock');
+        refreshBtn(tile._internalBtn,'internal');
     }
 
     function submit1ImgReview(idx, status) {
@@ -3448,6 +3575,20 @@
                     const v = currentImg1VINs[currentImg1Idx];
                     const cur = getImg1Review(currentImg1Team.teamId, v.vin);
                     const ns = cur === 'stock' ? null : 'stock';
+                    setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
+                    updateImg1ProgressBadge();
+                    updateTileIssueState(currentImg1Idx, ns);
+                    render1ImgSidebar();
+                }
+                return;
+            }
+            if ((e.key === 'i' || e.key === 'I') && currentImg1Idx >= 0) {
+                e.preventDefault();
+                if (img1ViewMode === 'single') svToggleIssue('internal');
+                else {
+                    const v = currentImg1VINs[currentImg1Idx];
+                    const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+                    const ns = cur === 'internal' ? null : 'internal';
                     setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
                     updateImg1ProgressBadge();
                     updateTileIssueState(currentImg1Idx, ns);
