@@ -2369,23 +2369,33 @@
 
     // Open 1st image review across ALL rooftops merged into one virtual team
     function openAllRooftops1stImage() {
-        // Build a merged virtual team from all teams
+        // Collect all VINs from every team via vinsByTeam
         const allVins = [];
         const seenVins = new Set();
         for (const t of teamsList) {
-            const team = teamData[t.teamId];
-            if (!team) continue;
-            for (const v of team.vins) {
-                if (!seenVins.has(v.vin)) { seenVins.add(v.vin); allVins.push(v); }
+            const teamVins = vinsByTeam.get(t.teamId);
+            if (!teamVins) continue;
+            for (const [vin, urls] of teamVins.entries()) {
+                if (!seenVins.has(vin)) {
+                    seenVins.add(vin);
+                    allVins.push({ vin, urls });
+                }
             }
         }
+
+        // Build a virtual team and inject — then call openTeam1stImage
+        // We register the merged VINs under a virtual teamId in vinsByTeam
+        const virtualTeamId = 'csv-all-rooftops';
+        const mergedMap = new Map();
+        allVins.forEach(v => mergedMap.set(v.vin, v.urls));
+        vinsByTeam.set(virtualTeamId, mergedMap);
+
         const virtualTeam = {
-            teamId:    'csv-all-rooftops',
-            name:      selectedEnterprise + ' — All',
-            rooftop:   '',
+            teamId:    virtualTeamId,
+            name:      selectedEnterprise,
+            rooftop:   'All Rooftops (' + teamsList.length + ')',
             vinCount:  allVins.length,
-            imageCount: allVins.reduce((s,v) => s + v.urls.length, 0),
-            vins:      allVins,
+            imageCount: allVins.reduce((s, v) => s + v.urls.length, 0),
         };
         openTeam1stImage(virtualTeam);
     }
