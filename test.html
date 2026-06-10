@@ -618,13 +618,13 @@
                             <span id="copy-vin-feedback" class="text-[10px] font-semibold text-emerald-600 opacity-0 transition-opacity">Copied!</span>
                             <!-- Issue buttons — only shown in single view -->
                             <div id="sv-issue-bar" class="hidden items-center space-x-1.5 ml-3 flex-wrap gap-y-1">
-                                <button id="sv-r-btn"  onclick="svToggleIssue('raw')"      title="r" class="sv-issue-btn-hdr">Raw</button>
-                                <button id="sv-s-btn"  onclick="svToggleIssue('stock')"    title="s" class="sv-issue-btn-hdr">Stock</button>
-                                <button id="sv-i-btn"  onclick="svToggleIssue('issue')"    title="i" class="sv-issue-btn-hdr">Issue</button>
-                                <button id="sv-bn-btn" onclick="svToggleSub('Banner')"     title="o" class="sv-issue-btn-hdr">Banner</button>
-                                <button id="sv-bg-btn" onclick="svToggleSub('Background')" title="b" class="sv-issue-btn-hdr">Background</button>
-                                <button id="sv-qt-btn" onclick="svToggleSub('Quality')"    title="q" class="sv-issue-btn-hdr">Quality</button>
-                                <button id="sv-ha-btn" onclick="svToggleSub('Hero Angle')" title="h" class="sv-issue-btn-hdr">Hero Angle</button>
+                                <button id="sv-r-btn"  onclick="svToggleIssue('raw')"        title="r" class="sv-issue-btn-hdr">Raw <small style="opacity:.55;font-size:9px">(r)</small></button>
+                                <button id="sv-s-btn"  onclick="svToggleIssue('stock')"      title="s" class="sv-issue-btn-hdr">Stock <small style="opacity:.55;font-size:9px">(s)</small></button>
+                                <button id="sv-i-btn"  onclick="svToggleIssue('issue')"      title="i" class="sv-issue-btn-hdr">Issue <small style="opacity:.55;font-size:9px">(i)</small></button>
+                                <button id="sv-bn-btn" onclick="svToggleIssue('banner')"     title="o" class="sv-issue-btn-hdr">Banner <small style="opacity:.55;font-size:9px">(o)</small></button>
+                                <button id="sv-bg-btn" onclick="svToggleIssue('background')" title="b" class="sv-issue-btn-hdr">Background <small style="opacity:.55;font-size:9px">(b)</small></button>
+                                <button id="sv-qt-btn" onclick="svToggleIssue('quality')"    title="q" class="sv-issue-btn-hdr">Quality <small style="opacity:.55;font-size:9px">(q)</small></button>
+                                <button id="sv-ha-btn" onclick="svToggleIssue('hero')"       title="h" class="sv-issue-btn-hdr">Hero Angle <small style="opacity:.55;font-size:9px">(h)</small></button>
                                 <div class="w-px h-4 bg-slate-200 mx-0.5"></div>
                                 <button id="sv-ok-btn" onclick="svMarkOk()"
                                     class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1">
@@ -1837,79 +1837,52 @@
         badge.innerText = lbl;
     }
 
-    // Helper: svToggleSub for overlay button clicks
-    function svToggleSub(label) {
-        const teamId = currentImg1Team?.teamId;
-        const vin    = currentImg1VINs[currentImg1Idx]?.vin;
-        if (!teamId || !vin) return;
-        toggleSubIssue(teamId, vin, label);
-        svUpdateControls(getImg1Review(teamId, vin));
-    }
-
     function svUpdateControls(st) {
-        const teamId = currentImg1Team?.teamId;
-        const vin    = currentImg1VINs[currentImg1Idx]?.vin;
-        const subs   = teamId && vin ? getSubIssues(teamId, vin) : new Set();
-        const okBtn  = document.getElementById('sv-ok-btn');
+        const okBtn    = document.getElementById('sv-ok-btn');
         const statusEl = document.getElementById('sv-status');
 
-        // Primary issue buttons
-        const primaryMap = { 'sv-r-btn': 'raw', 'sv-s-btn': 'stock', 'sv-i-btn': 'issue' };
-        Object.entries(primaryMap).forEach(([id, val]) => {
+        // All 7 issue buttons + OK — single select, all mutually exclusive
+        const allBtns = {
+            'sv-r-btn':  'raw',
+            'sv-s-btn':  'stock',
+            'sv-i-btn':  'issue',
+            'sv-bn-btn': 'banner',
+            'sv-bg-btn': 'background',
+            'sv-qt-btn': 'quality',
+            'sv-ha-btn': 'hero',
+        };
+        Object.entries(allBtns).forEach(([id, val]) => {
             const btn = document.getElementById(id);
             if (!btn) return;
             const c = stateColor(val);
             if (st === val) {
-                btn.classList.add('active');
-                btn.style.background = c;
-                btn.style.borderColor = c;
-                btn.style.color = '#fff';
-                btn.style.boxShadow = '0 0 0 2px ' + c + '33';
+                btn.style.background   = c;
+                btn.style.borderColor  = c;
+                btn.style.color        = '#fff';
+                btn.style.boxShadow    = '0 0 0 2px ' + c + '44';
             } else {
-                btn.classList.remove('active');
-                btn.style.background = '';
-                btn.style.borderColor = '';
-                btn.style.color = '';
-                btn.style.boxShadow = '';
+                btn.style.background   = '';
+                btn.style.borderColor  = '';
+                btn.style.color        = '';
+                btn.style.boxShadow    = '';
             }
         });
 
-        // Sub-issue buttons
-        const subMap = { 'sv-bn-btn': 'Banner', 'sv-bg-btn': 'Background', 'sv-qt-btn': 'Quality', 'sv-ha-btn': 'Hero Angle' };
-        Object.entries(subMap).forEach(([id, label]) => {
-            const btn = document.getElementById(id);
-            if (!btn) return;
-            if (subs.has(label)) {
-                btn.classList.add('active');
-                btn.style.background = 'rgba(255,255,255,0.35)';
-                btn.style.borderColor = '#fff';
-                btn.style.color = '#fff';
-            } else {
-                btn.classList.remove('active');
-                btn.style.background = '';
-                btn.style.borderColor = '';
-                btn.style.color = '';
-            }
-        });
-
-        // OK button glow
+        // OK button
         if (okBtn) {
-            okBtn.style.boxShadow = st === 'ok' ? '0 0 0 3px rgba(16,185,129,0.6)' : '';
+            okBtn.style.background = st === 'ok' ? '#059669' : '';
+            okBtn.style.boxShadow  = st === 'ok' ? '0 0 0 3px rgba(16,185,129,0.4)' : '';
         }
 
-        // Status text
-        const hasIssues = st && st !== 'ok';
-        const hasSubs   = subs.size > 0;
+        // Status chip
         if (statusEl) {
-            if (st === 'ok') { statusEl.textContent = '✓ OK'; statusEl.style.color = '#86efac'; }
-            else if (hasIssues || hasSubs) {
-                const parts = [];
-                if (st === 'raw')   parts.push('Raw');
-                if (st === 'stock') parts.push('Stock');
-                if (st === 'issue') parts.push('Issue');
-                subs.forEach(s => parts.push(s));
-                statusEl.textContent = parts.join(' · ');
-                statusEl.style.color = 'rgba(255,255,255,0.7)';
+            const lbl = stateLabel(st);
+            if (st === 'ok') {
+                statusEl.textContent = '✓ OK';
+                statusEl.style.color = '#10b981';
+            } else if (lbl) {
+                statusEl.textContent = '⚑ ' + lbl;
+                statusEl.style.color = stateColor(st);
             } else {
                 statusEl.textContent = '';
             }
@@ -1933,7 +1906,9 @@
     }
 
     function svToggleIssue(value) {
-        const cur = getImg1Review(currentImg1Team.teamId, currentImg1VINs[currentImg1Idx]?.vin);
+        if (currentImg1Idx < 0 || !currentImg1Team) return;
+        const v   = currentImg1VINs[currentImg1Idx];
+        const cur = getImg1Review(currentImg1Team.teamId, v.vin);
         svSetIssue(cur === value ? null : value);
     }
 
@@ -2926,18 +2901,25 @@
     function isIssue(st) { return st === 'issue'; }
 
     function stateColor(st) {
-        if (st === 'ok')       return '#10b981';  // green
-        if (st === 'raw')      return '#f97316';  // orange
-        if (st === 'stock')    return '#3b82f6';  // blue
-        if (st === 'issue')    return '#8b5cf6';  // purple
+        if (st === 'ok')         return '#10b981';
+        if (st === 'raw')        return '#f97316';
+        if (st === 'stock')      return '#3b82f6';
+        if (st === 'issue')      return '#8b5cf6';
+        if (st === 'banner')     return '#ec4899';
+        if (st === 'background') return '#14b8a6';
+        if (st === 'quality')    return '#f59e0b';
+        if (st === 'hero')       return '#6366f1';
         return 'transparent';
     }
+    function stateLabel(st) {
+        const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Issue',
+                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle' };
+        return map[st] || '';
+    }
     function stateBadgeText(st) {
-        if (st === 'ok')       return '✓ OK';
-        if (st === 'raw')      return 'R';
-        if (st === 'stock')    return 'S';
-        if (st === 'issue')    return 'I';
-        return '';
+        const map = { ok:'✓', raw:'R', stock:'S', issue:'I',
+                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA' };
+        return map[st] || '';
     }
 
     // Sub-issues (single view only) — stored separately keyed by teamId+vin
@@ -3124,19 +3106,16 @@
         let banner = 0, bg = 0, quality = 0, hero = 0;
 
         currentImg1VINs.forEach(v => {
-            const st   = getImg1Review(teamId, v.vin);
-            const subs = getSubIssues(teamId, v.vin);
-            const hasSub = subs.size > 0;
-            if (st === 'ok')         ok++;
-            else if (st === 'raw')   raw++;
-            else if (st === 'stock') stock++;
-            else if (st === 'issue') internal++;
-            else if (hasSub)         ok++;   // sub-issues only = counted as reviewed
-            else                     pending++;
-            if (subs.has('Banner'))     banner++;
-            if (subs.has('Background')) bg++;
-            if (subs.has('Quality'))    quality++;
-            if (subs.has('Hero Angle')) hero++;
+            const st = getImg1Review(teamId, v.vin);
+            if      (st === 'ok')         ok++;
+            else if (st === 'raw')        raw++;
+            else if (st === 'stock')      stock++;
+            else if (st === 'issue')      internal++;
+            else if (st === 'banner')     banner++;
+            else if (st === 'background') bg++;
+            else if (st === 'quality')    quality++;
+            else if (st === 'hero')       hero++;
+            else                          pending++;
         });
         const done = ok + raw + stock + internal;
 
@@ -3471,7 +3450,7 @@
         const refreshBtn = (btn, value) => {
             if (!btn) return;
             const active = (st === value);
-            const c = value === 'raw' ? '#f97316' : '#3b82f6';
+            const c = stateColor(value);
             btn.style.background = active ? c : 'rgba(255,255,255,0.95)';
             btn.style.color      = active ? '#fff' : c;
             btn.style.outline    = active ? 'none' : '2px solid ' + c;
@@ -3614,16 +3593,9 @@
 
             // Issue Type: list all problems; if none → OK; unreviewed → Pending
             const issueParts = [];
-            if (st === 'raw')      issueParts.push('Raw');
-            if (st === 'stock')    issueParts.push('Stock');
-            if (st === 'internal') issueParts.push('Internal');
-            if (subs.has('Banner'))     issueParts.push('Banner');
-            if (subs.has('Background')) issueParts.push('Background');
-            if (subs.has('Quality'))    issueParts.push('Quality');
-            if (subs.has('Hero Angle')) issueParts.push('Hero Angle');
-            const issueType = issueParts.length > 0 ? issueParts.join(' | ')
-                            : st === 'ok'           ? 'OK'
-                            : 'Pending';
+            // Single-select model — st holds the one issue type
+            const stLabel = stateLabel(st);
+            const issueType = stLabel && st !== 'ok' ? stLabel : st === 'ok' ? 'OK' : 'Pending';
 
             const row = [
                 idx + 1,
@@ -3827,16 +3799,11 @@
                 }
                 return;
             }
-            // Sub-issue shortcuts (single view only)
-            const subShortcuts = { 'o':'Banner', 'O':'Banner', 'b':'Background', 'B':'Background', 'q':'Quality', 'Q':'Quality', 'h':'Hero Angle', 'H':'Hero Angle' };
+            // Sub-issue shortcuts (single view only) — now all single-select
+            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero' };
             if (img1ViewMode === 'single' && subShortcuts[e.key] && currentImg1Idx >= 0) {
                 e.preventDefault();
-                const teamId = currentImg1Team?.teamId;
-                const vin    = currentImg1VINs[currentImg1Idx]?.vin;
-                if (teamId && vin) {
-                    toggleSubIssue(teamId, vin, subShortcuts[e.key]);
-                    svUpdateControls(getImg1Review(teamId, vin));
-                }
+                svToggleIssue(subShortcuts[e.key]);
                 return;
             }
             return;
