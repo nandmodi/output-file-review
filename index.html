@@ -1798,28 +1798,34 @@
         img.referrerPolicy = 'no-referrer';
 
         const showFull = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
-        const thumb = thumbUrl(url, 800, 80);
+        const srcUrl   = extractSourceUrl(url);
 
-        if (thumb !== url) {
-            // Show thumbnail immediately, then swap to full-res silently
-            img.onload = () => {
-                showFull();
+        // Build fallback chain: spyne thumb → wsrv thumb → original → raw source
+        const svFallbacks = [];
+        const spyneT = spyneThumbUrl(srcUrl, 900, 85);
+        svFallbacks.push(spyneT);
+        svFallbacks.push(wsrvThumbUrl(srcUrl, 900, 85));
+        if (!svFallbacks.includes(url)) svFallbacks.push(url);
+        if (srcUrl !== url) svFallbacks.push(srcUrl);
+
+        let svStep = 0;
+        const tryNext = () => {
+            if (svStep < svFallbacks.length) { img.src = svFallbacks[svStep++]; return; }
+            skel.style.display = 'none'; img.style.opacity = '0.4';
+        };
+        img.onload = () => {
+            showFull();
+            // Once thumb shown, preload the full-res original silently
+            const fullSrc = srcUrl || url;
+            if (img.src !== fullSrc) {
                 const full = new Image();
                 full.referrerPolicy = 'no-referrer';
-                full.onload = () => { img.src = url; };
-                full.src = url;
-            };
-            img.onerror = () => {
-                img.onload = showFull;
-                img.onerror = () => { skel.style.display = 'none'; img.style.opacity = '0.5'; };
-                img.src = url;
-            };
-            img.src = thumb;
-        } else {
-            img.onload  = showFull;
-            img.onerror = () => { skel.style.display = 'none'; img.style.opacity = '0.5'; };
-            img.src = url;
-        }
+                full.onload = () => { img.src = fullSrc; };
+                full.src = fullSrc;
+            }
+        };
+        img.onerror = tryNext;
+        tryNext();
 
         svUpdateControls(st);
         // Also sync sidebar highlight
@@ -3406,15 +3412,29 @@
                 img.alt = '';
                 img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
                 let fallbackStep = 0;
+                // Build ordered fallback chain for this URL
+                const sourceUrl = extractSourceUrl(firstUrl);
+                const fallbacks = [];
+                // 1. Spyne Thumbor re-proxied at 400px
+                const spyneThumb = spyneThumbUrl(sourceUrl, 400, 70);
+                if (spyneThumb !== firstUrl) fallbacks.push(spyneThumb);
+                // 2. wsrv.nl proxy (works for any public URL)
+                fallbacks.push(wsrvThumbUrl(sourceUrl, 400, 70));
+                // 3. Original URL as-is (already-Thumbor or direct)
+                if (!fallbacks.includes(firstUrl)) fallbacks.push(firstUrl);
+                // 4. Raw source S3 URL if different
+                if (sourceUrl !== firstUrl && !fallbacks.includes(sourceUrl)) fallbacks.push(sourceUrl);
+
                 img.addEventListener('load', () => skel.remove());
                 img.addEventListener('error', () => {
-                    fallbackStep++;
-                    // Step 1: if proxy was used, try direct URL
-                    if (fallbackStep === 1 && img.src !== firstUrl) { img.src = firstUrl; return; }
+                    if (fallbackStep < fallbacks.length) {
+                        img.src = fallbacks[fallbackStep++];
+                        return;
+                    }
                     skel.remove();
-                    tile.innerHTML += '<div class="broken-img" style="position:absolute;inset:0;font-size:9px">failed</div>';
+                    tile.innerHTML += '<div class="broken-img" style="position:absolute;inset:0;font-size:9px;color:#94a3b8;display:flex;align-items:center;justify-content:center;">No image</div>';
                 });
-                img.src = thumbUrl(firstUrl, 400, 70);
+                img.src = fallbacks[fallbackStep++];
                 tile.appendChild(img);
             }
 
