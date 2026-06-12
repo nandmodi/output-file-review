@@ -161,6 +161,26 @@
         }
         .data-loading-overlay.hidden { display: none; }
 
+        /* Issue buttons in VIN header (single view) */
+        .sv-issue-btn-hdr {
+            padding: 3px 8px; border-radius: 5px; font-size: 11px; font-weight: 700;
+            cursor: pointer; border: 1.5px solid #e2e8f0;
+            background: #f8fafc; color: #64748b;
+            transition: all 0.1s; user-select: none; white-space: nowrap;
+        }
+        .sv-issue-btn-hdr:hover { background: #f1f5f9; border-color: #cbd5e1; color: #334155; }
+        .sv-issue-btn-hdr.active { color: #fff; border-color: transparent; }
+
+        /* Issue buttons in single view overlay */
+        .sv-issue-btn {
+            padding: 3px 9px; border-radius: 5px; font-size: 11px; font-weight: 700;
+            cursor: pointer; border: 1.5px solid rgba(255,255,255,0.35);
+            background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85);
+            transition: all 0.1s; user-select: none; white-space: nowrap;
+        }
+        .sv-issue-btn:hover { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.6); color:#fff; }
+        .sv-issue-btn.active { color: #fff; border-color: transparent; }
+
         /* View toggle & single view */
         .view-toggle-btn { transition: all 0.15s; }
         .view-toggle-btn.active { background: #3b82f6; color: #fff; }
@@ -596,6 +616,25 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             </button>
                             <span id="copy-vin-feedback" class="text-[10px] font-semibold text-emerald-600 opacity-0 transition-opacity">Copied!</span>
+                            <!-- Issue buttons — only shown in single view -->
+                            <div id="sv-issue-bar" class="hidden items-center space-x-1.5 ml-3 flex-wrap gap-y-1">
+                                <button id="sv-r-btn"  onclick="svToggleIssue('raw')"        title="r" class="sv-issue-btn-hdr">Raw <small style="opacity:.55;font-size:9px">(r)</small></button>
+                                <button id="sv-s-btn"  onclick="svToggleIssue('stock')"      title="s" class="sv-issue-btn-hdr">Stock <small style="opacity:.55;font-size:9px">(s)</small></button>
+                                <button id="sv-i-btn"  onclick="svToggleIssue('issue')"      title="i" class="sv-issue-btn-hdr">Issue <small style="opacity:.55;font-size:9px">(i)</small></button>
+                                <button id="sv-bn-btn" onclick="svToggleIssue('banner')"     title="o" class="sv-issue-btn-hdr">Banner <small style="opacity:.55;font-size:9px">(o)</small></button>
+                                <button id="sv-bg-btn" onclick="svToggleIssue('background')" title="b" class="sv-issue-btn-hdr">Background <small style="opacity:.55;font-size:9px">(b)</small></button>
+                                <button id="sv-qt-btn" onclick="svToggleIssue('quality')"    title="q" class="sv-issue-btn-hdr">Quality <small style="opacity:.55;font-size:9px">(q)</small></button>
+                                <button id="sv-ha-btn" onclick="svToggleIssue('hero')"       title="h" class="sv-issue-btn-hdr">Hero Angle <small style="opacity:.55;font-size:9px">(h)</small></button>
+                                <div class="w-px h-4 bg-slate-200 mx-0.5"></div>
+                                <button id="sv-ok-btn" onclick="svMarkOk()"
+                                    class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1">
+                                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+                                    <span>OK</span>
+                                </button>
+                                <button onclick="svClear()"
+                                    class="px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-500 hover:bg-slate-100 border border-slate-200 transition">Clear</button>
+                                <span id="sv-status" class="text-[11px] font-semibold ml-1"></span>
+                            </div>
                         </div>
                     </div>
                     <div class="flex items-center space-x-3">
@@ -635,52 +674,25 @@
 
                 <!-- ── Single View ── -->
                 <div id="single-view-area">
-                    <!-- Dark image panel -->
+                    <!-- Full image panel — issues overlay at top, nav arrows on sides -->
                     <div class="flex-1 min-h-0 relative bg-slate-900 flex items-center justify-center overflow-hidden">
                         <img id="sv-img" src="" alt="" referrerpolicy="no-referrer"
                             class="max-w-full max-h-full object-contain transition-opacity duration-150" style="opacity:0">
                         <div id="sv-skeleton" class="absolute inset-0 flex items-center justify-center">
                             <div class="spinner-blue"></div>
                         </div>
-                        <!-- Nav arrows overlaid on image -->
+                        <!-- Nav arrows -->
                         <div class="sv-nav absolute left-3 top-1/2 -translate-y-1/2" onclick="svNav(-1)" title="← Previous">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
                         </div>
                         <div class="sv-nav absolute right-3 top-1/2 -translate-y-1/2" onclick="svNav(1)" title="Next →">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
                         </div>
-                        <!-- VIN + counter overlay at top -->
-                        <div class="absolute top-3 left-1/2 -translate-x-1/2 bg-black/60 text-white rounded-lg px-4 py-1.5 flex items-center space-x-3 text-[11px]">
+
+                        <!-- VIN + counter overlay (minimal) -->
+                        <div class="absolute top-3 left-1/2 -translate-x-1/2 bg-black/50 text-white rounded-lg px-3 py-1 flex items-center space-x-2 text-[11px] pointer-events-none">
                             <span id="sv-vin" class="font-mono font-bold tracking-wide"></span>
-                            <span id="sv-counter" class="text-white/60"></span>
-                        </div>
-                    </div>
-                    <!-- Controls bar — two rows -->
-                    <div class="flex-shrink-0 bg-white border-t border-slate-100 px-5 py-2.5">
-                        <!-- Row 1: primary issue circles + OK + Clear + status -->
-                        <div class="flex items-center space-x-3 mb-2">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex-shrink-0">Issue:</span>
-                            <div id="sv-r-btn" onclick="svToggleIssue('raw')" title="Raw (r)"
-                                class="sv-circle" style="background:#fff;color:#f97316;outline:2px solid #f97316;">R</div>
-                            <div id="sv-s-btn" onclick="svToggleIssue('stock')" title="Stock (s)"
-                                class="sv-circle" style="background:#fff;color:#3b82f6;outline:2px solid #3b82f6;">S</div>
-                            <div id="sv-i-btn" onclick="svToggleIssue('internal')" title="Internal (i)"
-                                class="sv-circle" style="background:#fff;color:#8b5cf6;outline:2px solid #8b5cf6;">I</div>
-                            <div class="w-px h-7 bg-slate-200 mx-1"></div>
-                            <button id="sv-ok-btn" onclick="svMarkOk()"
-                                class="px-4 py-1.5 rounded-lg text-[12px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1.5">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
-                                <span>OK</span>
-                            </button>
-                            <button onclick="svClear()" class="px-3 py-1.5 rounded-lg text-[11px] font-semibold text-slate-500 hover:bg-slate-100 border border-slate-200 transition">Clear</button>
-                            <span id="sv-status" class="text-[11px] font-semibold"></span>
-                            <span class="flex-1"></span>
-                            <span class="text-[10px] text-slate-300">r/s/i · o=Banner · b=BG · q=Quality · h=Hero · ← →</span>
-                        </div>
-                        <!-- Row 2: extended sub-issue tags -->
-                        <div class="flex items-center space-x-2">
-                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex-shrink-0">Tags:</span>
-                            <div id="sv-sub-issues" class="flex items-center space-x-1.5 flex-wrap gap-y-1"></div>
+                            <span id="sv-counter" class="text-white/50"></span>
                         </div>
                     </div>
                 </div>
@@ -1750,13 +1762,14 @@
         const singleArea = document.getElementById('single-view-area');
         const vtGrid     = document.getElementById('vt-grid');
         const vtSingle   = document.getElementById('vt-single');
+        const issueBar   = document.getElementById('sv-issue-bar');
 
         if (mode === 'single') {
             gridArea.classList.add('hidden');
             singleArea.classList.add('active');
             vtGrid.classList.remove('active');
             vtSingle.classList.add('active');
-            // Show current VIN in single view (use currentImg1Idx, or first)
+            if (issueBar) issueBar.style.display = 'flex';
             const idx = currentImg1Idx >= 0 ? currentImg1Idx : 0;
             svShow(idx);
         } else {
@@ -1764,6 +1777,7 @@
             singleArea.classList.remove('active');
             vtGrid.classList.add('active');
             vtSingle.classList.remove('active');
+            if (issueBar) issueBar.style.display = 'none';
         }
     }
 
@@ -1810,6 +1824,8 @@
         svUpdateControls(st);
         // Also sync sidebar highlight
         render1ImgSidebar();
+        // Preload next 4 VINs so they load instantly when navigating
+        svPreloadAhead(idx, 4);
         // Update header VIN text / status badge
         document.getElementById('current-vin-text').innerText = v.vin;
         const badge = document.getElementById('current-vin-status-badge');
@@ -1824,54 +1840,54 @@
     }
 
     function svUpdateControls(st) {
-        const rBtn     = document.getElementById('sv-r-btn');
-        const sBtn     = document.getElementById('sv-s-btn');
-        const iBtn     = document.getElementById('sv-i-btn');
         const okBtn    = document.getElementById('sv-ok-btn');
         const statusEl = document.getElementById('sv-status');
 
-        const setCircle = (btn, value, color, shadow) => {
-            if (!btn) return;
-            btn.className = 'sv-circle';
-            btn.style.cssText = st === value
-                ? 'background:' + color + ';color:#fff;outline:none;box-shadow:0 2px 8px ' + shadow + ';'
-                : 'background:#fff;color:' + color + ';outline:2px solid ' + color + ';';
+        // All 7 issue buttons + OK — single select, all mutually exclusive
+        const allBtns = {
+            'sv-r-btn':  'raw',
+            'sv-s-btn':  'stock',
+            'sv-i-btn':  'issue',
+            'sv-bn-btn': 'banner',
+            'sv-bg-btn': 'background',
+            'sv-qt-btn': 'quality',
+            'sv-ha-btn': 'hero',
         };
-        setCircle(rBtn, 'raw',      '#f97316', 'rgba(249,115,22,0.4)');
-        setCircle(sBtn, 'stock',    '#3b82f6', 'rgba(59,130,246,0.4)');
-        setCircle(iBtn, 'internal', '#8b5cf6', 'rgba(139,92,246,0.4)');
+        Object.entries(allBtns).forEach(([id, val]) => {
+            const btn = document.getElementById(id);
+            if (!btn) return;
+            const c = stateColor(val);
+            if (st === val) {
+                btn.style.background   = c;
+                btn.style.borderColor  = c;
+                btn.style.color        = '#fff';
+                btn.style.boxShadow    = '0 0 0 2px ' + c + '44';
+            } else {
+                btn.style.background   = '';
+                btn.style.borderColor  = '';
+                btn.style.color        = '';
+                btn.style.boxShadow    = '';
+            }
+        });
 
-        okBtn.style.background = st === 'ok' ? '#059669' : '';
-        okBtn.style.boxShadow  = st === 'ok' ? '0 0 0 3px rgba(16,185,129,0.35)' : '';
+        // OK button
+        if (okBtn) {
+            okBtn.style.background = st === 'ok' ? '#059669' : '';
+            okBtn.style.boxShadow  = st === 'ok' ? '0 0 0 3px rgba(16,185,129,0.4)' : '';
+        }
 
-        const labels = { raw: '⚑ Raw', stock: '⚑ Stock', internal: '⚑ Internal', ok: '✓ OK' };
-        const colors = { raw: '#f97316', stock: '#3b82f6', internal: '#8b5cf6', ok: '#10b981' };
-        statusEl.textContent = labels[st] || '';
-        statusEl.style.color = colors[st] || '#94a3b8';
-
-        // Render sub-issue tags
-        const teamId = currentImg1Team?.teamId;
-        const vin    = currentImg1VINs[currentImg1Idx]?.vin;
-        const active = teamId && vin ? getSubIssues(teamId, vin) : new Set();
-        const wrap   = document.getElementById('sv-sub-issues');
-        if (wrap) {
-            wrap.innerHTML = '';
-            SUB_ISSUE_LIST.forEach(label => {
-                const isActive = active.has(label);
-                const tag = document.createElement('div');
-                tag.style.cssText = 'padding:3px 9px;border-radius:12px;font-size:10px;font-weight:600;cursor:pointer;user-select:none;transition:all 0.1s;'
-                    + (isActive
-                        ? 'background:#334155;color:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);'
-                        : 'background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;');
-                tag.textContent = label;
-                tag.onclick = () => {
-                    if (teamId && vin) {
-                        toggleSubIssue(teamId, vin, label);
-                        svUpdateControls(getImg1Review(teamId, vin));
-                    }
-                };
-                wrap.appendChild(tag);
-            });
+        // Status chip
+        if (statusEl) {
+            const lbl = stateLabel(st);
+            if (st === 'ok') {
+                statusEl.textContent = '✓ OK';
+                statusEl.style.color = '#10b981';
+            } else if (lbl) {
+                statusEl.textContent = '⚑ ' + lbl;
+                statusEl.style.color = stateColor(st);
+            } else {
+                statusEl.textContent = '';
+            }
         }
     }
 
@@ -1892,13 +1908,41 @@
     }
 
     function svToggleIssue(value) {
-        const cur = getImg1Review(currentImg1Team.teamId, currentImg1VINs[currentImg1Idx]?.vin);
+        if (currentImg1Idx < 0 || !currentImg1Team) return;
+        const v   = currentImg1VINs[currentImg1Idx];
+        const cur = getImg1Review(currentImg1Team.teamId, v.vin);
         svSetIssue(cur === value ? null : value);
     }
 
     function svMarkOk() {
         const cur = getImg1Review(currentImg1Team.teamId, currentImg1VINs[currentImg1Idx]?.vin);
         svSetIssue(cur === 'ok' ? null : 'ok');
+    }
+
+    // Preload images for the next `count` VINs so they're cached when user navigates
+    const _svPreloadCache = new Set();
+    function svPreloadAhead(currentIdx, count = 4) {
+        if (!currentImg1VINs) return;
+        for (let i = 1; i <= count; i++) {
+            const nextIdx = currentIdx + i;
+            if (nextIdx >= currentImg1VINs.length) break;
+            const nextUrl = currentImg1VINs[nextIdx]?.urls?.[0];
+            if (!nextUrl || _svPreloadCache.has(nextUrl)) continue;
+            _svPreloadCache.add(nextUrl);
+            // Load thumb first (fast), then full-res
+            const thumb = thumbUrl(nextUrl, 800, 80);
+            const p1 = new Image();
+            p1.referrerPolicy = 'no-referrer';
+            p1.onload = () => {
+                // Once thumb cached, preload full res
+                if (thumb !== nextUrl) {
+                    const p2 = new Image();
+                    p2.referrerPolicy = 'no-referrer';
+                    p2.src = nextUrl;
+                }
+            };
+            p1.src = thumb;
+        }
     }
 
     function svClear() {
@@ -2657,21 +2701,29 @@
 
     function spyneThumbUrl(originalUrl, widthPx = 500, quality = 75) {
         if (!originalUrl) return '';
-        // Thumbor expects WIDTHxHEIGHT (0 = auto/keep aspect); filters chain with colons
-        return `https://media.spyneai.com/unsafe/${widthPx}x0/filters:format(webp):quality(${quality})/${originalUrl}`;
+        return 'https://media.spyneai.com/unsafe/' + widthPx + 'x0/filters:format(webp):quality(' + quality + ')/' + originalUrl;
     }
 
     function wsrvThumbUrl(originalUrl, widthPx = 500, quality = 75) {
         if (!originalUrl) return '';
         const stripped = originalUrl.replace(/^https?:\/\//, '');
-        return `https://wsrv.nl/?url=${encodeURIComponent(stripped)}&w=${widthPx}&q=${quality}&output=webp`;
+        return 'https://wsrv.nl/?url=' + encodeURIComponent(stripped) + '&w=' + widthPx + '&q=' + quality + '&output=webp';
     }
 
-    // Returns true if the URL is hosted on Spyne/AWS infrastructure where
-    // the Spyne Thumbor proxy is known to work.
+    // If URL is already a Thumbor proxy URL (media.spyneai.com/unsafe/...),
+    // extract the inner source URL so we can re-proxy at the right size.
+    function extractSourceUrl(url) {
+        if (!url) return url;
+        const thumborMatch = url.match(/media\.spyneai\.com\/unsafe\/[^/]+\/(?:filters:[^/]+\/)?(https?:\/\/.+)/);
+        if (thumborMatch) return thumborMatch[1];
+        return url;
+    }
+
     function isSpyneHostedUrl(url) {
         if (!url) return false;
         try {
+            // Also treat already-proxied Thumbor URLs as Spyne-hosted
+            if (url.includes('media.spyneai.com/unsafe/')) return true;
             const host = new URL(url).hostname.toLowerCase();
             return host.includes('spyne') || host.includes('amazonaws.com') || host.includes('cloudfront.net');
         } catch(e) { return false; }
@@ -2680,12 +2732,11 @@
     function thumbUrl(originalUrl, widthPx = 500, quality = 75) {
         if (!originalUrl) return '';
         if (IMG_PROXY_PRIMARY === 'none') return originalUrl;
-        // For non-Spyne URLs (e.g. dealer websites), skip the proxy entirely —
-        // <img src> loads cross-origin images fine without CORS headers.
-        // Proxying an external URL through Spyne CDN will just return an error.
         if (!isSpyneHostedUrl(originalUrl)) return originalUrl;
-        if (IMG_PROXY_PRIMARY === 'wsrv') return wsrvThumbUrl(originalUrl, widthPx, quality);
-        return spyneThumbUrl(originalUrl, widthPx, quality);
+        // Unwrap already-Thumbor URLs before re-proxying at new size
+        const sourceUrl = extractSourceUrl(originalUrl);
+        if (IMG_PROXY_PRIMARY === 'wsrv') return wsrvThumbUrl(sourceUrl, widthPx, quality);
+        return spyneThumbUrl(sourceUrl, widthPx, quality);
     }
 
     function renderImages(v) {
@@ -2882,21 +2933,28 @@
     // Helpers to work with raw/stock sub-states
     function isRaw(st)      { return st === 'raw'; }
     function isStock(st)    { return st === 'stock'; }
-    function isInternal(st) { return st === 'internal'; }
+    function isIssue(st) { return st === 'issue'; }
 
     function stateColor(st) {
-        if (st === 'ok')       return '#10b981';  // green
-        if (st === 'raw')      return '#f97316';  // orange
-        if (st === 'stock')    return '#3b82f6';  // blue
-        if (st === 'internal') return '#8b5cf6';  // purple
+        if (st === 'ok')         return '#10b981';
+        if (st === 'raw')        return '#f97316';
+        if (st === 'stock')      return '#3b82f6';
+        if (st === 'issue')      return '#8b5cf6';
+        if (st === 'banner')     return '#ec4899';
+        if (st === 'background') return '#14b8a6';
+        if (st === 'quality')    return '#f59e0b';
+        if (st === 'hero')       return '#6366f1';
         return 'transparent';
     }
+    function stateLabel(st) {
+        const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Issue',
+                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle' };
+        return map[st] || '';
+    }
     function stateBadgeText(st) {
-        if (st === 'ok')       return '✓ OK';
-        if (st === 'raw')      return 'R';
-        if (st === 'stock')    return 'S';
-        if (st === 'internal') return 'I';
-        return '';
+        const map = { ok:'✓', raw:'R', stock:'S', issue:'I',
+                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA' };
+        return map[st] || '';
     }
 
     // Sub-issues (single view only) — stored separately keyed by teamId+vin
@@ -3083,19 +3141,16 @@
         let banner = 0, bg = 0, quality = 0, hero = 0;
 
         currentImg1VINs.forEach(v => {
-            const st   = getImg1Review(teamId, v.vin);
-            const subs = getSubIssues(teamId, v.vin);
-            const hasSub = subs.size > 0;
-            if (st === 'ok')         ok++;
-            else if (st === 'raw')   raw++;
-            else if (st === 'stock') stock++;
-            else if (st === 'internal') internal++;
-            else if (hasSub)         ok++;   // sub-issues only = counted as reviewed
-            else                     pending++;
-            if (subs.has('Banner'))     banner++;
-            if (subs.has('Background')) bg++;
-            if (subs.has('Quality'))    quality++;
-            if (subs.has('Hero Angle')) hero++;
+            const st = getImg1Review(teamId, v.vin);
+            if      (st === 'ok')         ok++;
+            else if (st === 'raw')        raw++;
+            else if (st === 'stock')      stock++;
+            else if (st === 'issue')      internal++;
+            else if (st === 'banner')     banner++;
+            else if (st === 'background') bg++;
+            else if (st === 'quality')    quality++;
+            else if (st === 'hero')       hero++;
+            else                          pending++;
         });
         const done = ok + raw + stock + internal;
 
@@ -3117,7 +3172,7 @@
         setpill('pg-ok',       ok,       '✓ OK');
         setpill('pg-raw',      raw,      'R');
         setpill('pg-stock',    stock,    'S');
-        setpill('pg-internal', internal, 'I');
+        setpill('pg-internal', internal, 'I Issue');
         setpill('pg-banner',   banner,   'Banner');
         setpill('pg-bg',       bg,       'BG');
         setpill('pg-quality',  quality,  'Quality');
@@ -3175,6 +3230,7 @@
     function select1ImgVIN(idx) {
         if (idx < 0 || idx >= currentImg1VINs.length) return;
         currentImg1Idx = idx;
+        svPreloadAhead(idx, 3);
         const v = currentImg1VINs[idx];
 
         // Update header VIN display
@@ -3299,7 +3355,7 @@
 
             const rawBtn      = makeIssueCircle('R', '#f97316', 'raw',      st);
             const stockBtn    = makeIssueCircle('S', '#3b82f6', 'stock',    st);
-            const internalBtn = makeIssueCircle('I', '#8b5cf6', 'internal', st);
+            const internalBtn = makeIssueCircle('I', '#8b5cf6', 'issue',    st);
             issueWrap.appendChild(rawBtn);
             issueWrap.appendChild(stockBtn);
             issueWrap.appendChild(internalBtn);
@@ -3430,14 +3486,14 @@
         const refreshBtn = (btn, value) => {
             if (!btn) return;
             const active = (st === value);
-            const c = value === 'raw' ? '#f97316' : '#3b82f6';
+            const c = stateColor(value);
             btn.style.background = active ? c : 'rgba(255,255,255,0.95)';
             btn.style.color      = active ? '#fff' : c;
             btn.style.outline    = active ? 'none' : '2px solid ' + c;
         };
         refreshBtn(tile._rawBtn,      'raw');
         refreshBtn(tile._stockBtn,   'stock');
-        refreshBtn(tile._internalBtn,'internal');
+        refreshBtn(tile._internalBtn,'issue');
     }
 
     function submit1ImgReview(idx, status) {
@@ -3573,16 +3629,9 @@
 
             // Issue Type: list all problems; if none → OK; unreviewed → Pending
             const issueParts = [];
-            if (st === 'raw')      issueParts.push('Raw');
-            if (st === 'stock')    issueParts.push('Stock');
-            if (st === 'internal') issueParts.push('Internal');
-            if (subs.has('Banner'))     issueParts.push('Banner');
-            if (subs.has('Background')) issueParts.push('Background');
-            if (subs.has('Quality'))    issueParts.push('Quality');
-            if (subs.has('Hero Angle')) issueParts.push('Hero Angle');
-            const issueType = issueParts.length > 0 ? issueParts.join(' | ')
-                            : st === 'ok'           ? 'OK'
-                            : 'Pending';
+            // Single-select model — st holds the one issue type
+            const stLabel = stateLabel(st);
+            const issueType = stLabel && st !== 'ok' ? stLabel : st === 'ok' ? 'OK' : 'Pending';
 
             const row = [
                 idx + 1,
@@ -3774,11 +3823,11 @@
             }
             if ((e.key === 'i' || e.key === 'I') && currentImg1Idx >= 0) {
                 e.preventDefault();
-                if (img1ViewMode === 'single') svToggleIssue('internal');
+                if (img1ViewMode === 'single') svToggleIssue('issue');
                 else {
                     const v = currentImg1VINs[currentImg1Idx];
                     const cur = getImg1Review(currentImg1Team.teamId, v.vin);
-                    const ns = cur === 'internal' ? null : 'internal';
+                    const ns = cur === 'issue' ? null : 'issue';
                     setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
                     updateImg1ProgressBadge();
                     updateTileIssueState(currentImg1Idx, ns);
@@ -3786,16 +3835,11 @@
                 }
                 return;
             }
-            // Sub-issue shortcuts (single view only)
-            const subShortcuts = { 'o':'Banner', 'O':'Banner', 'b':'Background', 'B':'Background', 'q':'Quality', 'Q':'Quality', 'h':'Hero Angle', 'H':'Hero Angle' };
+            // Sub-issue shortcuts (single view only) — now all single-select
+            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero' };
             if (img1ViewMode === 'single' && subShortcuts[e.key] && currentImg1Idx >= 0) {
                 e.preventDefault();
-                const teamId = currentImg1Team?.teamId;
-                const vin    = currentImg1VINs[currentImg1Idx]?.vin;
-                if (teamId && vin) {
-                    toggleSubIssue(teamId, vin, subShortcuts[e.key]);
-                    svUpdateControls(getImg1Review(teamId, vin));
-                }
+                svToggleIssue(subShortcuts[e.key]);
                 return;
             }
             return;
