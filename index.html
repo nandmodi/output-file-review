@@ -1173,15 +1173,28 @@
     function extractUrlsFromRow(cells, fromIdx) {
         const start = fromIdx >= 0 ? fromIdx : 0;
         const combined = cells.slice(start).join(',');
-        const urls = combined.match(/https?:\/\/[^\s,;|"'<>\]\[\)(]+/g) || [];
+
+        // Split on pipe | and commas that aren't inside a URL, then clean each segment
+        // This handles Thumbor URLs like:
+        //   https://media.spyneai.com/unsafe/0x0/filters:format(webp)/https://s3.amazonaws.com/...
+        // which contain () that break simple URL regexes.
         const seen = new Set();
         const out = [];
-        for (const u of urls) {
-            const clean = u.replace(/[.,;:]+$/, '');
-            if (!clean || seen.has(clean)) continue;
-            if (!isImageUrl(clean)) continue;
-            seen.add(clean);
-            out.push(clean);
+
+        // Strategy: find all https?:// positions, then greedily take everything
+        // up to the next https?:// or a hard separator (pipe, comma, space, quote)
+        // but ALLOW () since Thumbor filters use them.
+        const urlRegex = /https?:\/\/[^\s,;|"'<>\]\[]+/g;
+        let match;
+        while ((match = urlRegex.exec(combined)) !== null) {
+            let u = match[0].replace(/[.,;:)]+$/, ''); // trim trailing punctuation
+            if (!u || seen.has(u)) continue;
+            if (!isImageUrl(u)) continue;
+            // If this looks like a truncated Thumbor URL (ends mid-filter), skip it
+            // A valid Thumbor URL has the format: /unsafe/WxH/filters:.../https://...
+            if (u.includes('media.spyneai.com/unsafe') && !u.includes('/https://') && !u.includes('/http://')) continue;
+            seen.add(u);
+            out.push(u);
         }
         return out;
     }
