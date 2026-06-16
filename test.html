@@ -100,7 +100,7 @@
         }
         .image-tile:hover { transform: scale(1.02); }
         .image-tile img {
-            width: 100%; height: 100%; object-fit: cover; display: block;
+            width: 100%; height: 100%; object-fit: contain; display: block; background: #f8fafc;
         }
         .image-tile .img-index {
             position: absolute; bottom: 6px; left: 6px;
@@ -235,7 +235,7 @@
         .img1-card:hover { transform: scale(1.02); }
         .img1-card.img1-ok { border-color: #10b981; }
         .img1-card.img1-issue { border-color: #ef4444; opacity: 0.75; }
-        .img1-card img { width: 100%; display: block; aspect-ratio: 4/3; object-fit: cover; }
+        .img1-card img { width: 100%; display: block; aspect-ratio: 4/3; object-fit: contain; background: #f8fafc; }
         .img1-overlay {
             position: absolute; inset: 0;
             display: flex; align-items: center; justify-content: center;
@@ -1865,9 +1865,22 @@
         const img  = document.getElementById('sv-img');
         const skel = document.getElementById('sv-skeleton');
         img.style.opacity = '0';
-        skel.style.display = 'flex';
+        img.src = '';           // clear previous VIN's image immediately
         img.referrerPolicy = 'no-referrer';
 
+        if (!url) {
+            // No image for this VIN — show placeholder
+            skel.style.display = 'none';
+            img.style.opacity = '1';
+            img.style.background = '#1e293b';
+            img.alt = 'No image';
+            svUpdateControls(st);
+            render1ImgSidebar();
+            svPreloadAhead(idx, 6);
+            return;
+        }
+
+        skel.style.display = 'flex';
         const showFull = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
         const svFallbacks = getFallbacks(url, 900, 88);
         let svStep = 0;
@@ -3542,7 +3555,7 @@
                 img.loading = 'lazy';
                 img.decoding = 'async';
                 img.alt = '';
-                img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;background:#f8fafc;';
                 const fallbacks = getFallbacks(firstUrl, 400, 72);
                 let fallbackStep = 0;
                 img.addEventListener('load', () => skel.remove());
