@@ -181,6 +181,26 @@
         .sv-issue-btn:hover { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.6); color:#fff; }
         .sv-issue-btn.active { color: #fff; border-color: transparent; }
 
+        /* Grid zoom slider */
+        #grid-zoom-slider {
+            -webkit-appearance: none;
+            width: 90px; height: 4px;
+            border-radius: 2px;
+            background: linear-gradient(to right, #3b82f6 var(--pct, 50%), #e2e8f0 var(--pct, 50%));
+            outline: none; cursor: pointer;
+        }
+        #grid-zoom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px; height: 14px; border-radius: 50%;
+            background: #3b82f6; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+            cursor: pointer; transition: transform 0.1s;
+        }
+        #grid-zoom-slider::-webkit-slider-thumb:hover { transform: scale(1.2); }
+        #grid-zoom-slider::-moz-range-thumb {
+            width: 14px; height: 14px; border-radius: 50%; border: none;
+            background: #3b82f6; cursor: pointer;
+        }
+
         /* View toggle & single view */
         .view-toggle-btn { transition: all 0.15s; }
         .view-toggle-btn.active { background: #3b82f6; color: #fff; }
@@ -641,17 +661,27 @@
                         <span id="current-vin-image-count" class="text-[11px] text-slate-500"></span>
                         <span id="current-vin-status-badge" class="px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider">pending</span>
                         <!-- View toggle — only visible in 1img mode -->
-                        <div id="img1-view-toggle" class="hidden items-center rounded-lg border border-slate-200 overflow-hidden">
-                            <button id="vt-grid" onclick="setImg1View('grid')"
-                                class="view-toggle-btn active px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1" title="Grid view">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                                <span>Grid</span>
-                            </button>
-                            <button id="vt-single" onclick="setImg1View('single')"
-                                class="view-toggle-btn px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1" title="Single view">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/></svg>
-                                <span>Single</span>
-                            </button>
+                        <div id="img1-view-toggle" class="hidden items-center space-x-2">
+                            <!-- Zoom slider (grid only) -->
+                            <div id="grid-zoom-wrap" class="flex items-center space-x-1.5" title="Zoom grid size">
+                                <svg class="w-3 h-3 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                                <input id="grid-zoom-slider" type="range" min="1" max="5" step="1" value="3"
+                                    oninput="applyGridZoom(this.value)" title="Grid size">
+                                <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                            </div>
+                            <!-- Grid / Single buttons -->
+                            <div class="flex items-center rounded-lg border border-slate-200 overflow-hidden">
+                                <button id="vt-grid" onclick="setImg1View('grid')"
+                                    class="view-toggle-btn active px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1" title="Grid view">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                                    <span>Grid</span>
+                                </button>
+                                <button id="vt-single" onclick="setImg1View('single')"
+                                    class="view-toggle-btn px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1" title="Single view">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/></svg>
+                                    <span>Single</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -1173,15 +1203,28 @@
     function extractUrlsFromRow(cells, fromIdx) {
         const start = fromIdx >= 0 ? fromIdx : 0;
         const combined = cells.slice(start).join(',');
-        const urls = combined.match(/https?:\/\/[^\s,;|"'<>\]\[\)(]+/g) || [];
+
+        // Split on pipe | and commas that aren't inside a URL, then clean each segment
+        // This handles Thumbor URLs like:
+        //   https://media.spyneai.com/unsafe/0x0/filters:format(webp)/https://s3.amazonaws.com/...
+        // which contain () that break simple URL regexes.
         const seen = new Set();
         const out = [];
-        for (const u of urls) {
-            const clean = u.replace(/[.,;:]+$/, '');
-            if (!clean || seen.has(clean)) continue;
-            if (!isImageUrl(clean)) continue;
-            seen.add(clean);
-            out.push(clean);
+
+        // Strategy: find all https?:// positions, then greedily take everything
+        // up to the next https?:// or a hard separator (pipe, comma, space, quote)
+        // but ALLOW () since Thumbor filters use them.
+        const urlRegex = /https?:\/\/[^\s,;|"'<>\]\[]+/g;
+        let match;
+        while ((match = urlRegex.exec(combined)) !== null) {
+            let u = match[0].replace(/[.,;:)]+$/, ''); // trim trailing punctuation
+            if (!u || seen.has(u)) continue;
+            if (!isImageUrl(u)) continue;
+            // If this looks like a truncated Thumbor URL (ends mid-filter), skip it
+            // A valid Thumbor URL has the format: /unsafe/WxH/filters:.../https://...
+            if (u.includes('media.spyneai.com/unsafe') && !u.includes('/https://') && !u.includes('/http://')) continue;
+            seen.add(u);
+            out.push(u);
         }
         return out;
     }
@@ -1756,6 +1799,25 @@
     // =========================================================================
     let img1ViewMode = 'grid'; // 'grid' | 'single'
 
+    // Grid zoom: 1=2col, 2=3col, 3=4col(default), 4=6col, 5=8col
+    const ZOOM_COLS = [2, 3, 4, 6, 8];
+    let currentGridZoom = 3; // default: 4 columns
+
+    function applyGridZoom(val) {
+        currentGridZoom = parseInt(val);
+        const cols = ZOOM_COLS[currentGridZoom - 1];
+        const grid = document.getElementById('images-grid');
+        if (grid && !grid.classList.contains('hidden')) {
+            grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+        }
+        // Update slider gradient
+        const slider = document.getElementById('grid-zoom-slider');
+        if (slider) {
+            const pct = ((currentGridZoom - 1) / 4) * 100 + '%';
+            slider.style.setProperty('--pct', pct);
+        }
+    }
+
     function setImg1View(mode) {
         img1ViewMode = mode;
         const gridArea   = document.getElementById('image-area');
@@ -1763,6 +1825,7 @@
         const vtGrid     = document.getElementById('vt-grid');
         const vtSingle   = document.getElementById('vt-single');
         const issueBar   = document.getElementById('sv-issue-bar');
+        const zoomWrap   = document.getElementById('grid-zoom-wrap');
 
         if (mode === 'single') {
             gridArea.classList.add('hidden');
@@ -1770,6 +1833,7 @@
             vtGrid.classList.remove('active');
             vtSingle.classList.add('active');
             if (issueBar) issueBar.style.display = 'flex';
+            if (zoomWrap) zoomWrap.style.visibility = 'hidden';
             const idx = currentImg1Idx >= 0 ? currentImg1Idx : 0;
             svShow(idx);
         } else {
@@ -1778,6 +1842,13 @@
             vtGrid.classList.add('active');
             vtSingle.classList.remove('active');
             if (issueBar) issueBar.style.display = 'none';
+            if (zoomWrap) zoomWrap.style.visibility = 'visible';
+            // Re-apply current zoom to freshly rendered grid
+            const grid = document.getElementById('images-grid');
+            if (grid) {
+                const cols = ZOOM_COLS[currentGridZoom - 1];
+                grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+            }
         }
     }
 
@@ -1798,32 +1869,31 @@
         img.referrerPolicy = 'no-referrer';
 
         const showFull = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
-        const thumb = thumbUrl(url, 800, 80);
-
-        if (thumb !== url) {
-            // Show thumbnail immediately, then swap to full-res silently
-            img.onload = () => {
-                showFull();
+        const svFallbacks = getFallbacks(url, 900, 88);
+        let svStep = 0;
+        const tryNext = () => {
+            if (svStep < svFallbacks.length) { img.src = svFallbacks[svStep++]; return; }
+            skel.style.display = 'none'; img.style.opacity = '0.4';
+        };
+        img.onload = () => {
+            showFull();
+            // Silently upgrade to full-res original if we showed a thumbnail
+            const fullSrc = extractSourceUrl(url);
+            if (img.src !== fullSrc && svFallbacks[0] !== fullSrc) {
                 const full = new Image();
                 full.referrerPolicy = 'no-referrer';
-                full.onload = () => { img.src = url; };
-                full.src = url;
-            };
-            img.onerror = () => {
-                img.onload = showFull;
-                img.onerror = () => { skel.style.display = 'none'; img.style.opacity = '0.5'; };
-                img.src = url;
-            };
-            img.src = thumb;
-        } else {
-            img.onload  = showFull;
-            img.onerror = () => { skel.style.display = 'none'; img.style.opacity = '0.5'; };
-            img.src = url;
-        }
+                full.onload = () => { img.src = fullSrc; };
+                full.src = fullSrc;
+            }
+        };
+        img.onerror = tryNext;
+        tryNext();
 
         svUpdateControls(st);
         // Also sync sidebar highlight
         render1ImgSidebar();
+        // Preload next 4 VINs so they load instantly when navigating
+        svPreloadAhead(idx, 4);
         // Update header VIN text / status badge
         document.getElementById('current-vin-text').innerText = v.vin;
         const badge = document.getElementById('current-vin-status-badge');
@@ -1915,6 +1985,34 @@
     function svMarkOk() {
         const cur = getImg1Review(currentImg1Team.teamId, currentImg1VINs[currentImg1Idx]?.vin);
         svSetIssue(cur === 'ok' ? null : 'ok');
+    }
+
+    // Preload cache — avoid re-requesting the same URL
+    const _svPreloadCache = new Set();
+
+    function preloadUrl(url, widthPx = 800, quality = 82) {
+        if (!url || _svPreloadCache.has(url)) return;
+        _svPreloadCache.add(url);
+        const chain = getFallbacks(url, widthPx, quality);
+        const p = new Image();
+        p.referrerPolicy = 'no-referrer';
+        p.src = chain[0];
+    }
+
+    function svPreloadAhead(currentIdx, count = 6) {
+        if (!currentImg1VINs) return;
+        // Preload next `count` VINs
+        for (let i = 1; i <= count; i++) {
+            const idx = currentIdx + i;
+            if (idx >= currentImg1VINs.length) break;
+            preloadUrl(currentImg1VINs[idx]?.urls?.[0]);
+        }
+        // Also preload 2 behind (user might go back)
+        for (let i = 1; i <= 2; i++) {
+            const idx = currentIdx - i;
+            if (idx < 0) break;
+            preloadUrl(currentImg1VINs[idx]?.urls?.[0]);
+        }
     }
 
     function svClear() {
@@ -2669,39 +2767,108 @@
     // If Spyne CDN fails to return an image, the <img> onerror swaps to wsrv.nl,
     // and if that also fails, to the original S3 URL.
     // -------------------------------------------------------------------------
-    const IMG_PROXY_PRIMARY  = 'spyne';   // 'spyne' | 'wsrv' | 'none'
+    // ── Image URL resolution ─────────────────────────────────────────────────
+    // Strategy: pick the fastest URL that will actually work, skip slow fallbacks.
+    //
+    //  • Already a Thumbor URL → unwrap inner source, re-proxy at right size
+    //  • Spyne / S3 / CloudFront → Thumbor proxy (resize + webp conversion)
+    //  • Dealer CDNs (pictures.dealer.com, vehicle-images, etc.) → direct load
+    //    (these are public CDNs, no CORS issues with <img> tags)
+    //  • Unknown → try direct first, wsrv as fallback
 
     function spyneThumbUrl(originalUrl, widthPx = 500, quality = 75) {
         if (!originalUrl) return '';
-        // Thumbor expects WIDTHxHEIGHT (0 = auto/keep aspect); filters chain with colons
-        return `https://media.spyneai.com/unsafe/${widthPx}x0/filters:format(webp):quality(${quality})/${originalUrl}`;
+        return 'https://media.spyneai.com/unsafe/' + widthPx + 'x0/filters:format(webp):quality(' + quality + ')/' + originalUrl;
     }
 
     function wsrvThumbUrl(originalUrl, widthPx = 500, quality = 75) {
         if (!originalUrl) return '';
         const stripped = originalUrl.replace(/^https?:\/\//, '');
-        return `https://wsrv.nl/?url=${encodeURIComponent(stripped)}&w=${widthPx}&q=${quality}&output=webp`;
+        return 'https://wsrv.nl/?url=' + encodeURIComponent(stripped) + '&w=' + widthPx + '&q=' + quality + '&output=webp';
     }
 
-    // Returns true if the URL is hosted on Spyne/AWS infrastructure where
-    // the Spyne Thumbor proxy is known to work.
+    function extractSourceUrl(url) {
+        if (!url) return url;
+        const m = url.match(/media\.spyneai\.com\/unsafe\/[^/]+\/(?:filters:[^/]+\/)?(https?:\/\/.+)/);
+        return m ? m[1] : url;
+    }
+
     function isSpyneHostedUrl(url) {
         if (!url) return false;
+        if (url.includes('media.spyneai.com/unsafe/')) return true;
         try {
             const host = new URL(url).hostname.toLowerCase();
             return host.includes('spyne') || host.includes('amazonaws.com') || host.includes('cloudfront.net');
         } catch(e) { return false; }
     }
 
+    // Known public dealer CDNs that load fast without any proxy
+    function isDealerCdnUrl(url) {
+        if (!url) return false;
+        try {
+            const host = new URL(url).hostname.toLowerCase();
+            return host.includes('dealer.com') || host.includes('dealerinspire') ||
+                   host.includes('vehicle-images') || host.includes('carnd') ||
+                   host.includes('carscommerce') || host.includes('dealerfire') ||
+                   host.includes('foxdealer') || host.includes('dealeron') ||
+                   host.includes('invimg') || host.includes('covertford') ||
+                   host.includes('hyundaiusa') || host.includes('toyota') ||
+                   host.includes('ford.com') || host.includes('vdp') ||
+                   host.includes('inventoryphotos');
+        } catch(e) { return false; }
+    }
+
+    // In-memory resolved-URL cache to avoid re-computing the same URL
+    const _urlCache = new Map();
+
+    // Returns the best thumbnail URL for display at widthPx
     function thumbUrl(originalUrl, widthPx = 500, quality = 75) {
         if (!originalUrl) return '';
-        if (IMG_PROXY_PRIMARY === 'none') return originalUrl;
-        // For non-Spyne URLs (e.g. dealer websites), skip the proxy entirely —
-        // <img src> loads cross-origin images fine without CORS headers.
-        // Proxying an external URL through Spyne CDN will just return an error.
-        if (!isSpyneHostedUrl(originalUrl)) return originalUrl;
-        if (IMG_PROXY_PRIMARY === 'wsrv') return wsrvThumbUrl(originalUrl, widthPx, quality);
-        return spyneThumbUrl(originalUrl, widthPx, quality);
+        const cacheKey = originalUrl + '|' + widthPx;
+        if (_urlCache.has(cacheKey)) return _urlCache.get(cacheKey);
+
+        let result;
+        const srcUrl = extractSourceUrl(originalUrl);
+
+        if (isDealerCdnUrl(srcUrl)) {
+            // Public dealer CDN — load direct, no proxy needed
+            result = srcUrl;
+        } else if (isSpyneHostedUrl(originalUrl)) {
+            // Spyne/S3/CloudFront — use Thumbor for resize + webp
+            result = spyneThumbUrl(srcUrl, widthPx, quality);
+        } else {
+            // Unknown CDN — try direct (most public CDNs work fine)
+            result = srcUrl;
+        }
+
+        _urlCache.set(cacheKey, result);
+        return result;
+    }
+
+    // Ordered fallback chain for a URL — only used on onerror
+    function getFallbacks(originalUrl, widthPx, quality) {
+        const srcUrl = extractSourceUrl(originalUrl);
+        const seen = new Set();
+        const chain = [];
+        const add = (u) => { if (u && !seen.has(u)) { seen.add(u); chain.push(u); } };
+
+        if (isDealerCdnUrl(srcUrl)) {
+            // Direct → wsrv (in case of CORS issue)
+            add(srcUrl);
+            add(wsrvThumbUrl(srcUrl, widthPx, quality));
+        } else if (isSpyneHostedUrl(originalUrl)) {
+            // Spyne thumb → original full URL → raw source
+            add(spyneThumbUrl(srcUrl, widthPx, quality));
+            add(originalUrl);
+            add(srcUrl);
+            add(wsrvThumbUrl(srcUrl, widthPx, quality));
+        } else {
+            // Unknown: direct → wsrv
+            add(srcUrl);
+            add(originalUrl);
+            add(wsrvThumbUrl(srcUrl, widthPx, quality));
+        }
+        return chain;
     }
 
     function renderImages(v) {
@@ -2971,6 +3138,7 @@
         reviewMode = '1img';
         startReviewTimer();
         img1ViewMode = 'grid';
+        currentGridZoom = 3; // reset zoom to default
         // Show view toggle + progress bar; hide normal pill
         const vt = document.getElementById('img1-view-toggle');
         if (vt) { vt.style.display = 'flex'; }
@@ -3195,6 +3363,7 @@
     function select1ImgVIN(idx) {
         if (idx < 0 || idx >= currentImg1VINs.length) return;
         currentImg1Idx = idx;
+        svPreloadAhead(idx, 3);
         const v = currentImg1VINs[idx];
 
         // Update header VIN display
@@ -3251,7 +3420,10 @@
 
         // Use a 4-col responsive grid for the gallery
         grid.style.gridTemplateColumns = '';
-        grid.className = 'grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3';
+        grid.className = 'grid gap-3';
+        // Apply current zoom level (overrides Tailwind responsive cols)
+        const zoomCols = ZOOM_COLS ? ZOOM_COLS[currentGridZoom - 1] : 4;
+        grid.style.gridTemplateColumns = 'repeat(' + zoomCols + ', minmax(0, 1fr))';
 
         grid.innerHTML = '';
         const frag = document.createDocumentFragment();
@@ -3367,18 +3539,20 @@
                 const img = document.createElement('img');
                 img.loading = 'lazy';
                 img.referrerPolicy = 'no-referrer';
+                img.loading = 'lazy';
+                img.decoding = 'async';
                 img.alt = '';
                 img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                const fallbacks = getFallbacks(firstUrl, 400, 72);
                 let fallbackStep = 0;
                 img.addEventListener('load', () => skel.remove());
                 img.addEventListener('error', () => {
                     fallbackStep++;
-                    // Step 1: if proxy was used, try direct URL
-                    if (fallbackStep === 1 && img.src !== firstUrl) { img.src = firstUrl; return; }
+                    if (fallbackStep < fallbacks.length) { img.src = fallbacks[fallbackStep]; return; }
                     skel.remove();
-                    tile.innerHTML += '<div class="broken-img" style="position:absolute;inset:0;font-size:9px">failed</div>';
+                    tile.innerHTML += '<div style="position:absolute;inset:0;font-size:9px;color:#94a3b8;display:flex;align-items:center;justify-content:center;">No image</div>';
                 });
-                img.src = thumbUrl(firstUrl, 400, 70);
+                img.src = fallbacks[0];
                 tile.appendChild(img);
             }
 
@@ -3397,7 +3571,26 @@
             frag.appendChild(tile);
         });
 
-        grid.appendChild(frag);
+        // Append first 30 tiles immediately, rest in idle chunks for responsive UI
+        const allTiles = [];
+        while (frag.firstChild) allTiles.push(frag.removeChild(frag.firstChild));
+        const FIRST = 42;
+        allTiles.slice(0, FIRST).forEach(n => grid.appendChild(n));
+        const rest = allTiles.slice(FIRST);
+        if (rest.length > 0) {
+            const appendChunk = (list) => {
+                list.splice(0, 30).forEach(n => grid.appendChild(n));
+                if (list.length > 0) {
+                    (window.requestIdleCallback || setTimeout)((() => appendChunk(list)), window.requestIdleCallback ? { timeout: 500 } : 16);
+                } else {
+                    // All tiles rendered — preload ahead
+                    if (currentImg1Idx >= 0) svPreloadAhead(currentImg1Idx, 8);
+                }
+            };
+            (window.requestIdleCallback || setTimeout)((() => appendChunk(rest)), window.requestIdleCallback ? { timeout: 500 } : 16);
+        } else {
+            if (currentImg1Idx >= 0) svPreloadAhead(currentImg1Idx, 8);
+        }
     }
 
     // render1ImgImagePane is kept for sidebar-click to highlight the selected VIN
