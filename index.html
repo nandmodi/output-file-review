@@ -100,7 +100,7 @@
         }
         .image-tile:hover { transform: scale(1.02); }
         .image-tile img {
-            width: 100%; height: 100%; object-fit: cover; display: block;
+            width: 100%; height: 100%; object-fit: contain; display: block; background: #f8fafc;
         }
         .image-tile .img-index {
             position: absolute; bottom: 6px; left: 6px;
@@ -235,7 +235,7 @@
         .img1-card:hover { transform: scale(1.02); }
         .img1-card.img1-ok { border-color: #10b981; }
         .img1-card.img1-issue { border-color: #ef4444; opacity: 0.75; }
-        .img1-card img { width: 100%; display: block; aspect-ratio: 4/3; object-fit: cover; }
+        .img1-card img { width: 100%; display: block; aspect-ratio: 4/3; object-fit: contain; background: #f8fafc; }
         .img1-overlay {
             position: absolute; inset: 0;
             display: flex; align-items: center; justify-content: center;
@@ -1869,16 +1869,7 @@
         img.referrerPolicy = 'no-referrer';
 
         const showFull = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
-        const srcUrl   = extractSourceUrl(url);
-
-        // Build fallback chain: spyne thumb → wsrv thumb → original → raw source
-        const svFallbacks = [];
-        const spyneT = spyneThumbUrl(srcUrl, 900, 85);
-        svFallbacks.push(spyneT);
-        svFallbacks.push(wsrvThumbUrl(srcUrl, 900, 85));
-        if (!svFallbacks.includes(url)) svFallbacks.push(url);
-        if (srcUrl !== url) svFallbacks.push(srcUrl);
-
+        const svFallbacks = getFallbacks(url, 900, 88);
         let svStep = 0;
         const tryNext = () => {
             if (svStep < svFallbacks.length) { img.src = svFallbacks[svStep++]; return; }
@@ -1886,9 +1877,9 @@
         };
         img.onload = () => {
             showFull();
-            // Once thumb shown, preload the full-res original silently
-            const fullSrc = srcUrl || url;
-            if (img.src !== fullSrc) {
+            // Silently upgrade to full-res original if we showed a thumbnail
+            const fullSrc = extractSourceUrl(url);
+            if (img.src !== fullSrc && svFallbacks[0] !== fullSrc) {
                 const full = new Image();
                 full.referrerPolicy = 'no-referrer';
                 full.onload = () => { img.src = fullSrc; };
@@ -1996,29 +1987,31 @@
         svSetIssue(cur === 'ok' ? null : 'ok');
     }
 
-    // Preload images for the next `count` VINs so they're cached when user navigates
+    // Preload cache — avoid re-requesting the same URL
     const _svPreloadCache = new Set();
-    function svPreloadAhead(currentIdx, count = 4) {
+
+    function preloadUrl(url, widthPx = 800, quality = 82) {
+        if (!url || _svPreloadCache.has(url)) return;
+        _svPreloadCache.add(url);
+        const chain = getFallbacks(url, widthPx, quality);
+        const p = new Image();
+        p.referrerPolicy = 'no-referrer';
+        p.src = chain[0];
+    }
+
+    function svPreloadAhead(currentIdx, count = 6) {
         if (!currentImg1VINs) return;
+        // Preload next `count` VINs
         for (let i = 1; i <= count; i++) {
-            const nextIdx = currentIdx + i;
-            if (nextIdx >= currentImg1VINs.length) break;
-            const nextUrl = currentImg1VINs[nextIdx]?.urls?.[0];
-            if (!nextUrl || _svPreloadCache.has(nextUrl)) continue;
-            _svPreloadCache.add(nextUrl);
-            // Load thumb first (fast), then full-res
-            const thumb = thumbUrl(nextUrl, 800, 80);
-            const p1 = new Image();
-            p1.referrerPolicy = 'no-referrer';
-            p1.onload = () => {
-                // Once thumb cached, preload full res
-                if (thumb !== nextUrl) {
-                    const p2 = new Image();
-                    p2.referrerPolicy = 'no-referrer';
-                    p2.src = nextUrl;
-                }
-            };
-            p1.src = thumb;
+            const idx = currentIdx + i;
+            if (idx >= currentImg1VINs.length) break;
+            preloadUrl(currentImg1VINs[idx]?.urls?.[0]);
+        }
+        // Also preload 2 behind (user might go back)
+        for (let i = 1; i <= 2; i++) {
+            const idx = currentIdx - i;
+            if (idx < 0) break;
+            preloadUrl(currentImg1VINs[idx]?.urls?.[0]);
         }
     }
 
@@ -2774,7 +2767,14 @@
     // If Spyne CDN fails to return an image, the <img> onerror swaps to wsrv.nl,
     // and if that also fails, to the original S3 URL.
     // -------------------------------------------------------------------------
-    const IMG_PROXY_PRIMARY  = 'spyne';   // 'spyne' | 'wsrv' | 'none'
+    // ── Image URL resolution ─────────────────────────────────────────────────
+    // Strategy: pick the fastest URL that will actually work, skip slow fallbacks.
+    //
+    //  • Already a Thumbor URL → unwrap inner source, re-proxy at right size
+    //  • Spyne / S3 / CloudFront → Thumbor proxy (resize + webp conversion)
+    //  • Dealer CDNs (pictures.dealer.com, vehicle-images, etc.) → direct load
+    //    (these are public CDNs, no CORS issues with <img> tags)
+    //  • Unknown → try direct first, wsrv as fallback
 
     function spyneThumbUrl(originalUrl, widthPx = 500, quality = 75) {
         if (!originalUrl) return '';
@@ -2787,33 +2787,88 @@
         return 'https://wsrv.nl/?url=' + encodeURIComponent(stripped) + '&w=' + widthPx + '&q=' + quality + '&output=webp';
     }
 
-    // If URL is already a Thumbor proxy URL (media.spyneai.com/unsafe/...),
-    // extract the inner source URL so we can re-proxy at the right size.
     function extractSourceUrl(url) {
         if (!url) return url;
-        const thumborMatch = url.match(/media\.spyneai\.com\/unsafe\/[^/]+\/(?:filters:[^/]+\/)?(https?:\/\/.+)/);
-        if (thumborMatch) return thumborMatch[1];
-        return url;
+        const m = url.match(/media\.spyneai\.com\/unsafe\/[^/]+\/(?:filters:[^/]+\/)?(https?:\/\/.+)/);
+        return m ? m[1] : url;
     }
 
     function isSpyneHostedUrl(url) {
         if (!url) return false;
+        if (url.includes('media.spyneai.com/unsafe/')) return true;
         try {
-            // Also treat already-proxied Thumbor URLs as Spyne-hosted
-            if (url.includes('media.spyneai.com/unsafe/')) return true;
             const host = new URL(url).hostname.toLowerCase();
             return host.includes('spyne') || host.includes('amazonaws.com') || host.includes('cloudfront.net');
         } catch(e) { return false; }
     }
 
+    // Known public dealer CDNs that load fast without any proxy
+    function isDealerCdnUrl(url) {
+        if (!url) return false;
+        try {
+            const host = new URL(url).hostname.toLowerCase();
+            return host.includes('dealer.com') || host.includes('dealerinspire') ||
+                   host.includes('vehicle-images') || host.includes('carnd') ||
+                   host.includes('carscommerce') || host.includes('dealerfire') ||
+                   host.includes('foxdealer') || host.includes('dealeron') ||
+                   host.includes('invimg') || host.includes('covertford') ||
+                   host.includes('hyundaiusa') || host.includes('toyota') ||
+                   host.includes('ford.com') || host.includes('vdp') ||
+                   host.includes('inventoryphotos');
+        } catch(e) { return false; }
+    }
+
+    // In-memory resolved-URL cache to avoid re-computing the same URL
+    const _urlCache = new Map();
+
+    // Returns the best thumbnail URL for display at widthPx
     function thumbUrl(originalUrl, widthPx = 500, quality = 75) {
         if (!originalUrl) return '';
-        if (IMG_PROXY_PRIMARY === 'none') return originalUrl;
-        if (!isSpyneHostedUrl(originalUrl)) return originalUrl;
-        // Unwrap already-Thumbor URLs before re-proxying at new size
-        const sourceUrl = extractSourceUrl(originalUrl);
-        if (IMG_PROXY_PRIMARY === 'wsrv') return wsrvThumbUrl(sourceUrl, widthPx, quality);
-        return spyneThumbUrl(sourceUrl, widthPx, quality);
+        const cacheKey = originalUrl + '|' + widthPx;
+        if (_urlCache.has(cacheKey)) return _urlCache.get(cacheKey);
+
+        let result;
+        const srcUrl = extractSourceUrl(originalUrl);
+
+        if (isDealerCdnUrl(srcUrl)) {
+            // Public dealer CDN — load direct, no proxy needed
+            result = srcUrl;
+        } else if (isSpyneHostedUrl(originalUrl)) {
+            // Spyne/S3/CloudFront — use Thumbor for resize + webp
+            result = spyneThumbUrl(srcUrl, widthPx, quality);
+        } else {
+            // Unknown CDN — try direct (most public CDNs work fine)
+            result = srcUrl;
+        }
+
+        _urlCache.set(cacheKey, result);
+        return result;
+    }
+
+    // Ordered fallback chain for a URL — only used on onerror
+    function getFallbacks(originalUrl, widthPx, quality) {
+        const srcUrl = extractSourceUrl(originalUrl);
+        const seen = new Set();
+        const chain = [];
+        const add = (u) => { if (u && !seen.has(u)) { seen.add(u); chain.push(u); } };
+
+        if (isDealerCdnUrl(srcUrl)) {
+            // Direct → wsrv (in case of CORS issue)
+            add(srcUrl);
+            add(wsrvThumbUrl(srcUrl, widthPx, quality));
+        } else if (isSpyneHostedUrl(originalUrl)) {
+            // Spyne thumb → original full URL → raw source
+            add(spyneThumbUrl(srcUrl, widthPx, quality));
+            add(originalUrl);
+            add(srcUrl);
+            add(wsrvThumbUrl(srcUrl, widthPx, quality));
+        } else {
+            // Unknown: direct → wsrv
+            add(srcUrl);
+            add(originalUrl);
+            add(wsrvThumbUrl(srcUrl, widthPx, quality));
+        }
+        return chain;
     }
 
     function renderImages(v) {
@@ -3484,32 +3539,20 @@
                 const img = document.createElement('img');
                 img.loading = 'lazy';
                 img.referrerPolicy = 'no-referrer';
+                img.loading = 'lazy';
+                img.decoding = 'async';
                 img.alt = '';
-                img.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+                img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;background:#f8fafc;';
+                const fallbacks = getFallbacks(firstUrl, 400, 72);
                 let fallbackStep = 0;
-                // Build ordered fallback chain for this URL
-                const sourceUrl = extractSourceUrl(firstUrl);
-                const fallbacks = [];
-                // 1. Spyne Thumbor re-proxied at 400px
-                const spyneThumb = spyneThumbUrl(sourceUrl, 400, 70);
-                if (spyneThumb !== firstUrl) fallbacks.push(spyneThumb);
-                // 2. wsrv.nl proxy (works for any public URL)
-                fallbacks.push(wsrvThumbUrl(sourceUrl, 400, 70));
-                // 3. Original URL as-is (already-Thumbor or direct)
-                if (!fallbacks.includes(firstUrl)) fallbacks.push(firstUrl);
-                // 4. Raw source S3 URL if different
-                if (sourceUrl !== firstUrl && !fallbacks.includes(sourceUrl)) fallbacks.push(sourceUrl);
-
                 img.addEventListener('load', () => skel.remove());
                 img.addEventListener('error', () => {
-                    if (fallbackStep < fallbacks.length) {
-                        img.src = fallbacks[fallbackStep++];
-                        return;
-                    }
+                    fallbackStep++;
+                    if (fallbackStep < fallbacks.length) { img.src = fallbacks[fallbackStep]; return; }
                     skel.remove();
-                    tile.innerHTML += '<div class="broken-img" style="position:absolute;inset:0;font-size:9px;color:#94a3b8;display:flex;align-items:center;justify-content:center;">No image</div>';
+                    tile.innerHTML += '<div style="position:absolute;inset:0;font-size:9px;color:#94a3b8;display:flex;align-items:center;justify-content:center;">No image</div>';
                 });
-                img.src = fallbacks[fallbackStep++];
+                img.src = fallbacks[0];
                 tile.appendChild(img);
             }
 
@@ -3528,7 +3571,26 @@
             frag.appendChild(tile);
         });
 
-        grid.appendChild(frag);
+        // Append first 30 tiles immediately, rest in idle chunks for responsive UI
+        const allTiles = [];
+        while (frag.firstChild) allTiles.push(frag.removeChild(frag.firstChild));
+        const FIRST = 42;
+        allTiles.slice(0, FIRST).forEach(n => grid.appendChild(n));
+        const rest = allTiles.slice(FIRST);
+        if (rest.length > 0) {
+            const appendChunk = (list) => {
+                list.splice(0, 30).forEach(n => grid.appendChild(n));
+                if (list.length > 0) {
+                    (window.requestIdleCallback || setTimeout)((() => appendChunk(list)), window.requestIdleCallback ? { timeout: 500 } : 16);
+                } else {
+                    // All tiles rendered — preload ahead
+                    if (currentImg1Idx >= 0) svPreloadAhead(currentImg1Idx, 8);
+                }
+            };
+            (window.requestIdleCallback || setTimeout)((() => appendChunk(rest)), window.requestIdleCallback ? { timeout: 500 } : 16);
+        } else {
+            if (currentImg1Idx >= 0) svPreloadAhead(currentImg1Idx, 8);
+        }
     }
 
     // render1ImgImagePane is kept for sidebar-click to highlight the selected VIN
