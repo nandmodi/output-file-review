@@ -719,11 +719,9 @@
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
                         </div>
 
-                        <!-- VIN + counter overlay (minimal) -->
-                        <div class="absolute top-3 left-1/2 -translate-x-1/2 bg-black/50 text-white rounded-lg px-3 py-1 flex items-center space-x-2 text-[11px] pointer-events-none">
-                            <span id="sv-vin" class="font-mono font-bold tracking-wide"></span>
-                            <span id="sv-counter" class="text-white/50"></span>
-                        </div>
+                        <!-- sv-vin and sv-counter are hidden elements kept for JS updates only -->
+                        <span id="sv-vin" class="hidden"></span>
+                        <span id="sv-counter" class="hidden"></span>
                     </div>
                 </div>
 
@@ -937,6 +935,9 @@
         'kishor@spyne.ai':  '11135d32763e29c722e5a67de28b995c8184b26568937072f4e74e1f72c66d1f',
         'ajay.devrani@spyne.co.in': 'b00ca705240bae3e13fff0254248b6f7c320020e188cc6347ccaa0e9fa0c9278',
         'raj.tripathi@spyne.ai': 'fdd90f6ba06bf72cdc63b5257878dea7ef74662ba14534d6854dc5a38a737134',
+        'ranbir.manoranjan@spyne.ai': '70dd70adc813b91a0671d09587d23594509aaff54286ac865203545bfc88546e',
+        'khushi.gautam@spyne.co.in': '1db634dc43290f04d87d7b56bfd8e57958262df851544034b9f1cf802258ade2',
+        'shweta.gupta@spyne.co.in': 'e385c383fe98fbe65a050d6b83470942dbc67685509263b2edadeea2dbdf0da4',
         // Add more users here — same format:
         // 'newuser@spyne.ai': 'sha256_hash_of_their_password',
     };
@@ -1835,6 +1836,8 @@
             if (issueBar) issueBar.style.display = 'flex';
             if (zoomWrap) zoomWrap.style.visibility = 'hidden';
             const idx = currentImg1Idx >= 0 ? currentImg1Idx : 0;
+            // Aggressively preload a window of VINs before showing current
+            svPreloadWindow(idx, 15);
             svShow(idx);
         } else {
             gridArea.classList.remove('hidden');
@@ -1843,6 +1846,8 @@
             vtSingle.classList.remove('active');
             if (issueBar) issueBar.style.display = 'none';
             if (zoomWrap) zoomWrap.style.visibility = 'visible';
+            // Restore image count to tile-based display
+            document.getElementById('current-vin-image-count').innerText = '';
             // Re-apply current zoom to freshly rendered grid
             const grid = document.getElementById('images-grid');
             if (grid) {
@@ -1861,39 +1866,45 @@
 
         document.getElementById('sv-vin').textContent     = v.vin;
         document.getElementById('sv-counter').textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
+        // Show progress in header image-count span
+        document.getElementById('current-vin-image-count').innerText = (idx + 1) + ' / ' + currentImg1VINs.length;
 
         const img  = document.getElementById('sv-img');
         const skel = document.getElementById('sv-skeleton');
         img.style.opacity = '0';
-        skel.style.display = 'flex';
+        img.src = '';           // clear previous VIN's image immediately
         img.referrerPolicy = 'no-referrer';
 
+        if (!url) {
+            // No image for this VIN — show placeholder
+            skel.style.display = 'none';
+            img.style.opacity = '1';
+            img.style.background = '#1e293b';
+            img.alt = 'No image';
+            svUpdateControls(st);
+            render1ImgSidebar();
+            svPreloadAhead(idx, 6);
+            return;
+        }
+
+        // Kick off preloading neighbours FIRST so they're ready when user navigates
+        svPreloadAhead(idx, 8);
+
+        skel.style.display = 'flex';
         const showFull = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
-        const svFallbacks = getFallbacks(url, 900, 88);
+        const svFallbacks = getFallbacks(url, 900, 90);
         let svStep = 0;
         const tryNext = () => {
             if (svStep < svFallbacks.length) { img.src = svFallbacks[svStep++]; return; }
             skel.style.display = 'none'; img.style.opacity = '0.4';
         };
-        img.onload = () => {
-            showFull();
-            // Silently upgrade to full-res original if we showed a thumbnail
-            const fullSrc = extractSourceUrl(url);
-            if (img.src !== fullSrc && svFallbacks[0] !== fullSrc) {
-                const full = new Image();
-                full.referrerPolicy = 'no-referrer';
-                full.onload = () => { img.src = fullSrc; };
-                full.src = fullSrc;
-            }
-        };
+        img.onload  = showFull;
         img.onerror = tryNext;
         tryNext();
 
         svUpdateControls(st);
         // Also sync sidebar highlight
         render1ImgSidebar();
-        // Preload next 4 VINs so they load instantly when navigating
-        svPreloadAhead(idx, 4);
         // Update header VIN text / status badge
         document.getElementById('current-vin-text').innerText = v.vin;
         const badge = document.getElementById('current-vin-status-badge');
@@ -1988,31 +1999,57 @@
     }
 
     // Preload cache — avoid re-requesting the same URL
+    // Cache keyed by RESOLVED url (same as what svShow will use) to guarantee browser cache hit
     const _svPreloadCache = new Set();
 
-    function preloadUrl(url, widthPx = 800, quality = 82) {
-        if (!url || _svPreloadCache.has(url)) return;
-        _svPreloadCache.add(url);
-        const chain = getFallbacks(url, widthPx, quality);
+    function preloadUrl(url) {
+        if (!url) return;
+        const chain = getFallbacks(url, 900, 90);  // MUST match svShow params exactly
+        const resolvedUrl = chain[0];
+        if (_svPreloadCache.has(resolvedUrl)) return;
+        _svPreloadCache.add(resolvedUrl);
         const p = new Image();
         p.referrerPolicy = 'no-referrer';
-        p.src = chain[0];
+        p.decoding = 'async';
+        p.src = resolvedUrl;
     }
 
-    function svPreloadAhead(currentIdx, count = 6) {
+    function svPreloadAhead(currentIdx, count = 8) {
         if (!currentImg1VINs) return;
-        // Preload next `count` VINs
+        // Preload next `count` VINs ahead
         for (let i = 1; i <= count; i++) {
             const idx = currentIdx + i;
             if (idx >= currentImg1VINs.length) break;
             preloadUrl(currentImg1VINs[idx]?.urls?.[0]);
         }
-        // Also preload 2 behind (user might go back)
-        for (let i = 1; i <= 2; i++) {
+        // Preload 3 behind too
+        for (let i = 1; i <= 3; i++) {
             const idx = currentIdx - i;
             if (idx < 0) break;
             preloadUrl(currentImg1VINs[idx]?.urls?.[0]);
         }
+    }
+
+    // Aggressively preload a large window when entering single view
+    function svPreloadWindow(centerIdx, radius = 15) {
+        if (!currentImg1VINs) return;
+        const start = Math.max(0, centerIdx - radius);
+        const end   = Math.min(currentImg1VINs.length - 1, centerIdx + radius);
+        // Preload in order: current → next → prev → further out
+        const indices = [centerIdx];
+        for (let d = 1; d <= radius; d++) {
+            if (centerIdx + d <= end)   indices.push(centerIdx + d);
+            if (centerIdx - d >= start) indices.push(centerIdx - d);
+        }
+        let i = 0;
+        const preloadNext = () => {
+            if (i >= indices.length) return;
+            const url = currentImg1VINs[indices[i++]]?.urls?.[0];
+            preloadUrl(url);
+            // Stagger slightly so we don't flood network
+            if (i < indices.length) requestAnimationFrame(preloadNext);
+        };
+        preloadNext();
     }
 
     function svClear() {
