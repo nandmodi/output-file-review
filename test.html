@@ -1882,23 +1882,14 @@
 
         skel.style.display = 'flex';
         const showFull = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
-        const svFallbacks = getFallbacks(url, 900, 88);
+        // Load once at full quality — no two-step upgrade
+        const svFallbacks = getFallbacks(url, 900, 90);
         let svStep = 0;
         const tryNext = () => {
             if (svStep < svFallbacks.length) { img.src = svFallbacks[svStep++]; return; }
             skel.style.display = 'none'; img.style.opacity = '0.4';
         };
-        img.onload = () => {
-            showFull();
-            // Silently upgrade to full-res original if we showed a thumbnail
-            const fullSrc = extractSourceUrl(url);
-            if (img.src !== fullSrc && svFallbacks[0] !== fullSrc) {
-                const full = new Image();
-                full.referrerPolicy = 'no-referrer';
-                full.onload = () => { img.src = fullSrc; };
-                full.src = fullSrc;
-            }
-        };
+        img.onload  = showFull;
         img.onerror = tryNext;
         tryNext();
 
