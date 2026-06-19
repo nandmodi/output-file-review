@@ -471,16 +471,7 @@
                     <p class="text-[11px] text-slate-400 mt-1">Any columns OK — needs VIN and Image URLs</p>
                 </div>
                 <input id="csv-file-input" type="file" accept=".csv" class="hidden" onchange="handleCsvFileSelect(event)">
-                <!-- Parse progress bar -->
-                <div id="csv-parse-progress" class="hidden">
-                    <div class="flex items-center justify-between mb-1">
-                        <span id="csv-parse-label" class="text-[11px] text-slate-500">Reading file…</span>
-                        <span id="csv-parse-pct" class="text-[11px] font-bold text-blue-600">0%</span>
-                    </div>
-                    <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                        <div id="csv-parse-bar" class="h-full bg-blue-500 rounded-full transition-all duration-100" style="width:0%"></div>
-                    </div>
-                </div>
+
                 <div id="csv-info-bar" class="hidden bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-[12px] text-green-800 flex items-center justify-between">
                     <span id="csv-info-text"></span>
                     <button onclick="clearCsvFile()" class="text-green-600 hover:text-red-500 font-bold ml-2 transition">✕</button>
@@ -1677,18 +1668,7 @@
         document.getElementById('csv-file-input').value = '';
     }
 
-    function setParseProgress(pct, label) {
-        const bar   = document.getElementById('csv-parse-progress');
-        const fill  = document.getElementById('csv-parse-bar');
-        const lbl   = document.getElementById('csv-parse-label');
-        const pctEl = document.getElementById('csv-parse-pct');
-        if (!bar) return;
-        if (pct === null) { bar.classList.add('hidden'); return; }
-        bar.classList.remove('hidden');
-        fill.style.width  = pct + '%';
-        pctEl.textContent = Math.round(pct) + '%';
-        if (label) lbl.textContent = label;
-    }
+    function setParseProgress(pct, label) { /* progress bar removed */ }
 
     function processCsvFile(file) {
         if (!file.name.toLowerCase().endsWith('.csv')) {
