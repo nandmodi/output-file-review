@@ -1516,34 +1516,33 @@
     async function buildTeamIndex(enterprise) {
         if (!allImageData.headers.length) return;
 
-        // Always reset so badge reflects the current enterprise selection
         selectedEnterpriseId = '';
 
-        // ── Step 1: Get enterpriseId + total team count from Metabase_Data ────
-        let metaTotalTeams = 0;   // total teams for this enterprise in Metabase
-        try {
-            const loadingMsg = document.getElementById('data-loading-msg');
-            if (loadingMsg) loadingMsg.textContent = "Loading enterprise info…";
-            const res = await fetch(METABASE_CSV_URL, { cache: 'no-store' });
-            if (res.ok) {
-                const { headers: mh, rows: mr } = parseCSV(await res.text());
-                const mEnt   = mh.findIndex(h => h.trim().toLowerCase() === 'enterprise_name');
-                const mEntId = mh.findIndex(h => h.trim().toLowerCase() === 'enterpriseid');
-                const mTeamId= mh.findIndex(h => h.trim().toLowerCase() === 'teamid');
-                const seenMeta = new Set();
-                for (const r of mr) {
-                    if (mEnt !== -1 && (r[mEnt] || '').trim() !== enterprise) continue;
-                    const eid = mEntId !== -1 ? (r[mEntId] || '').trim() : '';
-                    if (eid && !selectedEnterpriseId) selectedEnterpriseId = eid;
-                    const tid = mTeamId !== -1 ? (r[mTeamId] || '').trim() : '';
-                    if (tid) seenMeta.add(tid);
+        // CSV mode: skip Metabase fetch entirely — we already have all data locally
+        let metaTotalTeams = 0;
+        if (dataSourceMode !== 'csv') {
+            try {
+                const loadingMsg = document.getElementById('data-loading-msg');
+                if (loadingMsg) loadingMsg.textContent = "Loading enterprise info…";
+                const res = await fetch(METABASE_CSV_URL, { cache: 'no-store' });
+                if (res.ok) {
+                    const { headers: mh, rows: mr } = parseCSV(await res.text());
+                    const mEnt   = mh.findIndex(h => h.trim().toLowerCase() === 'enterprise_name');
+                    const mEntId = mh.findIndex(h => h.trim().toLowerCase() === 'enterpriseid');
+                    const mTeamId= mh.findIndex(h => h.trim().toLowerCase() === 'teamid');
+                    const seenMeta = new Set();
+                    for (const r of mr) {
+                        if (mEnt !== -1 && (r[mEnt] || '').trim() !== enterprise) continue;
+                        const eid = mEntId !== -1 ? (r[mEntId] || '').trim() : '';
+                        if (eid && !selectedEnterpriseId) selectedEnterpriseId = eid;
+                        const tid = mTeamId !== -1 ? (r[mTeamId] || '').trim() : '';
+                        if (tid) seenMeta.add(tid);
+                    }
+                    metaTotalTeams = seenMeta.size;
                 }
-                metaTotalTeams = seenMeta.size;
-                console.log('[Metabase_Data] enterpriseId:', selectedEnterpriseId,
-                    'total teams:', metaTotalTeams);
+            } catch (e) {
+                console.warn('[Metabase_Data] fetch failed (non-fatal):', e);
             }
-        } catch (e) {
-            console.warn('[Metabase_Data] fetch failed (non-fatal):', e);
         }
 
         // Show total from Metabase immediately so user sees X/Total right away
@@ -1599,8 +1598,15 @@
             if (!t.vins.has(vin)) t.vins.set(vin, []);
             const arr  = t.vins.get(vin);
 
-            // Col K (index 10) contains image URLs
-            const urls = extractUrlsFromRow(r, C.imageUrls);
+            // For CSV mode rows, URLs are already clean pipe-separated strings —
+            // skip the slow regex extractUrlsFromRow and split directly
+            let urls;
+            if (dataSourceMode === 'csv') {
+                const raw = (r[C.imageUrls] || '').trim();
+                urls = raw ? raw.split('|').map(u => u.trim()).filter(Boolean) : [];
+            } else {
+                urls = extractUrlsFromRow(r, C.imageUrls);
+            }
             for (const u of urls) if (!arr.includes(u)) arr.push(u);
 
             // Update live progress counter each time a new team is first seen
@@ -1848,13 +1854,16 @@
                         return;
                     }
 
-                    loadingMsg.textContent = 'Restoring your progress\u2026';
-                    await loadProgressFromSheet(selectedEnterprise);
+                    // Show dashboard immediately — don't wait for progress sync
+                    loadingMsg.textContent = 'Almost ready\u2026';
                     renderDashboard();
                     showPage('page-dashboard');
-                    requestAnimationFrame(() => requestAnimationFrame(() => {
-                        loadingOv.classList.add('hidden');
-                    }));
+                    loadingOv.classList.add('hidden');
+
+                    // Load progress in background — refresh dashboard when done
+                    loadProgressFromSheet(selectedEnterprise).then(loaded => {
+                        if (loaded) renderDashboard();
+                    }).catch(() => {});
                 } catch (err) {
                     loadingOv.classList.add('hidden');
                     console.error(err);
