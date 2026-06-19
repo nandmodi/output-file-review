@@ -471,6 +471,7 @@
                     <p class="text-[11px] text-slate-400 mt-1">Any columns OK — needs VIN and Image URLs</p>
                 </div>
                 <input id="csv-file-input" type="file" accept=".csv" class="hidden" onchange="handleCsvFileSelect(event)">
+
                 <div id="csv-info-bar" class="hidden bg-green-50 border border-green-200 rounded-lg px-3 py-2 text-[12px] text-green-800 flex items-center justify-between">
                     <span id="csv-info-text"></span>
                     <button onclick="clearCsvFile()" class="text-green-600 hover:text-red-500 font-bold ml-2 transition">✕</button>
@@ -645,6 +646,7 @@
                                 <button id="sv-bg-btn" onclick="svToggleIssue('background')" title="b" class="sv-issue-btn-hdr">Background <small style="opacity:.55;font-size:9px">(b)</small></button>
                                 <button id="sv-qt-btn" onclick="svToggleIssue('quality')"    title="q" class="sv-issue-btn-hdr">Quality <small style="opacity:.55;font-size:9px">(q)</small></button>
                                 <button id="sv-ha-btn" onclick="svToggleIssue('hero')"       title="h" class="sv-issue-btn-hdr">Hero Angle <small style="opacity:.55;font-size:9px">(h)</small></button>
+                                <button id="sv-p-btn"  onclick="svToggleIssue('photo_na')"  title="p" class="sv-issue-btn-hdr">Photo NA <small style="opacity:.55;font-size:9px">(p)</small></button>
                                 <div class="w-px h-4 bg-slate-200 mx-0.5"></div>
                                 <button id="sv-ok-btn" onclick="svMarkOk()"
                                     class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1">
@@ -710,6 +712,15 @@
                             class="max-w-full max-h-full object-contain transition-opacity duration-150" style="opacity:0">
                         <div id="sv-skeleton" class="absolute inset-0 flex items-center justify-center">
                             <div class="spinner-blue"></div>
+                        </div>
+                        <!-- No image placeholder — shown when VIN has zero images -->
+                        <div id="sv-no-image" class="absolute inset-0 flex-col items-center justify-center hidden"
+                             style="background:#0f172a;display:none;">
+                            <svg class="w-12 h-12 text-slate-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <p class="text-slate-500 text-[13px] font-medium">No image available</p>
                         </div>
                         <!-- Nav arrows -->
                         <div class="sv-nav absolute left-3 top-1/2 -translate-y-1/2" onclick="svNav(-1)" title="← Previous">
@@ -1131,27 +1142,40 @@
     }
 
     // Robust CSV parser: returns { headers, rows: [cellArr, cellArr, ...] }
+    // Ultra-fast CSV parser — splits on commas up to (N-1) times so the last column
+    // (which contains pipe-separated URLs) is never broken. Falls back to a
+    // quoted-field-aware parser for files with quoted cells.
     function parseCSV(text) {
-        const rows = [];
-        let row = [], field = '', inQuotes = false;
-        for (let i = 0; i < text.length; i++) {
-            const c = text[i], next = text[i + 1];
-            if (inQuotes) {
-                if (c === '"' && next === '"') { field += '"'; i++; }
-                else if (c === '"') { inQuotes = false; }
-                else { field += c; }
-            } else {
-                if (c === '"') { inQuotes = true; }
-                else if (c === ',') { row.push(field); field = ''; }
-                else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
-                else if (c === '\r') {}
-                else { field += c; }
+        const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+        if (lines.length === 0) return { headers: [], rows: [] };
+
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        const numCols = headers.length;
+        const dataRows = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (!line.trim()) continue;
+
+            // Fast path: split on first (numCols-1) commas, rest = last column
+            const cols = [];
+            let start = 0, found = 0;
+            const limit = numCols - 1;
+            for (let j = 0; j < line.length && found < limit; j++) {
+                if (line[j] === ',') {
+                    let val = line.slice(start, j).trim();
+                    if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
+                    cols.push(val);
+                    start = j + 1;
+                    found++;
+                }
             }
+            let last = line.slice(start).trim();
+            if (last.startsWith('"') && last.endsWith('"')) last = last.slice(1, -1);
+            cols.push(last);
+
+            if (cols.some(v => v.length > 0)) dataRows.push(cols);
         }
-        if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
-        if (rows.length === 0) return { headers: [], rows: [] };
-        const headers = rows[0].map(h => h.trim());
-        const dataRows = rows.slice(1).filter(r => r.some(v => String(v).trim().length > 0));
         return { headers, rows: dataRows };
     }
 
@@ -1493,34 +1517,33 @@
     async function buildTeamIndex(enterprise) {
         if (!allImageData.headers.length) return;
 
-        // Always reset so badge reflects the current enterprise selection
         selectedEnterpriseId = '';
 
-        // ── Step 1: Get enterpriseId + total team count from Metabase_Data ────
-        let metaTotalTeams = 0;   // total teams for this enterprise in Metabase
-        try {
-            const loadingMsg = document.getElementById('data-loading-msg');
-            if (loadingMsg) loadingMsg.textContent = "Loading enterprise info…";
-            const res = await fetch(METABASE_CSV_URL, { cache: 'no-store' });
-            if (res.ok) {
-                const { headers: mh, rows: mr } = parseCSV(await res.text());
-                const mEnt   = mh.findIndex(h => h.trim().toLowerCase() === 'enterprise_name');
-                const mEntId = mh.findIndex(h => h.trim().toLowerCase() === 'enterpriseid');
-                const mTeamId= mh.findIndex(h => h.trim().toLowerCase() === 'teamid');
-                const seenMeta = new Set();
-                for (const r of mr) {
-                    if (mEnt !== -1 && (r[mEnt] || '').trim() !== enterprise) continue;
-                    const eid = mEntId !== -1 ? (r[mEntId] || '').trim() : '';
-                    if (eid && !selectedEnterpriseId) selectedEnterpriseId = eid;
-                    const tid = mTeamId !== -1 ? (r[mTeamId] || '').trim() : '';
-                    if (tid) seenMeta.add(tid);
+        // CSV mode: skip Metabase fetch entirely — we already have all data locally
+        let metaTotalTeams = 0;
+        if (dataSourceMode !== 'csv') {
+            try {
+                const loadingMsg = document.getElementById('data-loading-msg');
+                if (loadingMsg) loadingMsg.textContent = "Loading enterprise info…";
+                const res = await fetch(METABASE_CSV_URL, { cache: 'no-store' });
+                if (res.ok) {
+                    const { headers: mh, rows: mr } = parseCSV(await res.text());
+                    const mEnt   = mh.findIndex(h => h.trim().toLowerCase() === 'enterprise_name');
+                    const mEntId = mh.findIndex(h => h.trim().toLowerCase() === 'enterpriseid');
+                    const mTeamId= mh.findIndex(h => h.trim().toLowerCase() === 'teamid');
+                    const seenMeta = new Set();
+                    for (const r of mr) {
+                        if (mEnt !== -1 && (r[mEnt] || '').trim() !== enterprise) continue;
+                        const eid = mEntId !== -1 ? (r[mEntId] || '').trim() : '';
+                        if (eid && !selectedEnterpriseId) selectedEnterpriseId = eid;
+                        const tid = mTeamId !== -1 ? (r[mTeamId] || '').trim() : '';
+                        if (tid) seenMeta.add(tid);
+                    }
+                    metaTotalTeams = seenMeta.size;
                 }
-                metaTotalTeams = seenMeta.size;
-                console.log('[Metabase_Data] enterpriseId:', selectedEnterpriseId,
-                    'total teams:', metaTotalTeams);
+            } catch (e) {
+                console.warn('[Metabase_Data] fetch failed (non-fatal):', e);
             }
-        } catch (e) {
-            console.warn('[Metabase_Data] fetch failed (non-fatal):', e);
         }
 
         // Show total from Metabase immediately so user sees X/Total right away
@@ -1576,8 +1599,15 @@
             if (!t.vins.has(vin)) t.vins.set(vin, []);
             const arr  = t.vins.get(vin);
 
-            // Col K (index 10) contains image URLs
-            const urls = extractUrlsFromRow(r, C.imageUrls);
+            // For CSV mode rows, URLs are already clean pipe-separated strings —
+            // skip the slow regex extractUrlsFromRow and split directly
+            let urls;
+            if (dataSourceMode === 'csv') {
+                const raw = (r[C.imageUrls] || '').trim();
+                urls = raw ? raw.split('|').map(u => u.trim()).filter(Boolean) : [];
+            } else {
+                urls = extractUrlsFromRow(r, C.imageUrls);
+            }
             for (const u of urls) if (!arr.includes(u)) arr.push(u);
 
             // Update live progress counter each time a new team is first seen
@@ -1648,14 +1678,26 @@
         document.getElementById('csv-file-input').value = '';
     }
 
+    function setParseProgress(pct, label) { /* progress bar removed */ }
+
     function processCsvFile(file) {
         if (!file.name.toLowerCase().endsWith('.csv')) {
             showError('Please select a .csv file.');
             return;
         }
+        // Show progress immediately
+        setParseProgress(5, 'Reading file…');
+        document.getElementById('csv-file-label').textContent = '📄 ' + file.name;
+
         const reader = new FileReader();
+        reader.onprogress = (e) => {
+            if (e.lengthComputable) {
+                setParseProgress(5 + (e.loaded / e.total) * 30, 'Reading file…');
+            }
+        };
         reader.onload = (e) => {
             try {
+                setParseProgress(35, 'Parsing CSV…');
                 const parsed = parseCSV(e.target.result);
                 const hLower = parsed.headers.map(h => h.trim().toLowerCase());
 
@@ -1705,38 +1747,40 @@
 
                 const enterpriseName = file.name.replace(/\.csv$/i, '');
 
+                setParseProgress(50, 'Grouping VINs…');
+
                 // Build a stable teamId from a rooftop name
                 const toTeamId = (rooftop) =>
                     'csv-' + rooftop.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-                // One row per VIN — if rooftop column exists, each unique rooftop = separate team.
-                // Without rooftop, all VINs go into one team named after the file.
-                const syntheticRows = parsed.rows
-                    .filter(r => String(r[vinCol] || '').trim().length > 0)
-                    .map(r => {
-                        const vin     = String(r[vinCol] || '').trim();
-                        const imgUrls = String(r[imgCol] || '').trim();
-                        const rooftop = rooftopCol >= 0 ? String(r[rooftopCol] || '').trim() : '';
-                        // teamId: per-rooftop when available, otherwise single team
-                        const teamId  = rooftop ? toTeamId(rooftop) : 'csv-team-001';
-                        // team name shown on card: rooftop name or filename
-                        const teamName = rooftop || enterpriseName;
-                        return [
-                            vin,            // 0 name
-                            teamId,         // 1 teamId  ← unique per rooftop
-                            'csv-ent-001',  // 2 entId
-                            enterpriseName, // 3 enterprise_name
-                            '',             // 4 dealerId
-                            '',             // 5 partnerId
-                            '1',            // 6 rowCount
-                            '',             // 7 s3Url
-                            '',             // 8 createdAt
-                            vin,            // 9 VIN
-                            imgUrls,        // 10 imageUrls (pipe-separated)
-                            rooftop         // 11 rooftop
-                        ];
-                    });
+                // Group rows by VIN — handles both one-row-per-VIN and one-row-per-image formats
+                const vinMap = new Map();
+                const totalParsedRows = parsed.rows.length;
+                parsed.rows.forEach((r, ri) => {
+                    const vin = String(r[vinCol] || '').trim();
+                    if (!vin) return;
+                    const imgRaw  = String(r[imgCol]  || '').trim();
+                    const rooftop = rooftopCol >= 0 ? String(r[rooftopCol] || '').trim() : '';
+                    if (!vinMap.has(vin)) vinMap.set(vin, { rooftop, urls: new Set() });
+                    if (imgRaw) imgRaw.split('|').forEach(u => { const c = u.trim(); if (c) vinMap.get(vin).urls.add(c); });
+                    if (!vinMap.get(vin).rooftop && rooftop) vinMap.get(vin).rooftop = rooftop;
+                });
 
+                setParseProgress(70, 'Building rows…');
+
+                const syntheticRows = [];
+                for (const [vin, data] of vinMap.entries()) {
+                    const rooftop = data.rooftop;
+                    const imgUrls = [...data.urls].join('|');
+                    const teamId  = rooftop ? toTeamId(rooftop) : 'csv-team-001';
+                    syntheticRows.push([
+                        vin, teamId, 'csv-ent-001', enterpriseName,
+                        '', '', '1', '', '',
+                        vin, imgUrls, rooftop
+                    ]);
+                }
+
+                setParseProgress(85, 'Building team index…');
                 // Count unique rooftops for the info bar
                 const uniqueTeams = new Set(syntheticRows.map(r => r[1])).size;
 
@@ -1800,13 +1844,16 @@
                         return;
                     }
 
-                    loadingMsg.textContent = 'Restoring your progress\u2026';
-                    await loadProgressFromSheet(selectedEnterprise);
+                    // Show dashboard immediately — don't wait for progress sync
+                    loadingMsg.textContent = 'Almost ready\u2026';
                     renderDashboard();
                     showPage('page-dashboard');
-                    requestAnimationFrame(() => requestAnimationFrame(() => {
-                        loadingOv.classList.add('hidden');
-                    }));
+                    loadingOv.classList.add('hidden');
+
+                    // Load progress in background — refresh dashboard when done
+                    loadProgressFromSheet(selectedEnterprise).then(loaded => {
+                        if (loaded) renderDashboard();
+                    }).catch(() => {});
                 } catch (err) {
                     loadingOv.classList.add('hidden');
                     console.error(err);
@@ -1901,18 +1948,25 @@
         // Show progress in header image-count span
         document.getElementById('current-vin-image-count').innerText = (idx + 1) + ' / ' + currentImg1VINs.length;
 
-        const img  = document.getElementById('sv-img');
-        const skel = document.getElementById('sv-skeleton');
+        const img    = document.getElementById('sv-img');
+        const skel   = document.getElementById('sv-skeleton');
+        const noImgEl = document.getElementById('sv-no-image');
+
+        // Clear ALL handlers and src FIRST to prevent previous VIN's image bleeding through
+        img.onload  = null;
+        img.onerror = null;
+        img.src     = '';
         img.style.opacity = '0';
-        img.src = '';           // clear previous VIN's image immediately
+        img.style.background = '';
+        img.alt = '';
+        skel.style.display = 'none';
+        if (noImgEl) noImgEl.style.display = 'none';
         img.referrerPolicy = 'no-referrer';
 
         if (!url) {
-            // No image for this VIN — show placeholder
-            skel.style.display = 'none';
-            img.style.opacity = '1';
-            img.style.background = '#1e293b';
-            img.alt = 'No image';
+            // No image for this VIN — show explicit placeholder, nothing else
+            if (noImgEl) noImgEl.style.display = 'flex';
+            img.style.opacity = '0';
             svUpdateControls(st);
             render1ImgSidebar();
             svPreloadAhead(idx, 6);
@@ -1928,7 +1982,8 @@
         let svStep = 0;
         const tryNext = () => {
             if (svStep < svFallbacks.length) { img.src = svFallbacks[svStep++]; return; }
-            skel.style.display = 'none'; img.style.opacity = '0.4';
+            skel.style.display = 'none'; img.style.opacity = '0';
+            if (noImgEl) noImgEl.style.display = 'flex';
         };
         img.onload  = showFull;
         img.onerror = tryNext;
@@ -1963,6 +2018,7 @@
             'sv-bg-btn': 'background',
             'sv-qt-btn': 'quality',
             'sv-ha-btn': 'hero',
+            'sv-p-btn':  'photo_na',
         };
         Object.entries(allBtns).forEach(([id, val]) => {
             const btn = document.getElementById(id);
@@ -2887,6 +2943,20 @@
         } catch(e) { return false; }
     }
 
+    // Dealer CDNs that use hotlink protection — require wsrv.nl proxy to load
+    // from external domains like github.io
+    function needsProxy(url) {
+        if (!url) return false;
+        try {
+            const host = new URL(url).hostname.toLowerCase();
+            return host.includes('pictures.dealer.com') ||
+                   host.includes('vehicle-images.carscommerce') ||
+                   host.includes('img.vast.com') ||
+                   host.includes('media.dealerfire') ||
+                   host.includes('photos.motortrend');
+        } catch(e) { return false; }
+    }
+
     // In-memory resolved-URL cache to avoid re-computing the same URL
     const _urlCache = new Map();
 
@@ -2900,8 +2970,9 @@
         const srcUrl = extractSourceUrl(originalUrl);
 
         if (isDealerCdnUrl(srcUrl)) {
-            // Public dealer CDN — load direct, no proxy needed
-            result = srcUrl;
+            // For hotlink-protected dealer CDNs, use wsrv.nl proxy as primary
+            // (bypasses hotlink protection by fetching server-side)
+            result = needsProxy(srcUrl) ? wsrvThumbUrl(srcUrl, widthPx, quality) : srcUrl;
         } else if (isSpyneHostedUrl(originalUrl)) {
             // Spyne/S3/CloudFront — use Thumbor for resize + webp
             result = spyneThumbUrl(srcUrl, widthPx, quality);
@@ -2922,9 +2993,15 @@
         const add = (u) => { if (u && !seen.has(u)) { seen.add(u); chain.push(u); } };
 
         if (isDealerCdnUrl(srcUrl)) {
-            // Direct → wsrv (in case of CORS issue)
-            add(srcUrl);
-            add(wsrvThumbUrl(srcUrl, widthPx, quality));
+            if (needsProxy(srcUrl)) {
+                // Hotlink-protected CDN — proxy first, direct as fallback
+                add(wsrvThumbUrl(srcUrl, widthPx, quality));
+                add(srcUrl);
+            } else {
+                // Open dealer CDN — direct first, proxy as fallback
+                add(srcUrl);
+                add(wsrvThumbUrl(srcUrl, widthPx, quality));
+            }
         } else if (isSpyneHostedUrl(originalUrl)) {
             // Spyne thumb → original full URL → raw source
             add(spyneThumbUrl(srcUrl, widthPx, quality));
@@ -3145,16 +3222,17 @@
         if (st === 'background') return '#14b8a6';
         if (st === 'quality')    return '#f59e0b';
         if (st === 'hero')       return '#6366f1';
+        if (st === 'photo_na')   return '#94a3b8';  // grey
         return 'transparent';
     }
     function stateLabel(st) {
         const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Issue',
-                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle' };
+                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA' };
         return map[st] || '';
     }
     function stateBadgeText(st) {
         const map = { ok:'✓', raw:'R', stock:'S', issue:'I',
-                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA' };
+                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA', photo_na:'P' };
         return map[st] || '';
     }
 
@@ -3340,7 +3418,7 @@
         const teamId = currentImg1Team?.teamId;
         const total  = currentImg1VINs.length;
         let ok = 0, raw = 0, stock = 0, internal = 0, pending = 0;
-        let banner = 0, bg = 0, quality = 0, hero = 0;
+        let banner = 0, bg = 0, quality = 0, hero = 0, photo_na_count = 0;
 
         currentImg1VINs.forEach(v => {
             const st = getImg1Review(teamId, v.vin);
@@ -3352,6 +3430,7 @@
             else if (st === 'background') bg++;
             else if (st === 'quality')    quality++;
             else if (st === 'hero')       hero++;
+            else if (st === 'photo_na')   photo_na_count++;
             else                          pending++;
         });
         const done = ok + raw + stock + internal;
@@ -4062,7 +4141,7 @@
                 return;
             }
             // Sub-issue shortcuts (single view only) — now all single-select
-            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero' };
+            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero','p':'photo_na','P':'photo_na' };
             if (img1ViewMode === 'single' && subShortcuts[e.key] && currentImg1Idx >= 0) {
                 e.preventDefault();
                 svToggleIssue(subShortcuts[e.key]);
