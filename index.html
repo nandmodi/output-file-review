@@ -2620,7 +2620,7 @@
             if (currentTeam) {
                 const teamVins = vinsByTeam.get(currentTeam.teamId);
                 if (teamVins) {
-                    currentTeamVINs = [...teamVins.entries()].map(([vin, entry]) => ({ vin, urls: Array.isArray(entry) ? entry : (entry.urls||[]), rooftop: Array.isArray(entry) ? '' : (entry.rooftop||''), condition: Array.isArray(entry) ? '' : (entry.condition||'') }));
+                    currentTeamVINs = [...teamVins.entries()].map(([key, entry]) => { const vin = key.includes('|~|') ? key.split('|~|')[0] : key; return { vin, urls: Array.isArray(entry) ? entry : (entry.urls||[]), rooftop: Array.isArray(entry) ? '' : (entry.rooftop||''), condition: Array.isArray(entry) ? '' : (entry.condition||'') }; });
                     renderVINSidebar();
                     updateProgressBadge();
                 }
@@ -2650,6 +2650,9 @@
         // Reset in-memory state
         reviews     = {};
         img1Reviews = {};
+        // Clear image URL caches so fresh loads happen
+        _urlCache.clear();
+        _svPreloadCache.clear();
 
         // Re-render dashboard to show cleared counts
         renderDashboard();
@@ -2792,33 +2795,36 @@
 
     // Open 1st image review across ALL rooftops merged into one virtual team
     function openAllRooftops1stImage() {
-        // Collect all VINs from every team via vinsByTeam
-        const allVins = [];
-        const seenVins = new Set();
+        // Collect ALL VINs from every team — use VIN+rooftop as unique key
+        // so the same VIN at different rooftops appears as separate entries
+        const mergedMap = new Map();
         for (const t of teamsList) {
             const teamVins = vinsByTeam.get(t.teamId);
             if (!teamVins) continue;
-            for (const [vin, urls] of teamVins.entries()) {
-                if (!seenVins.has(vin)) {
-                    seenVins.add(vin);
-                    allVins.push({ vin, urls });
+            for (const [vin, entry] of teamVins.entries()) {
+                // Key = VIN + rooftop to preserve same-VIN-different-rooftop
+                const rooftop   = Array.isArray(entry) ? (t.rooftop || '') : (entry.rooftop || t.rooftop || '');
+                const condition = Array.isArray(entry) ? '' : (entry.condition || '');
+                const urls      = Array.isArray(entry) ? entry : (entry.urls || []);
+                const key = vin + '|~|' + rooftop;
+                if (!mergedMap.has(key)) {
+                    mergedMap.set(key, { urls, rooftop, condition });
                 }
             }
         }
 
-        // Build a virtual team and inject — then call openTeam1stImage
-        // We register the merged VINs under a virtual teamId in vinsByTeam
         const virtualTeamId = 'csv-all-rooftops';
-        const mergedMap = new Map();
-        allVins.forEach(v => mergedMap.set(v.vin, v.urls));
         vinsByTeam.set(virtualTeamId, mergedMap);
+
+        let totalImgs = 0;
+        for (const e of mergedMap.values()) totalImgs += (e.urls||e).length;
 
         const virtualTeam = {
             teamId:    virtualTeamId,
             name:      selectedEnterprise,
             rooftop:   'All Rooftops (' + teamsList.length + ')',
-            vinCount:  allVins.length,
-            imageCount: allVins.reduce((s, v) => s + v.urls.length, 0),
+            vinCount:  mergedMap.size,
+            imageCount: totalImgs,
         };
         openTeam1stImage(virtualTeam);
     }
@@ -2834,7 +2840,7 @@
         document.getElementById('review-team-id').innerText   = team.teamId;
 
         const teamVins = vinsByTeam.get(team.teamId);
-        currentTeamVINs = teamVins ? [...teamVins.entries()].map(([vin, entry]) => ({ vin, urls: Array.isArray(entry) ? entry : (entry.urls||[]), rooftop: Array.isArray(entry) ? '' : (entry.rooftop||''), condition: Array.isArray(entry) ? '' : (entry.condition||'') })) : [];
+        currentTeamVINs = teamVins ? [...teamVins.entries()].map(([key, entry]) => { const vin = key.includes('|~|') ? key.split('|~|')[0] : key; return { vin, urls: Array.isArray(entry) ? entry : (entry.urls||[]), rooftop: Array.isArray(entry) ? '' : (entry.rooftop||''), condition: Array.isArray(entry) ? '' : (entry.condition||'') }; }) : [];
 
         showPage('page-review');
         updateProgressBadge();
@@ -3342,12 +3348,16 @@
         currentImg1Team = team;
         currentImg1Idx  = -1;
         const teamVins  = vinsByTeam.get(team.teamId);
-        currentImg1VINs = teamVins ? [...teamVins.entries()].map(([vin, entry]) => ({
-            vin,
-            urls:      Array.isArray(entry) ? entry : (entry.urls || []),
-            rooftop:   Array.isArray(entry) ? '' : (entry.rooftop || ''),
-            condition: Array.isArray(entry) ? '' : (entry.condition || '')
-        })) : [];
+        currentImg1VINs = teamVins ? [...teamVins.entries()].map(([key, entry]) => {
+            // key may be 'vin' (single-rooftop) or 'vin|~|rooftop' (multi-rooftop map)
+            const vin = key.includes('|~|') ? key.split('|~|')[0] : key;
+            return {
+                vin,
+                urls:      Array.isArray(entry) ? entry : (entry.urls || []),
+                rooftop:   Array.isArray(entry) ? '' : (entry.rooftop || ''),
+                condition: Array.isArray(entry) ? '' : (entry.condition || '')
+            };
+        }) : [];
 
         // Reuse the same review page — update header labels
         document.getElementById('review-team-name').innerText = team.name + ' — 1st Image Review';
