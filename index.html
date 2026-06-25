@@ -637,6 +637,9 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             </button>
                             <span id="copy-vin-feedback" class="text-[10px] font-semibold text-emerald-600 opacity-0 transition-opacity">Copied!</span>
+                            <!-- Rooftop + condition badges — shown when reviewing all rooftops -->
+                            <span id="current-vin-rooftop" class="hidden text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded"></span>
+                            <span id="current-vin-condition" class="hidden text-[10px] font-semibold px-2 py-0.5 rounded"></span>
                             <!-- Issue buttons — only shown in single view -->
                             <div id="sv-issue-bar" class="hidden items-center space-x-1.5 ml-3 flex-wrap gap-y-1">
                                 <button id="sv-r-btn"  onclick="svToggleIssue('raw')"        title="r" class="sv-issue-btn-hdr">Raw <small style="opacity:.55;font-size:9px">(r)</small></button>
@@ -646,6 +649,7 @@
                                 <button id="sv-bg-btn" onclick="svToggleIssue('background')" title="b" class="sv-issue-btn-hdr">Background <small style="opacity:.55;font-size:9px">(b)</small></button>
                                 <button id="sv-qt-btn" onclick="svToggleIssue('quality')"    title="q" class="sv-issue-btn-hdr">Quality <small style="opacity:.55;font-size:9px">(q)</small></button>
                                 <button id="sv-ha-btn" onclick="svToggleIssue('hero')"       title="h" class="sv-issue-btn-hdr">Hero Angle <small style="opacity:.55;font-size:9px">(h)</small></button>
+                                <button id="sv-p-btn"  onclick="svToggleIssue('photo_na')"  title="p" class="sv-issue-btn-hdr">Photo NA <small style="opacity:.55;font-size:9px">(p)</small></button>
                                 <div class="w-px h-4 bg-slate-200 mx-0.5"></div>
                                 <button id="sv-ok-btn" onclick="svMarkOk()"
                                     class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1">
@@ -711,6 +715,15 @@
                             class="max-w-full max-h-full object-contain transition-opacity duration-150" style="opacity:0">
                         <div id="sv-skeleton" class="absolute inset-0 flex items-center justify-center">
                             <div class="spinner-blue"></div>
+                        </div>
+                        <!-- No image placeholder — shown when VIN has zero images -->
+                        <div id="sv-no-image" class="absolute inset-0 flex-col items-center justify-center hidden"
+                             style="background:#0f172a;display:none;">
+                            <svg class="w-12 h-12 text-slate-600 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                                    d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <p class="text-slate-500 text-[13px] font-medium">No image available</p>
                         </div>
                         <!-- Nav arrows -->
                         <div class="sv-nav absolute left-3 top-1/2 -translate-y-1/2" onclick="svNav(-1)" title="← Previous">
@@ -1081,7 +1094,8 @@
         createdAt:  8,   // I: created_at
         vin:        9,   // J: VIN  ← always col J regardless of source schema
         imageUrls:  10,  // K: Image URLs ← always col K regardless of source schema
-        rooftop:    11   // L: Rooftop / dealer name (optional, from CSV)
+        rooftop:    11,  // L: Rooftop / dealer name (optional, from CSV)
+        condition:  12   // M: Condition (new/used, optional, from CSV)
     };
 
     // =========================================================================
@@ -1582,12 +1596,18 @@
             const rooftop = (r[C.rooftop] || '').trim();
             const isNew = !teamAgg.has(teamId);
             if (isNew) teamAgg.set(teamId, { name, vins: new Map(), rooftop: rooftop || '' });
+            // Store per-VIN condition alongside URLs
             const t = teamAgg.get(teamId);
             if ((!t.name || t.name === teamId) && name !== teamId) t.name = name;
             if (!t.rooftop && rooftop) t.rooftop = rooftop;
 
-            if (!t.vins.has(vin)) t.vins.set(vin, []);
-            const arr  = t.vins.get(vin);
+            const condition = (r[C.condition] || '').trim();
+            const rooftopName = (r[C.rooftop] || '').trim() || t.rooftop || '';
+            if (!t.vins.has(vin)) t.vins.set(vin, { urls: [], condition: '', rooftop: '' });
+            const entry = t.vins.get(vin);
+            if (!entry.condition && condition) entry.condition = condition;
+            if (!entry.rooftop && rooftopName) entry.rooftop = rooftopName;
+            const arr = entry.urls;
 
             // For CSV mode rows, URLs are already clean pipe-separated strings —
             // skip the slow regex extractUrlsFromRow and split directly
@@ -1617,7 +1637,7 @@
         vinsByTeam = new Map();
         for (const [teamId, t] of teamAgg.entries()) {
             let imageCount = 0;
-            for (const urls of t.vins.values()) imageCount += urls.length;
+            for (const entry of t.vins.values()) imageCount += (entry.urls || entry).length;
             teamsList.push({ teamId, name: t.name, rooftop: t.rooftop || '', vinCount: t.vins.size, imageCount });
             vinsByTeam.set(teamId, t.vins);
         }
@@ -1731,6 +1751,10 @@
                     h === 'dealer_name' || h === 'dealership' || h === 'dealership_name' ||
                     h === 'location' || h === 'store'
                 );
+                const conditionCol = hLower.findIndex(h =>
+                    h === 'condition' || h === 'type' || h === 'vehicle_condition' ||
+                    h === 'new_used' || h === 'newused' || h === 'inventory_type'
+                );
 
                 if (vinCol === -1) { showError('CSV must have a VIN column.'); return; }
                 if (imgCol === -1) { showError('CSV must have an image URL column (e.g. Image URLs, photos, media).'); return; }
@@ -1751,9 +1775,11 @@
                     if (!vin) return;
                     const imgRaw  = String(r[imgCol]  || '').trim();
                     const rooftop = rooftopCol >= 0 ? String(r[rooftopCol] || '').trim() : '';
-                    if (!vinMap.has(vin)) vinMap.set(vin, { rooftop, urls: new Set() });
+                    const condition = conditionCol >= 0 ? String(r[conditionCol] || '').trim() : '';
+                    if (!vinMap.has(vin)) vinMap.set(vin, { rooftop, condition, urls: new Set() });
                     if (imgRaw) imgRaw.split('|').forEach(u => { const c = u.trim(); if (c) vinMap.get(vin).urls.add(c); });
                     if (!vinMap.get(vin).rooftop && rooftop) vinMap.get(vin).rooftop = rooftop;
+                    if (!vinMap.get(vin).condition && condition) vinMap.get(vin).condition = condition;
                 });
 
                 setParseProgress(70, 'Building rows…');
@@ -1766,7 +1792,7 @@
                     syntheticRows.push([
                         vin, teamId, 'csv-ent-001', enterpriseName,
                         '', '', '1', '', '',
-                        vin, imgUrls, rooftop
+                        vin, imgUrls, rooftop, data.condition || ''
                     ]);
                 }
 
@@ -1926,6 +1952,25 @@
         }
     }
 
+    function updateVinMetaBadges(v) {
+        const rtEl = document.getElementById('current-vin-rooftop');
+        const cdEl = document.getElementById('current-vin-condition');
+        if (rtEl) {
+            if (v && v.rooftop) { rtEl.textContent = v.rooftop; rtEl.classList.remove('hidden'); }
+            else rtEl.classList.add('hidden');
+        }
+        if (cdEl) {
+            if (v && v.condition) {
+                cdEl.textContent = v.condition;
+                const isNew = v.condition.toLowerCase().includes('new');
+                cdEl.style.background = isNew ? '#dcfce7' : '#fef9c3';
+                cdEl.style.color      = isNew ? '#16a34a' : '#ca8a04';
+                cdEl.style.display    = '';
+                cdEl.classList.remove('hidden');
+            } else cdEl.classList.add('hidden');
+        }
+    }
+
     function svShow(idx) {
         if (!currentImg1VINs || idx < 0 || idx >= currentImg1VINs.length) return;
         currentImg1Idx = idx;
@@ -1935,21 +1980,29 @@
 
         document.getElementById('sv-vin').textContent     = v.vin;
         document.getElementById('sv-counter').textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
-        // Show progress in header image-count span
         document.getElementById('current-vin-image-count').innerText = (idx + 1) + ' / ' + currentImg1VINs.length;
+        // Show rooftop + condition in header
+        updateVinMetaBadges(v);
 
-        const img  = document.getElementById('sv-img');
-        const skel = document.getElementById('sv-skeleton');
+        const img    = document.getElementById('sv-img');
+        const skel   = document.getElementById('sv-skeleton');
+        const noImgEl = document.getElementById('sv-no-image');
+
+        // Clear ALL handlers and src FIRST to prevent previous VIN's image bleeding through
+        img.onload  = null;
+        img.onerror = null;
+        img.src     = '';
         img.style.opacity = '0';
-        img.src = '';           // clear previous VIN's image immediately
+        img.style.background = '';
+        img.alt = '';
+        skel.style.display = 'none';
+        if (noImgEl) noImgEl.style.display = 'none';
         img.referrerPolicy = 'no-referrer';
 
         if (!url) {
-            // No image for this VIN — show placeholder
-            skel.style.display = 'none';
-            img.style.opacity = '1';
-            img.style.background = '#1e293b';
-            img.alt = 'No image';
+            // No image for this VIN — show explicit placeholder, nothing else
+            if (noImgEl) noImgEl.style.display = 'flex';
+            img.style.opacity = '0';
             svUpdateControls(st);
             render1ImgSidebar();
             svPreloadAhead(idx, 6);
@@ -1965,7 +2018,8 @@
         let svStep = 0;
         const tryNext = () => {
             if (svStep < svFallbacks.length) { img.src = svFallbacks[svStep++]; return; }
-            skel.style.display = 'none'; img.style.opacity = '0.4';
+            skel.style.display = 'none'; img.style.opacity = '0';
+            if (noImgEl) noImgEl.style.display = 'flex';
         };
         img.onload  = showFull;
         img.onerror = tryNext;
@@ -1976,6 +2030,7 @@
         render1ImgSidebar();
         // Update header VIN text / status badge
         document.getElementById('current-vin-text').innerText = v.vin;
+        updateVinMetaBadges(v);
         const badge = document.getElementById('current-vin-status-badge');
         const badgeStyles = {
             ok:    ['bg-emerald-100 text-emerald-700', 'ok'],
@@ -2000,6 +2055,7 @@
             'sv-bg-btn': 'background',
             'sv-qt-btn': 'quality',
             'sv-ha-btn': 'hero',
+            'sv-p-btn':  'photo_na',
         };
         Object.entries(allBtns).forEach(([id, val]) => {
             const btn = document.getElementById(id);
@@ -2561,7 +2617,7 @@
             if (currentTeam) {
                 const teamVins = vinsByTeam.get(currentTeam.teamId);
                 if (teamVins) {
-                    currentTeamVINs = [...teamVins.entries()].map(([vin, urls]) => ({ vin, urls }));
+                    currentTeamVINs = [...teamVins.entries()].map(([vin, entry]) => ({ vin, urls: Array.isArray(entry) ? entry : (entry.urls||[]), rooftop: Array.isArray(entry) ? '' : (entry.rooftop||''), condition: Array.isArray(entry) ? '' : (entry.condition||'') }));
                     renderVINSidebar();
                     updateProgressBadge();
                 }
@@ -2775,7 +2831,7 @@
         document.getElementById('review-team-id').innerText   = team.teamId;
 
         const teamVins = vinsByTeam.get(team.teamId);
-        currentTeamVINs = teamVins ? [...teamVins.entries()].map(([vin, urls]) => ({ vin, urls })) : [];
+        currentTeamVINs = teamVins ? [...teamVins.entries()].map(([vin, entry]) => ({ vin, urls: Array.isArray(entry) ? entry : (entry.urls||[]), rooftop: Array.isArray(entry) ? '' : (entry.rooftop||''), condition: Array.isArray(entry) ? '' : (entry.condition||'') })) : [];
 
         showPage('page-review');
         updateProgressBadge();
@@ -3203,16 +3259,17 @@
         if (st === 'background') return '#14b8a6';
         if (st === 'quality')    return '#f59e0b';
         if (st === 'hero')       return '#6366f1';
+        if (st === 'photo_na')   return '#94a3b8';  // grey
         return 'transparent';
     }
     function stateLabel(st) {
         const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Issue',
-                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle' };
+                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA' };
         return map[st] || '';
     }
     function stateBadgeText(st) {
         const map = { ok:'✓', raw:'R', stock:'S', issue:'I',
-                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA' };
+                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA', photo_na:'P' };
         return map[st] || '';
     }
 
@@ -3282,7 +3339,12 @@
         currentImg1Team = team;
         currentImg1Idx  = -1;
         const teamVins  = vinsByTeam.get(team.teamId);
-        currentImg1VINs = teamVins ? [...teamVins.entries()].map(([vin, urls]) => ({ vin, urls })) : [];
+        currentImg1VINs = teamVins ? [...teamVins.entries()].map(([vin, entry]) => ({
+            vin,
+            urls:      Array.isArray(entry) ? entry : (entry.urls || []),
+            rooftop:   Array.isArray(entry) ? '' : (entry.rooftop || ''),
+            condition: Array.isArray(entry) ? '' : (entry.condition || '')
+        })) : [];
 
         // Reuse the same review page — update header labels
         document.getElementById('review-team-name').innerText = team.name + ' — 1st Image Review';
@@ -3398,7 +3460,7 @@
         const teamId = currentImg1Team?.teamId;
         const total  = currentImg1VINs.length;
         let ok = 0, raw = 0, stock = 0, internal = 0, pending = 0;
-        let banner = 0, bg = 0, quality = 0, hero = 0;
+        let banner = 0, bg = 0, quality = 0, hero = 0, photo_na_count = 0;
 
         currentImg1VINs.forEach(v => {
             const st = getImg1Review(teamId, v.vin);
@@ -3410,6 +3472,7 @@
             else if (st === 'background') bg++;
             else if (st === 'quality')    quality++;
             else if (st === 'hero')       hero++;
+            else if (st === 'photo_na')   photo_na_count++;
             else                          pending++;
         });
         const done = ok + raw + stock + internal;
@@ -3491,6 +3554,7 @@
         if (idx < 0 || idx >= currentImg1VINs.length) return;
         currentImg1Idx = idx;
         svPreloadAhead(idx, 3);
+        updateVinMetaBadges(currentImg1VINs[idx]);
         const v = currentImg1VINs[idx];
 
         // Update header VIN display
@@ -3900,8 +3964,8 @@
     function download1ImgCSV() {
         if (!currentImg1Team) return;
         const header = [
-            '#', 'Rooftop', 'Team ID', 'VIN', 'Total Images',
-            'Issue Type',    // all issues in one column: Raw | Stock | Internal | Banner | Background | Quality | Hero Angle
+            '#', 'Rooftop', 'Condition', 'Team ID', 'VIN', 'Total Images',
+            'Issue Type',
             '1st Image URL', 'Comment'
         ];
         const lines = [header.join(',')];
@@ -3919,7 +3983,8 @@
 
             const row = [
                 idx + 1,
-                csvCell(currentImg1Team.rooftop || currentImg1Team.name),
+                csvCell(v.rooftop || currentImg1Team.rooftop || currentImg1Team.name),
+                csvCell(v.condition || ''),
                 csvCell(teamId),
                 csvCell(v.vin),
                 v.urls.length,
@@ -4120,7 +4185,7 @@
                 return;
             }
             // Sub-issue shortcuts (single view only) — now all single-select
-            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero' };
+            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero','p':'photo_na','P':'photo_na' };
             if (img1ViewMode === 'single' && subShortcuts[e.key] && currentImg1Idx >= 0) {
                 e.preventDefault();
                 svToggleIssue(subShortcuts[e.key]);
@@ -4226,13 +4291,14 @@
 
     function downloadCSV() {
         if (!currentTeam) return;
-        const header = ['#', 'Team Name', 'Team ID', 'VIN', 'Image Count', 'Status', 'Issues', 'Comment', 'Reviewed At'];
+        const header = ['#', 'Rooftop', 'Condition', 'Team ID', 'VIN', 'Image Count', 'Status', 'Issues', 'Comment', 'Reviewed At'];
         const lines = [header.join(',')];
         currentTeamVINs.forEach((v, idx) => {
             const r = getReview(currentTeam.teamId, v.vin);
             const row = [
                 idx + 1,
-                csvCell(currentTeam.name),
+                csvCell(v.rooftop || currentTeam.rooftop || currentTeam.name),
+                csvCell(v.condition || ''),
                 csvCell(currentTeam.teamId),
                 csvCell(v.vin),
                 v.urls.length,
