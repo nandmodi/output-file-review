@@ -1778,7 +1778,7 @@
                     const rooftop   = rooftopCol   >= 0 ? String(r[rooftopCol]   || '').trim() : '';
                     const condition = conditionCol >= 0 ? String(r[conditionCol] || '').trim() : '';
                     // Key = VIN + rooftop so same VIN at different rooftops = separate entries
-                    const key = vin + ' ' + rooftop;
+                    const key = vin + '|~|' + rooftop;
                     if (!vinMap.has(key)) vinMap.set(key, { vin, rooftop, condition, urls: new Set() });
                     const entry = vinMap.get(key);
                     if (imgRaw) imgRaw.split('|').forEach(u => { const c = u.trim(); if (c) entry.urls.add(c); });
