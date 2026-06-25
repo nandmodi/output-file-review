@@ -1767,32 +1767,35 @@
                 const toTeamId = (rooftop) =>
                     'csv-' + rooftop.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-                // Group rows by VIN — handles both one-row-per-VIN and one-row-per-image formats
+                // Group rows by VIN+rooftop — same VIN can appear at multiple rooftops
+                // (e.g. a shared vehicle listed under two dealerships).
+                // Using VIN alone as key would collapse them, losing entries.
                 const vinMap = new Map();
-                const totalParsedRows = parsed.rows.length;
-                parsed.rows.forEach((r, ri) => {
-                    const vin = String(r[vinCol] || '').trim();
+                parsed.rows.forEach((r) => {
+                    const vin      = String(r[vinCol]       || '').trim();
                     if (!vin) return;
-                    const imgRaw  = String(r[imgCol]  || '').trim();
-                    const rooftop = rooftopCol >= 0 ? String(r[rooftopCol] || '').trim() : '';
+                    const imgRaw    = String(r[imgCol]      || '').trim();
+                    const rooftop   = rooftopCol   >= 0 ? String(r[rooftopCol]   || '').trim() : '';
                     const condition = conditionCol >= 0 ? String(r[conditionCol] || '').trim() : '';
-                    if (!vinMap.has(vin)) vinMap.set(vin, { rooftop, condition, urls: new Set() });
-                    if (imgRaw) imgRaw.split('|').forEach(u => { const c = u.trim(); if (c) vinMap.get(vin).urls.add(c); });
-                    if (!vinMap.get(vin).rooftop && rooftop) vinMap.get(vin).rooftop = rooftop;
-                    if (!vinMap.get(vin).condition && condition) vinMap.get(vin).condition = condition;
+                    // Key = VIN + rooftop so same VIN at different rooftops = separate entries
+                    const key = vin + ' ' + rooftop;
+                    if (!vinMap.has(key)) vinMap.set(key, { vin, rooftop, condition, urls: new Set() });
+                    const entry = vinMap.get(key);
+                    if (imgRaw) imgRaw.split('|').forEach(u => { const c = u.trim(); if (c) entry.urls.add(c); });
+                    if (!entry.condition && condition) entry.condition = condition;
                 });
 
                 setParseProgress(70, 'Building rows…');
 
                 const syntheticRows = [];
-                for (const [vin, data] of vinMap.entries()) {
-                    const rooftop = data.rooftop;
+                for (const data of vinMap.values()) {
+                    const { vin, rooftop, condition } = data;
                     const imgUrls = [...data.urls].join('|');
                     const teamId  = rooftop ? toTeamId(rooftop) : 'csv-team-001';
                     syntheticRows.push([
                         vin, teamId, 'csv-ent-001', enterpriseName,
                         '', '', '1', '', '',
-                        vin, imgUrls, rooftop, data.condition || ''
+                        vin, imgUrls, rooftop, condition
                     ]);
                 }
 
