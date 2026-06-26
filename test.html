@@ -637,6 +637,9 @@
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             </button>
                             <span id="copy-vin-feedback" class="text-[10px] font-semibold text-emerald-600 opacity-0 transition-opacity">Copied!</span>
+                            <!-- Rooftop + condition badges — shown when reviewing all rooftops -->
+                            <span id="current-vin-rooftop" class="hidden text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded"></span>
+                            <span id="current-vin-condition" class="hidden text-[10px] font-semibold px-2 py-0.5 rounded"></span>
                             <!-- Issue buttons — only shown in single view -->
                             <div id="sv-issue-bar" class="hidden items-center space-x-1.5 ml-3 flex-wrap gap-y-1">
                                 <button id="sv-r-btn"  onclick="svToggleIssue('raw')"        title="r" class="sv-issue-btn-hdr">Raw <small style="opacity:.55;font-size:9px">(r)</small></button>
@@ -1091,7 +1094,8 @@
         createdAt:  8,   // I: created_at
         vin:        9,   // J: VIN  ← always col J regardless of source schema
         imageUrls:  10,  // K: Image URLs ← always col K regardless of source schema
-        rooftop:    11   // L: Rooftop / dealer name (optional, from CSV)
+        rooftop:    11,  // L: Rooftop / dealer name (optional, from CSV)
+        condition:  12   // M: Condition (new/used, optional, from CSV)
     };
 
     // =========================================================================
@@ -1592,19 +1596,25 @@
             const rooftop = (r[C.rooftop] || '').trim();
             const isNew = !teamAgg.has(teamId);
             if (isNew) teamAgg.set(teamId, { name, vins: new Map(), rooftop: rooftop || '' });
+            // Store per-VIN condition alongside URLs
             const t = teamAgg.get(teamId);
             if ((!t.name || t.name === teamId) && name !== teamId) t.name = name;
             if (!t.rooftop && rooftop) t.rooftop = rooftop;
 
-            if (!t.vins.has(vin)) t.vins.set(vin, []);
-            const arr  = t.vins.get(vin);
+            const condition = (r[C.condition] || '').trim();
+            const rooftopName = (r[C.rooftop] || '').trim() || t.rooftop || '';
+            if (!t.vins.has(vin)) t.vins.set(vin, { urls: [], condition: '', rooftop: '' });
+            const entry = t.vins.get(vin);
+            if (!entry.condition && condition) entry.condition = condition;
+            if (!entry.rooftop && rooftopName) entry.rooftop = rooftopName;
+            const arr = entry.urls;
 
             // For CSV mode rows, URLs are already clean pipe-separated strings —
             // skip the slow regex extractUrlsFromRow and split directly
             let urls;
             if (dataSourceMode === 'csv') {
                 const raw = (r[C.imageUrls] || '').trim();
-                urls = raw ? raw.split('|').map(u => u.trim()).filter(Boolean) : [];
+                urls = splitUrls(raw);
             } else {
                 urls = extractUrlsFromRow(r, C.imageUrls);
             }
@@ -1627,13 +1637,21 @@
         vinsByTeam = new Map();
         for (const [teamId, t] of teamAgg.entries()) {
             let imageCount = 0;
-            for (const urls of t.vins.values()) imageCount += urls.length;
+            for (const entry of t.vins.values()) imageCount += (entry.urls || entry).length;
             teamsList.push({ teamId, name: t.name, rooftop: t.rooftop || '', vinCount: t.vins.size, imageCount });
             vinsByTeam.set(teamId, t.vins);
         }
         teamsList.sort((a, b) => a.name.localeCompare(b.name));
         console.log('[buildTeamIndex] done —', teamsList.length, 'teams,',
             teamsList.reduce((s, t) => s + t.vinCount, 0), 'VINs total');
+    }
+
+    // Split a pipe-or-comma separated URL string into an array of clean URLs
+    function splitUrls(raw) {
+        if (!raw) return [];
+        // Try pipe first (most common), then comma
+        const sep = raw.includes('|') ? '|' : ',';
+        return raw.split(sep).map(u => u.trim()).filter(Boolean);
     }
 
     // =========================================================================
@@ -1741,6 +1759,10 @@
                     h === 'dealer_name' || h === 'dealership' || h === 'dealership_name' ||
                     h === 'location' || h === 'store'
                 );
+                const conditionCol = hLower.findIndex(h =>
+                    h === 'condition' || h === 'type' || h === 'vehicle_condition' ||
+                    h === 'new_used' || h === 'newused' || h === 'inventory_type'
+                );
 
                 if (vinCol === -1) { showError('CSV must have a VIN column.'); return; }
                 if (imgCol === -1) { showError('CSV must have an image URL column (e.g. Image URLs, photos, media).'); return; }
@@ -1753,30 +1775,35 @@
                 const toTeamId = (rooftop) =>
                     'csv-' + rooftop.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
 
-                // Group rows by VIN — handles both one-row-per-VIN and one-row-per-image formats
+                // Group rows by VIN+rooftop — same VIN can appear at multiple rooftops
+                // (e.g. a shared vehicle listed under two dealerships).
+                // Using VIN alone as key would collapse them, losing entries.
                 const vinMap = new Map();
-                const totalParsedRows = parsed.rows.length;
-                parsed.rows.forEach((r, ri) => {
-                    const vin = String(r[vinCol] || '').trim();
+                parsed.rows.forEach((r) => {
+                    const vin      = String(r[vinCol]       || '').trim();
                     if (!vin) return;
-                    const imgRaw  = String(r[imgCol]  || '').trim();
-                    const rooftop = rooftopCol >= 0 ? String(r[rooftopCol] || '').trim() : '';
-                    if (!vinMap.has(vin)) vinMap.set(vin, { rooftop, urls: new Set() });
-                    if (imgRaw) imgRaw.split('|').forEach(u => { const c = u.trim(); if (c) vinMap.get(vin).urls.add(c); });
-                    if (!vinMap.get(vin).rooftop && rooftop) vinMap.get(vin).rooftop = rooftop;
+                    const imgRaw    = String(r[imgCol]      || '').trim();
+                    const rooftop   = rooftopCol   >= 0 ? String(r[rooftopCol]   || '').trim() : '';
+                    const condition = conditionCol >= 0 ? String(r[conditionCol] || '').trim() : '';
+                    // Key = VIN + rooftop so same VIN at different rooftops = separate entries
+                    const key = vin + '|~|' + rooftop;
+                    if (!vinMap.has(key)) vinMap.set(key, { vin, rooftop, condition, urls: new Set() });
+                    const entry = vinMap.get(key);
+                    if (imgRaw) splitUrls(imgRaw).forEach(u => { if (u) entry.urls.add(u); });
+                    if (!entry.condition && condition) entry.condition = condition;
                 });
 
                 setParseProgress(70, 'Building rows…');
 
                 const syntheticRows = [];
-                for (const [vin, data] of vinMap.entries()) {
-                    const rooftop = data.rooftop;
+                for (const data of vinMap.values()) {
+                    const { vin, rooftop, condition } = data;
                     const imgUrls = [...data.urls].join('|');
                     const teamId  = rooftop ? toTeamId(rooftop) : 'csv-team-001';
                     syntheticRows.push([
                         vin, teamId, 'csv-ent-001', enterpriseName,
                         '', '', '1', '', '',
-                        vin, imgUrls, rooftop
+                        vin, imgUrls, rooftop, condition
                     ]);
                 }
 
@@ -1936,6 +1963,25 @@
         }
     }
 
+    function updateVinMetaBadges(v) {
+        const rtEl = document.getElementById('current-vin-rooftop');
+        const cdEl = document.getElementById('current-vin-condition');
+        if (rtEl) {
+            if (v && v.rooftop) { rtEl.textContent = v.rooftop; rtEl.classList.remove('hidden'); }
+            else rtEl.classList.add('hidden');
+        }
+        if (cdEl) {
+            if (v && v.condition) {
+                cdEl.textContent = v.condition;
+                const isNew = v.condition.toLowerCase().includes('new');
+                cdEl.style.background = isNew ? '#dcfce7' : '#fef9c3';
+                cdEl.style.color      = isNew ? '#16a34a' : '#ca8a04';
+                cdEl.style.display    = '';
+                cdEl.classList.remove('hidden');
+            } else cdEl.classList.add('hidden');
+        }
+    }
+
     function svShow(idx) {
         if (!currentImg1VINs || idx < 0 || idx >= currentImg1VINs.length) return;
         currentImg1Idx = idx;
@@ -1945,8 +1991,9 @@
 
         document.getElementById('sv-vin').textContent     = v.vin;
         document.getElementById('sv-counter').textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
-        // Show progress in header image-count span
         document.getElementById('current-vin-image-count').innerText = (idx + 1) + ' / ' + currentImg1VINs.length;
+        // Show rooftop + condition in header
+        updateVinMetaBadges(v);
 
         const img    = document.getElementById('sv-img');
         const skel   = document.getElementById('sv-skeleton');
@@ -1994,6 +2041,7 @@
         render1ImgSidebar();
         // Update header VIN text / status badge
         document.getElementById('current-vin-text').innerText = v.vin;
+        updateVinMetaBadges(v);
         const badge = document.getElementById('current-vin-status-badge');
         const badgeStyles = {
             ok:    ['bg-emerald-100 text-emerald-700', 'ok'],
@@ -2580,7 +2628,7 @@
             if (currentTeam) {
                 const teamVins = vinsByTeam.get(currentTeam.teamId);
                 if (teamVins) {
-                    currentTeamVINs = [...teamVins.entries()].map(([vin, urls]) => ({ vin, urls }));
+                    currentTeamVINs = [...teamVins.entries()].map(([key, entry]) => { const vin = key.includes('|~|') ? key.split('|~|')[0] : key; return { vin, urls: Array.isArray(entry) ? entry : (entry.urls||[]), rooftop: Array.isArray(entry) ? '' : (entry.rooftop||''), condition: Array.isArray(entry) ? '' : (entry.condition||'') }; });
                     renderVINSidebar();
                     updateProgressBadge();
                 }
@@ -2610,6 +2658,9 @@
         // Reset in-memory state
         reviews     = {};
         img1Reviews = {};
+        // Clear image URL caches so fresh loads happen
+        _urlCache.clear();
+        _svPreloadCache.clear();
 
         // Re-render dashboard to show cleared counts
         renderDashboard();
@@ -2752,33 +2803,36 @@
 
     // Open 1st image review across ALL rooftops merged into one virtual team
     function openAllRooftops1stImage() {
-        // Collect all VINs from every team via vinsByTeam
-        const allVins = [];
-        const seenVins = new Set();
+        // Collect ALL VINs from every team — use VIN+rooftop as unique key
+        // so the same VIN at different rooftops appears as separate entries
+        const mergedMap = new Map();
         for (const t of teamsList) {
             const teamVins = vinsByTeam.get(t.teamId);
             if (!teamVins) continue;
-            for (const [vin, urls] of teamVins.entries()) {
-                if (!seenVins.has(vin)) {
-                    seenVins.add(vin);
-                    allVins.push({ vin, urls });
+            for (const [vin, entry] of teamVins.entries()) {
+                // Key = VIN + rooftop to preserve same-VIN-different-rooftop
+                const rooftop   = Array.isArray(entry) ? (t.rooftop || '') : (entry.rooftop || t.rooftop || '');
+                const condition = Array.isArray(entry) ? '' : (entry.condition || '');
+                const urls      = Array.isArray(entry) ? entry : (entry.urls || []);
+                const key = vin + '|~|' + rooftop;
+                if (!mergedMap.has(key)) {
+                    mergedMap.set(key, { urls, rooftop, condition });
                 }
             }
         }
 
-        // Build a virtual team and inject — then call openTeam1stImage
-        // We register the merged VINs under a virtual teamId in vinsByTeam
         const virtualTeamId = 'csv-all-rooftops';
-        const mergedMap = new Map();
-        allVins.forEach(v => mergedMap.set(v.vin, v.urls));
         vinsByTeam.set(virtualTeamId, mergedMap);
+
+        let totalImgs = 0;
+        for (const e of mergedMap.values()) totalImgs += (e.urls||e).length;
 
         const virtualTeam = {
             teamId:    virtualTeamId,
             name:      selectedEnterprise,
             rooftop:   'All Rooftops (' + teamsList.length + ')',
-            vinCount:  allVins.length,
-            imageCount: allVins.reduce((s, v) => s + v.urls.length, 0),
+            vinCount:  mergedMap.size,
+            imageCount: totalImgs,
         };
         openTeam1stImage(virtualTeam);
     }
@@ -2794,7 +2848,7 @@
         document.getElementById('review-team-id').innerText   = team.teamId;
 
         const teamVins = vinsByTeam.get(team.teamId);
-        currentTeamVINs = teamVins ? [...teamVins.entries()].map(([vin, urls]) => ({ vin, urls })) : [];
+        currentTeamVINs = teamVins ? [...teamVins.entries()].map(([key, entry]) => { const vin = key.includes('|~|') ? key.split('|~|')[0] : key; return { vin, urls: Array.isArray(entry) ? entry : (entry.urls||[]), rooftop: Array.isArray(entry) ? '' : (entry.rooftop||''), condition: Array.isArray(entry) ? '' : (entry.condition||'') }; }) : [];
 
         showPage('page-review');
         updateProgressBadge();
@@ -3062,23 +3116,13 @@
             img.referrerPolicy = 'no-referrer';
             img.alt = '';
 
-            // Track fallback step so we try Spyne CDN → wsrv.nl → original before giving up
-            let fallbackStep = 0;   // 0 = primary thumb, 1 = secondary thumb, 2 = original, 3 = broken
+            // Use smart fallback chain (same as 1st-image gallery)
+            const vinFallbacks = getFallbacks(url, 500, 75);
+            let vinFbStep = 0;
             img.addEventListener('load', () => { skel.remove(); });
             img.addEventListener('error', () => {
-                fallbackStep++;
-                if (fallbackStep === 1) {
-                    // First failure: try the other proxy
-                    img.src = (IMG_PROXY_PRIMARY === 'spyne')
-                        ? wsrvThumbUrl(url, 500, 75)
-                        : spyneThumbUrl(url, 500, 75);
-                    return;
-                }
-                if (fallbackStep === 2) {
-                    // Second failure: try the raw original URL
-                    img.src = url;
-                    return;
-                }
+                vinFbStep++;
+                if (vinFbStep < vinFallbacks.length) { img.src = vinFallbacks[vinFbStep]; return; }
                 skel.remove();
                 tile.innerHTML = `
                     <div class="img-index">${i + 1}</div>
@@ -3087,10 +3131,8 @@
                         <a href="${escapeHtml(url)}" target="_blank" rel="noreferrer" class="text-blue-500 underline mt-1 text-[10px]">open direct</a>
                     </div>`;
             });
-            // Clicking opens the FULL-RESOLUTION original in the lightbox
             img.addEventListener('click', () => openLightbox(url));
-            // Thumbnail uses the proxied, resized, recompressed version — way faster
-            img.src = thumbUrl(url, 500, 75);
+            img.src = vinFallbacks[0] || url;
             tile.appendChild(img);
             frag.appendChild(tile);
         });
@@ -3100,14 +3142,22 @@
     }
 
     function prefetchNextVINs() {
-        // Prefetch next VIN's THUMBNAILS (proxied, so <30KB each) — fills cache cheaply
-        const next1 = currentTeamVINs[currentVINIndex + 1];
-        const next2 = currentTeamVINs[currentVINIndex + 2];
-        if (next1) {
-            next1.urls.forEach(u => { const p = new Image(); p.referrerPolicy = 'no-referrer'; p.src = thumbUrl(u, 500, 75); });
-        }
-        if (next2) {
-            next2.urls.slice(0, 12).forEach(u => { const p = new Image(); p.referrerPolicy = 'no-referrer'; p.src = thumbUrl(u, 500, 75); });
+        // Prefetch next VINs thumbnails using the same getFallbacks chain as display
+        // so browser cache is guaranteed to hit when renderImages fires
+        for (let offset = 1; offset <= 3; offset++) {
+            const nxt = currentTeamVINs[currentVINIndex + offset];
+            if (!nxt) break;
+            const limit = offset === 1 ? nxt.urls.length : Math.min(nxt.urls.length, 6);
+            nxt.urls.slice(0, limit).forEach(u => {
+                const chain = getFallbacks(u, 500, 75);
+                if (!_svPreloadCache.has(chain[0])) {
+                    _svPreloadCache.add(chain[0]);
+                    const p = new Image();
+                    p.referrerPolicy = 'no-referrer';
+                    p.decoding = 'async';
+                    p.src = chain[0];
+                }
+            });
         }
     }
 
@@ -3302,7 +3352,16 @@
         currentImg1Team = team;
         currentImg1Idx  = -1;
         const teamVins  = vinsByTeam.get(team.teamId);
-        currentImg1VINs = teamVins ? [...teamVins.entries()].map(([vin, urls]) => ({ vin, urls })) : [];
+        currentImg1VINs = teamVins ? [...teamVins.entries()].map(([key, entry]) => {
+            // key may be 'vin' (single-rooftop) or 'vin|~|rooftop' (multi-rooftop map)
+            const vin = key.includes('|~|') ? key.split('|~|')[0] : key;
+            return {
+                vin,
+                urls:      Array.isArray(entry) ? entry : (entry.urls || []),
+                rooftop:   Array.isArray(entry) ? '' : (entry.rooftop || ''),
+                condition: Array.isArray(entry) ? '' : (entry.condition || '')
+            };
+        }) : [];
 
         // Reuse the same review page — update header labels
         document.getElementById('review-team-name').innerText = team.name + ' — 1st Image Review';
@@ -3512,6 +3571,7 @@
         if (idx < 0 || idx >= currentImg1VINs.length) return;
         currentImg1Idx = idx;
         svPreloadAhead(idx, 3);
+        updateVinMetaBadges(currentImg1VINs[idx]);
         const v = currentImg1VINs[idx];
 
         // Update header VIN display
@@ -3921,8 +3981,8 @@
     function download1ImgCSV() {
         if (!currentImg1Team) return;
         const header = [
-            '#', 'Rooftop', 'Team ID', 'VIN', 'Total Images',
-            'Issue Type',    // all issues in one column: Raw | Stock | Internal | Banner | Background | Quality | Hero Angle
+            '#', 'Rooftop', 'Condition', 'Team ID', 'VIN', 'Total Images',
+            'Issue Type',
             '1st Image URL', 'Comment'
         ];
         const lines = [header.join(',')];
@@ -3940,7 +4000,8 @@
 
             const row = [
                 idx + 1,
-                csvCell(currentImg1Team.rooftop || currentImg1Team.name),
+                csvCell(v.rooftop || currentImg1Team.rooftop || currentImg1Team.name),
+                csvCell(v.condition || ''),
                 csvCell(teamId),
                 csvCell(v.vin),
                 v.urls.length,
@@ -4247,13 +4308,14 @@
 
     function downloadCSV() {
         if (!currentTeam) return;
-        const header = ['#', 'Team Name', 'Team ID', 'VIN', 'Image Count', 'Status', 'Issues', 'Comment', 'Reviewed At'];
+        const header = ['#', 'Rooftop', 'Condition', 'Team ID', 'VIN', 'Image Count', 'Status', 'Issues', 'Comment', 'Reviewed At'];
         const lines = [header.join(',')];
         currentTeamVINs.forEach((v, idx) => {
             const r = getReview(currentTeam.teamId, v.vin);
             const row = [
                 idx + 1,
-                csvCell(currentTeam.name),
+                csvCell(v.rooftop || currentTeam.rooftop || currentTeam.name),
+                csvCell(v.condition || ''),
                 csvCell(currentTeam.teamId),
                 csvCell(v.vin),
                 v.urls.length,
