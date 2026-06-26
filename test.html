@@ -1199,41 +1199,37 @@
     }
 
     // Robust CSV parser: returns { headers, rows: [cellArr, cellArr, ...] }
-    // Ultra-fast CSV parser — splits on commas up to (N-1) times so the last column
-    // (which contains pipe-separated URLs) is never broken. Falls back to a
-    // quoted-field-aware parser for files with quoted cells.
+    // RFC 4180-compliant CSV parser — handles quoted fields with embedded commas.
+    // Fast: uses a single-pass char scan rather than regex on each line.
     function parseCSV(text) {
-        const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-        if (lines.length === 0) return { headers: [], rows: [] };
-
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-        const numCols = headers.length;
+        const norm = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         const dataRows = [];
+        let row = [], field = '', inQ = false;
 
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line.trim()) continue;
-
-            // Fast path: split on first (numCols-1) commas, rest = last column
-            const cols = [];
-            let start = 0, found = 0;
-            const limit = numCols - 1;
-            for (let j = 0; j < line.length && found < limit; j++) {
-                if (line[j] === ',') {
-                    let val = line.slice(start, j).trim();
-                    if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
-                    cols.push(val);
-                    start = j + 1;
-                    found++;
+        for (let i = 0; i < norm.length; i++) {
+            const c = norm[i];
+            if (inQ) {
+                if (c === '"') {
+                    if (norm[i + 1] === '"') { field += '"'; i++; }  // escaped quote
+                    else inQ = false;                                  // end of quoted field
+                } else {
+                    field += c;
                 }
+            } else {
+                if      (c === '"')  { inQ = true; }
+                else if (c === ',')  { row.push(field); field = ''; }
+                else if (c === '\n') { row.push(field); if (row.some(v => v.trim())) dataRows.push(row); row = []; field = ''; }
+                else                 { field += c; }
             }
-            let last = line.slice(start).trim();
-            if (last.startsWith('"') && last.endsWith('"')) last = last.slice(1, -1);
-            cols.push(last);
-
-            if (cols.some(v => v.length > 0)) dataRows.push(cols);
         }
-        return { headers, rows: dataRows };
+        // flush last field/row
+        row.push(field);
+        if (row.some(v => v.trim())) dataRows.push(row);
+
+        if (dataRows.length === 0) return { headers: [], rows: [] };
+        const headers = dataRows[0].map(h => h.trim());
+        const rows    = dataRows.slice(1).filter(r => r.some(v => v.trim()));
+        return { headers, rows };
     }
 
     function findColIdx(headers, candidates) {
