@@ -798,6 +798,16 @@
                                 <span class="issue-kbd">6</span>
                                 <span>No exterior</span>
                             </label>
+                            <label class="issue-chip" data-issue="Raw" data-key="7">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">7</span>
+                                <span>Raw</span>
+                            </label>
+                            <label class="issue-chip" data-issue="Stock" data-key="8">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">8</span>
+                                <span>Stock</span>
+                            </label>
                             <div class="flex-1"></div>
                             <input id="review-comment" type="text" placeholder="Other comment..." class="w-56 p-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition">
                             <button id="submit-btn" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-5 py-2 rounded-lg flex items-center justify-center space-x-2 shadow-sm transition active:scale-[0.98]">
@@ -2317,8 +2327,14 @@
         selectedVINIndices.clear();
         lastCheckedIdx = null;
         updateBulkBar();
-        render1ImgVinList();
+        // Uncheck all checkboxes in the VIN list immediately (no full re-render needed)
+        document.querySelectorAll('#vin-list .vin-checkbox').forEach(cb => { cb.checked = false; });
+        document.querySelectorAll('#vin-list .vin-item').forEach(el => el.classList.remove('vin-selected'));
+        // Also clear tile selection outlines
         currentImg1VINs?.forEach((_, i) => updateTileSelectionStyle(i));
+        // Update the badge
+        const badge = document.getElementById('sel-count-badge');
+        if (badge) badge.classList.add('hidden');
     }
 
     function updateBulkBar() {
