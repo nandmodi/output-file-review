@@ -592,6 +592,30 @@
                     <span id="review-timer-display" class="text-[12px] font-mono font-bold text-slate-700">00:00</span>
                     <span id="timer-pause-indicator" class="text-[9px] font-semibold text-amber-500 hidden">PAUSED</span>
                 </div>
+                <!-- VIN review view controls -->
+                <div id="vin-view-controls" class="flex items-center space-x-2">
+                    <!-- Zoom slider -->
+                    <div class="flex items-center space-x-1.5" title="Grid size">
+                        <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                        <input id="vin-zoom-slider" type="range" min="1" max="5" step="1" value="3"
+                            oninput="applyVinZoom(this.value)"
+                            style="-webkit-appearance:none;width:80px;height:4px;border-radius:2px;background:linear-gradient(to right,#3b82f6 50%,#e2e8f0 50%);outline:none;cursor:pointer;">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                    </div>
+                    <!-- Grid / Single toggle -->
+                    <div class="flex items-center rounded-lg border border-slate-200 overflow-hidden">
+                        <button id="vr-grid-btn" onclick="setVinView('grid')"
+                            class="view-toggle-btn active px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                            <span>Grid</span>
+                        </button>
+                        <button id="vr-single-btn" onclick="setVinView('single')"
+                            class="view-toggle-btn px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/></svg>
+                            <span>Single</span>
+                        </button>
+                    </div>
+                </div>
                 <div class="relative">
                     <input id="vin-search" type="text" placeholder="Search VIN..." class="pl-3 pr-8 py-1.5 border border-slate-200 rounded-lg text-[12px] w-44 focus:ring-1 focus:ring-blue-500 outline-none transition">
                 </div>
@@ -618,8 +642,8 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-1.5 mt-2">
-                        <button onclick="selectAllVINs()" class="text-[10px] px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium transition">Select All</button>
-                        <button onclick="clearVINSelection()" class="text-[10px] px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium transition">Clear</button>
+                        <button onclick="sidebarSelectAll()" class="text-[10px] px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium transition">Select All</button>
+                        <button onclick="sidebarClear()" class="text-[10px] px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium transition">Clear</button>
                         <span id="sel-count-badge" class="hidden text-[10px] px-2 py-1 rounded bg-blue-100 text-blue-700 font-semibold"></span>
                     </div>
                 </div>
@@ -755,7 +779,26 @@
                             <p class="text-slate-400 text-sm">Loading images...</p>
                         </div>
                     </div>
-                    <div id="images-grid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
+                    <div id="images-grid" class="hidden grid gap-3"></div>
+                    <!-- VIN review single view -->
+                    <div id="vin-single-view" class="hidden flex-col" style="height:100%">
+                        <div class="flex-1 relative bg-slate-900 flex items-center justify-center min-h-0" style="min-height:400px">
+                            <img id="vr-sv-img" src="" referrerpolicy="no-referrer" decoding="async"
+                                class="max-w-full max-h-full object-contain transition-opacity duration-150" style="opacity:0">
+                            <div id="vr-sv-skel" class="absolute inset-0 flex items-center justify-center">
+                                <div class="spinner-blue"></div>
+                            </div>
+                            <!-- Nav arrows -->
+                            <div class="sv-nav absolute left-3 top-1/2 -translate-y-1/2" onclick="vrSvNav(-1)">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                            </div>
+                            <div class="sv-nav absolute right-3 top-1/2 -translate-y-1/2" onclick="vrSvNav(1)">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                            </div>
+                            <!-- Counter -->
+                            <div id="vr-sv-counter" class="absolute top-3 right-3 bg-black/50 text-white text-[11px] font-mono px-3 py-1 rounded-lg pointer-events-none"></div>
+                        </div>
+                    </div>
                     <div id="no-images-state" class="hidden h-full flex items-center justify-center">
                         <div class="text-center">
                             <p class="text-slate-400 text-sm">No images found for this VIN.</p>
@@ -2327,14 +2370,24 @@
         selectedVINIndices.clear();
         lastCheckedIdx = null;
         updateBulkBar();
-        // Uncheck all checkboxes in the VIN list immediately (no full re-render needed)
+        // Uncheck all checkboxes in the VIN list immediately
         document.querySelectorAll('#vin-list .vin-checkbox').forEach(cb => { cb.checked = false; });
         document.querySelectorAll('#vin-list .vin-item').forEach(el => el.classList.remove('vin-selected'));
-        // Also clear tile selection outlines
         currentImg1VINs?.forEach((_, i) => updateTileSelectionStyle(i));
-        // Update the badge
         const badge = document.getElementById('sel-count-badge');
         if (badge) badge.classList.add('hidden');
+    }
+
+    // Select All / Clear for the VIN list sidebar — works in both 1img and vin-review modes
+    function sidebarSelectAll() {
+        if (reviewMode === '1img') { selectAllVINs(); return; }
+        // VIN review: just a visual select (no bulk action yet)
+        document.querySelectorAll('#vin-list .vin-item').forEach(el => el.classList.add('vin-selected'));
+    }
+    function sidebarClear() {
+        if (reviewMode === '1img') { clearVINSelection(); return; }
+        // VIN review: clear visual selection
+        document.querySelectorAll('#vin-list .vin-item').forEach(el => el.classList.remove('vin-selected'));
     }
 
     function updateBulkBar() {
@@ -3155,6 +3208,7 @@
         grid.appendChild(frag);
 
         prefetchNextVINs();
+        vrOnVinChange(v);
     }
 
     function prefetchNextVINs() {
@@ -3177,6 +3231,78 @@
         }
     }
 
+    // ── VIN Review zoom + single view ─────────────────────────────────────────
+    const VIN_ZOOM_COLS = [2, 3, 4, 6, 8];
+    let vinViewMode  = 'grid';
+    let vrSvImgIndex = 0;   // current image index in single view
+    let vrCurrentUrls = [];  // current VIN's urls in single view
+
+    function applyVinZoom(val) {
+        const cols  = VIN_ZOOM_COLS[parseInt(val) - 1];
+        const grid  = document.getElementById('images-grid');
+        const pct   = ((parseInt(val) - 1) / 4) * 100;
+        if (grid) grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+        const slider = document.getElementById('vin-zoom-slider');
+        if (slider) slider.style.background = 'linear-gradient(to right, #3b82f6 ' + pct + '%, #e2e8f0 ' + pct + '%)';
+    }
+
+    function setVinView(mode) {
+        vinViewMode = mode;
+        const grid   = document.getElementById('images-grid');
+        const sv     = document.getElementById('vin-single-view');
+        const gridBtn   = document.getElementById('vr-grid-btn');
+        const singleBtn = document.getElementById('vr-single-btn');
+        const zoomWrap  = document.querySelector('#vin-view-controls .flex.items-center.space-x-1\.5');
+        if (mode === 'single') {
+            if (grid) grid.classList.add('hidden');
+            if (sv)   { sv.classList.remove('hidden'); sv.style.display = 'flex'; }
+            if (gridBtn)   gridBtn.classList.remove('active');
+            if (singleBtn) singleBtn.classList.add('active');
+            if (zoomWrap)  zoomWrap.style.visibility = 'hidden';
+            // Show first image of current VIN
+            const v = currentTeamVINs[currentVINIndex];
+            if (v) { vrCurrentUrls = v.urls; vrSvShow(0); }
+        } else {
+            if (grid) { grid.classList.remove('hidden'); }
+            if (sv)   { sv.classList.add('hidden'); sv.style.display = 'none'; }
+            if (gridBtn)   gridBtn.classList.add('active');
+            if (singleBtn) singleBtn.classList.remove('active');
+            if (zoomWrap)  zoomWrap.style.visibility = 'visible';
+        }
+    }
+
+    function vrSvShow(idx) {
+        if (!vrCurrentUrls.length) return;
+        vrSvImgIndex = Math.max(0, Math.min(vrCurrentUrls.length - 1, idx));
+        const url  = vrCurrentUrls[vrSvImgIndex];
+        const img  = document.getElementById('vr-sv-img');
+        const skel = document.getElementById('vr-sv-skel');
+        const ctr  = document.getElementById('vr-sv-counter');
+        img.onload = img.onerror = null;
+        img.src = ''; img.style.opacity = '0';
+        skel.style.display = 'flex';
+        if (ctr) ctr.textContent = (vrSvImgIndex + 1) + ' / ' + vrCurrentUrls.length;
+        const fallbacks = getFallbacks(url, 900, 90);
+        let step = 0;
+        img.onload  = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
+        img.onerror = () => { step++; if (step < fallbacks.length) { img.src = fallbacks[step]; } else { skel.style.display = 'none'; } };
+        img.src = fallbacks[0] || url;
+    }
+
+    function vrSvNav(dir) {
+        vrSvShow(vrSvImgIndex + dir);
+    }
+
+    // Update single view when VIN changes
+    function vrOnVinChange(v) {
+        if (vinViewMode === 'single' && v) {
+            vrCurrentUrls = v.urls || [];
+            vrSvShow(0);
+        }
+        applyVinZoom(document.getElementById('vin-zoom-slider')?.value || 3);
+    }
+
+    // ── Issue chips — toggle UI state when checkbox changes ──
     // Issue chips — toggle UI state when checkbox changes
     document.querySelectorAll('.issue-chip').forEach(chip => {
         const cb = chip.querySelector('.issue-cb');
@@ -3459,6 +3585,11 @@
     function restore1ImgMode() {
         reviewMode = 'vin';
         startReviewTimer();
+        const vrCtrls = document.getElementById('vin-view-controls');
+        if (vrCtrls) vrCtrls.style.display = 'flex';
+        // Reset to grid
+        setVinView('grid');
+        applyVinZoom(document.getElementById('vin-zoom-slider')?.value || 3);
         // Hide view toggle + progress bar; restore normal pill
         const vt2 = document.getElementById('img1-view-toggle');
         if (vt2) vt2.style.display = 'none';
@@ -4239,8 +4370,8 @@
         // Remaining shortcuts don't fire while typing
         if (inInput) return;
 
-        // 1-6 toggle issues
-        if (['1','2','3','4','5','6'].includes(e.key)) {
+        // 1-8 toggle issues
+        if (['1','2','3','4','5','6','7','8'].includes(e.key)) {
             e.preventDefault();
             const chip = document.querySelector(`.issue-chip[data-key="${e.key}"]`);
             if (chip) chip.click();
