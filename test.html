@@ -763,6 +763,24 @@
                     </div>
                 </div>
 
+                <!-- VIN single view — sibling to image-area, fills same space -->
+                <div id="vin-single-view" style="display:none;flex:1;flex-direction:column;min-height:0;">
+                    <div style="flex:1;position:relative;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:0;overflow:hidden;">
+                        <img id="vr-sv-img" src="" referrerpolicy="no-referrer" decoding="async"
+                            style="max-width:100%;max-height:100%;object-fit:contain;opacity:0;transition:opacity 0.15s;">
+                        <div id="vr-sv-skel" class="absolute inset-0 flex items-center justify-center" style="background:#0f172a;">
+                            <div class="spinner-blue"></div>
+                        </div>
+                        <div class="sv-nav" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);" onclick="vrSvNav(-1)">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                        </div>
+                        <div class="sv-nav" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);" onclick="vrSvNav(1)">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                        </div>
+                        <div id="vr-sv-counter" style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;font-family:monospace;padding:3px 10px;border-radius:8px;pointer-events:none;"></div>
+                    </div>
+                </div>
+
                 <div id="image-area" class="flex-1 min-h-0 overflow-y-auto p-4" onscroll="handleImageAreaScroll()">
 
                     <div id="no-vin-state" class="h-full flex items-center justify-center">
@@ -780,25 +798,6 @@
                         </div>
                     </div>
                     <div id="images-grid" class="hidden grid gap-3"></div>
-                    <!-- VIN review single view -->
-                    <div id="vin-single-view" style="display:none;flex-direction:column;min-height:500px;">
-                        <div style="flex:1;position:relative;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:480px;">
-                            <img id="vr-sv-img" src="" referrerpolicy="no-referrer" decoding="async"
-                                class="max-w-full max-h-full object-contain transition-opacity duration-150" style="opacity:0">
-                            <div id="vr-sv-skel" class="absolute inset-0 flex items-center justify-center">
-                                <div class="spinner-blue"></div>
-                            </div>
-                            <!-- Nav arrows -->
-                            <div class="sv-nav absolute left-3 top-1/2 -translate-y-1/2" onclick="vrSvNav(-1)">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
-                            </div>
-                            <div class="sv-nav absolute right-3 top-1/2 -translate-y-1/2" onclick="vrSvNav(1)">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
-                            </div>
-                            <!-- Counter -->
-                            <div id="vr-sv-counter" class="absolute top-3 right-3 bg-black/50 text-white text-[11px] font-mono px-3 py-1 rounded-lg pointer-events-none"></div>
-                        </div>
-                    </div>
                     <div id="no-images-state" class="hidden h-full flex items-center justify-center">
                         <div class="text-center">
                             <p class="text-slate-400 text-sm">No images found for this VIN.</p>
@@ -3249,30 +3248,29 @@
     function setVinView(mode) {
         vinViewMode = mode;
         const grid      = document.getElementById('images-grid');
-        const sv        = document.getElementById('vin-single-view');
         const area      = document.getElementById('image-area');
+        const sv        = document.getElementById('vin-single-view');
         const gridBtn   = document.getElementById('vr-grid-btn');
         const singleBtn = document.getElementById('vr-single-btn');
         const zoomSlider = document.getElementById('vin-zoom-slider');
-        const zoomParent = zoomSlider ? zoomSlider.closest('.flex.items-center.space-x-1\.5') || zoomSlider.parentElement : null;
 
         if (mode === 'single') {
-            if (grid) grid.style.display = 'none';
+            if (area) area.style.display = 'none';
             if (sv)   sv.style.display   = 'flex';
-            // Remove padding from image-area so single view fills it edge-to-edge
-            if (area) { area.style.padding = '0'; area.style.overflow = 'hidden'; }
             if (gridBtn)   gridBtn.classList.remove('active');
             if (singleBtn) singleBtn.classList.add('active');
-            if (zoomParent) zoomParent.style.visibility = 'hidden';
-            const v = currentTeamVINs[currentVINIndex];
-            if (v) { vrCurrentUrls = v.urls; vrSvShow(0); }
+            if (zoomSlider) zoomSlider.parentElement.style.visibility = 'hidden';
+            // Load current VIN
+            const idx = currentVINIndex >= 0 ? currentVINIndex : 0;
+            const v = currentTeamVINs[idx];
+            if (v && v.urls && v.urls.length) { vrCurrentUrls = v.urls; vrSvShow(0); }
+            else if (vrCurrentUrls.length) vrSvShow(0);
         } else {
-            if (grid) grid.style.display = '';
             if (sv)   sv.style.display   = 'none';
-            if (area) { area.style.padding = ''; area.style.overflow = ''; }
+            if (area) area.style.display = '';
             if (gridBtn)   gridBtn.classList.add('active');
             if (singleBtn) singleBtn.classList.remove('active');
-            if (zoomParent) zoomParent.style.visibility = 'visible';
+            if (zoomSlider) zoomSlider.parentElement.style.visibility = 'visible';
             applyVinZoom(zoomSlider ? zoomSlider.value : 3);
         }
     }
@@ -3301,8 +3299,9 @@
 
     // Update single view when VIN changes
     function vrOnVinChange(v) {
+        // Always update the url cache so switching to single view works even if grid was active
+        if (v && v.urls) vrCurrentUrls = v.urls;
         if (vinViewMode === 'single' && v) {
-            vrCurrentUrls = v.urls || [];
             vrSvShow(0);
         }
         applyVinZoom(document.getElementById('vin-zoom-slider')?.value || 3);
