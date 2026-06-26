@@ -781,8 +781,8 @@
                     </div>
                     <div id="images-grid" class="hidden grid gap-3"></div>
                     <!-- VIN review single view -->
-                    <div id="vin-single-view" class="hidden flex-col" style="height:100%">
-                        <div class="flex-1 relative bg-slate-900 flex items-center justify-center min-h-0" style="min-height:400px">
+                    <div id="vin-single-view" style="display:none;flex-direction:column;min-height:500px;">
+                        <div style="flex:1;position:relative;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:480px;">
                             <img id="vr-sv-img" src="" referrerpolicy="no-referrer" decoding="async"
                                 class="max-w-full max-h-full object-contain transition-opacity duration-150" style="opacity:0">
                             <div id="vr-sv-skel" class="absolute inset-0 flex items-center justify-center">
@@ -3248,26 +3248,32 @@
 
     function setVinView(mode) {
         vinViewMode = mode;
-        const grid   = document.getElementById('images-grid');
-        const sv     = document.getElementById('vin-single-view');
+        const grid      = document.getElementById('images-grid');
+        const sv        = document.getElementById('vin-single-view');
+        const area      = document.getElementById('image-area');
         const gridBtn   = document.getElementById('vr-grid-btn');
         const singleBtn = document.getElementById('vr-single-btn');
-        const zoomWrap  = document.querySelector('#vin-view-controls .flex.items-center.space-x-1\.5');
+        const zoomSlider = document.getElementById('vin-zoom-slider');
+        const zoomParent = zoomSlider ? zoomSlider.closest('.flex.items-center.space-x-1\.5') || zoomSlider.parentElement : null;
+
         if (mode === 'single') {
-            if (grid) grid.classList.add('hidden');
-            if (sv)   { sv.classList.remove('hidden'); sv.style.display = 'flex'; }
+            if (grid) grid.style.display = 'none';
+            if (sv)   sv.style.display   = 'flex';
+            // Remove padding from image-area so single view fills it edge-to-edge
+            if (area) { area.style.padding = '0'; area.style.overflow = 'hidden'; }
             if (gridBtn)   gridBtn.classList.remove('active');
             if (singleBtn) singleBtn.classList.add('active');
-            if (zoomWrap)  zoomWrap.style.visibility = 'hidden';
-            // Show first image of current VIN
+            if (zoomParent) zoomParent.style.visibility = 'hidden';
             const v = currentTeamVINs[currentVINIndex];
             if (v) { vrCurrentUrls = v.urls; vrSvShow(0); }
         } else {
-            if (grid) { grid.classList.remove('hidden'); }
-            if (sv)   { sv.classList.add('hidden'); sv.style.display = 'none'; }
+            if (grid) grid.style.display = '';
+            if (sv)   sv.style.display   = 'none';
+            if (area) { area.style.padding = ''; area.style.overflow = ''; }
             if (gridBtn)   gridBtn.classList.add('active');
             if (singleBtn) singleBtn.classList.remove('active');
-            if (zoomWrap)  zoomWrap.style.visibility = 'visible';
+            if (zoomParent) zoomParent.style.visibility = 'visible';
+            applyVinZoom(zoomSlider ? zoomSlider.value : 3);
         }
     }
 
