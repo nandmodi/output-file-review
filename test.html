@@ -4375,6 +4375,20 @@
         // Remaining shortcuts don't fire while typing
         if (inInput) return;
 
+        // Arrow keys
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (vinViewMode === 'single') vrSvNav(1);   // next image
+            else navigateVIN(1);                         // next VIN
+            return;
+        }
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (vinViewMode === 'single') vrSvNav(-1);  // prev image
+            else navigateVIN(-1);                        // prev VIN
+            return;
+        }
+
         // 1-8 toggle issues
         if (['1','2','3','4','5','6','7','8'].includes(e.key)) {
             e.preventDefault();
@@ -4382,6 +4396,16 @@
             if (chip) chip.click();
         }
     });
+
+    // Navigate to prev/next VIN in VIN review mode
+    function navigateVIN(dir) {
+        const next = currentVINIndex + dir;
+        if (next < 0 || next >= currentTeamVINs.length) return;
+        const v = currentTeamVINs[next];
+        if (!v) return;
+        // Simulate clicking the VIN in the sidebar
+        document.querySelectorAll('#vin-list .vin-item')[next]?.click();
+    }
 
     // =========================================================================
     // LIGHTBOX
