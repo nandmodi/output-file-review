@@ -4080,13 +4080,15 @@
         const bulkRows = [];   // only newly auto-approved VINs
 
         currentImg1VINs.forEach((v, idx) => {
-            const alreadyReviewed = !!getImg1Review(teamId, v.vin);
+            const rooftop = v.rooftop || '';
+            const alreadyReviewed = !!getImg1Review(teamId, v.vin, rooftop);
 
             if (!alreadyReviewed) {
                 // Auto-approve: update local state only, no individual sync
-                const _key = img1ReviewKey(teamId, v.vin);
+                const _key   = img1ReviewKey(teamId, v.vin, rooftop);
+                const _vKey  = rooftop ? v.vin + '|~|' + rooftop : v.vin;
                 if (!img1Reviews[_key]) img1Reviews[_key] = {};
-                img1Reviews[_key][v.vin] = 'ok';
+                img1Reviews[_key][_vKey] = 'ok';
                 // Update tile outline
                 const tile = document.getElementById('img1-tile-' + idx);
                 if (tile) {
@@ -4124,8 +4126,8 @@
         updateImg1ProgressBadge();
 
         let ok = 0, issue = 0;
-        currentImg1VINs.forEach(v => {
-            const st = getImg1Review(teamId, v.vin, idx);
+        currentImg1VINs.forEach((v, i) => {
+            const st = getImg1Review(teamId, v.vin, v.rooftop || '');
             if (st === 'ok') ok++; else if (st && st !== 'ok') issue++;
         });
         document.getElementById('complete-subtitle').innerText = currentImg1Team.name + ' · 1st Image Review';
@@ -4180,45 +4182,49 @@
     }
 
     function download1ImgCSV() {
-        if (!currentImg1Team) return;
-        const header = [
-            '#', 'Rooftop', 'Condition', 'Team ID', 'VIN', 'Total Images',
-            'Issue Type', '1st Image URL', 'Comment'
-        ];
-        const lines = [header.join(',')];
-        currentImg1VINs.forEach((v, idx) => {
-            const teamId  = currentImg1Team.teamId;
-            const rooftop = v.rooftop || '';
-            // Pass rooftop so we get the correct per-rooftop review
-            const st  = getImg1Review(teamId, v.vin, rooftop) || 'pending';
-            // Get comment from the rooftop-aware key
-            const reviewKey = img1ReviewKey(teamId, v.vin, rooftop);
-            const vinKey    = rooftop ? v.vin + '|~|' + rooftop : v.vin;
-            const cm = (img1Comments[reviewKey] && (img1Comments[reviewKey][vinKey] || img1Comments[reviewKey][v.vin])) || '';
-
-            const stLabel  = stateLabel(st);
-            const issueType = stLabel && st !== 'ok' ? stLabel : st === 'ok' ? 'OK' : 'Pending';
-
-            const row = [
-                idx + 1,
-                csvCell(rooftop || currentImg1Team.rooftop || currentImg1Team.name),
-                csvCell(v.condition || ''),
-                csvCell(teamId),
-                csvCell(v.vin),
-                v.urls.length,
-                csvCell(issueType),
-                csvCell(v.urls[0] || ''),
-                csvCell(cm)
+        try {
+            if (!currentImg1Team) { console.error('No currentImg1Team'); return; }
+            if (!currentImg1VINs || !currentImg1VINs.length) { console.error('No currentImg1VINs'); return; }
+            const header = [
+                '#', 'Rooftop', 'Condition', 'Team ID', 'VIN', 'Total Images',
+                'Issue Type', '1st Image URL', 'Comment'
             ];
-            lines.push(row.join(','));
-        });
-        const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        const safe = currentImg1Team.teamId.replace(/[^a-z0-9_-]/gi, '_');
-        a.download = '1st_image_review_' + safe + '_' + new Date().toISOString().slice(0,10) + '.csv';
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
+            const lines = [header.join(',')];
+            currentImg1VINs.forEach((v, idx) => {
+                const teamId  = currentImg1Team.teamId;
+                const rooftop = v.rooftop || '';
+                const st      = getImg1Review(teamId, v.vin, rooftop) || 'pending';
+                const reviewKey = img1ReviewKey(teamId, v.vin, rooftop);
+                const vinKey    = rooftop ? v.vin + '|~|' + rooftop : v.vin;
+                const cm = (img1Comments[reviewKey] && (img1Comments[reviewKey][vinKey] || img1Comments[reviewKey][v.vin])) || '';
+                const stLabel   = stateLabel(st);
+                const issueType = stLabel && st !== 'ok' ? stLabel : st === 'ok' ? 'OK' : 'Pending';
+                const row = [
+                    idx + 1,
+                    csvCell(rooftop || currentImg1Team.rooftop || currentImg1Team.name),
+                    csvCell(v.condition || ''),
+                    csvCell(teamId),
+                    csvCell(v.vin),
+                    v.urls.length,
+                    csvCell(issueType),
+                    csvCell(v.urls[0] || ''),
+                    csvCell(cm)
+                ];
+                lines.push(row.join(','));
+            });
+            const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+            const a    = document.createElement('a');
+            a.href     = URL.createObjectURL(blob);
+            const safe = (currentImg1Team.rooftop || currentImg1Team.teamId || 'review').replace(/[^a-z0-9_-]/gi, '_');
+            a.download = '1st_image_review_' + safe + '_' + new Date().toISOString().slice(0,10) + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        } catch(e) {
+            console.error('download1ImgCSV error:', e);
+            alert('Download failed: ' + e.message);
+        }
     }
 
     // =========================================================================
