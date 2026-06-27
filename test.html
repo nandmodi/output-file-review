@@ -2035,7 +2035,7 @@
         if (!currentImg1VINs || idx < 0 || idx >= currentImg1VINs.length) return;
         currentImg1Idx = idx;
         const v   = currentImg1VINs[idx];
-        const st  = getImg1Review(currentImg1Team?.teamId, v.vin);
+        const st  = getImg1Review(currentImg1Team?.teamId, v.vin, v.rooftop || '');
         const url = v.urls[0] || '';
 
         document.getElementById('sv-vin').textContent     = v.vin;
@@ -2174,12 +2174,12 @@
     function svToggleIssue(value) {
         if (currentImg1Idx < 0 || !currentImg1Team) return;
         const v   = currentImg1VINs[currentImg1Idx];
-        const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+        const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
         svSetIssue(cur === value ? null : value);
     }
 
     function svMarkOk() {
-        const cur = getImg1Review(currentImg1Team.teamId, currentImg1VINs[currentImg1Idx]?.vin);
+        const cur = getImg1Review(currentImg1Team.teamId, currentImg1VINs[currentImg1Idx]?.vin, currentImg1VINs[currentImg1Idx]?.rooftop || '');
         svSetIssue(cur === 'ok' ? null : 'ok');
     }
 
@@ -2319,7 +2319,7 @@
         const tile = document.getElementById('img1-tile-' + idx);
         if (!tile) return;
         const isSelected = selectedVINIndices.has(idx);
-        const st = getImg1Review(currentImg1Team?.teamId, currentImg1VINs?.[idx]?.vin);
+        const st = getImg1Review(currentImg1Team?.teamId, currentImg1VINs?.[idx]?.vin, currentImg1VINs?.[idx]?.rooftop || '');
         if (isSelected) {
             tile.style.outline = '3px solid #6366f1'; // indigo for selection
         } else {
@@ -3400,7 +3400,46 @@
     let currentImg1Idx  = -1;
     let reviewMode = 'vin'; // 'vin' | '1img'
 
-    function getImg1Review(teamId, vin) { return (img1Reviews[teamId] && img1Reviews[teamId][vin]) || null; }
+    // Build the review storage key — uses teamId+rooftop when available
+    // so same VIN at different rooftops gets independent review state
+    // Build the review store key for a VIN.
+    // When the same VIN exists at multiple rooftops (e.g. "Review All Rooftops"),
+    // we key by teamId + vin + rooftop so each instance is independent.
+    function img1ReviewKey(teamId, vin, rooftop) {
+        // rooftop may be passed directly, or we look it up from currentImg1VINs
+        // Use findAll and check: only use rooftop if this VIN appears at multiple rooftops
+        if (rooftop === undefined) {
+            const matches = currentImg1VINs ? currentImg1VINs.filter(x => x.vin === vin) : [];
+            rooftop = matches.length > 0 ? (matches[0].rooftop || '') : '';
+        }
+        return rooftop ? teamId + '::' + rooftop : teamId;
+    }
+
+    // Returns the rooftop for a specific occurrence of a VIN in currentImg1VINs by index
+    function getVinRooftop(vin, idx) {
+        if (!currentImg1VINs) return '';
+        // If idx is given, use it directly
+        if (idx !== undefined && currentImg1VINs[idx] && currentImg1VINs[idx].vin === vin) {
+            return currentImg1VINs[idx].rooftop || '';
+        }
+        const v = currentImg1VINs.find(x => x.vin === vin);
+        return v ? (v.rooftop || '') : '';
+    }
+
+    function getImg1Review(teamId, vin, rooftopOrIdx) {
+        // rooftopOrIdx can be a rooftop string or an index into currentImg1VINs
+        let rooftop = '';
+        if (typeof rooftopOrIdx === 'number') {
+            rooftop = currentImg1VINs?.[rooftopOrIdx]?.rooftop || '';
+        } else if (typeof rooftopOrIdx === 'string') {
+            rooftop = rooftopOrIdx;
+        } else {
+            rooftop = getVinRooftop(vin);
+        }
+        const key = img1ReviewKey(teamId, vin, rooftop);
+        return (img1Reviews[key] && img1Reviews[key][vin + '|~|' + rooftop]) ||
+               (img1Reviews[key] && img1Reviews[key][vin]) || null;
+    }
 
     // Helpers to work with raw/stock sub-states
     function isRaw(st)      { return st === 'raw'; }
@@ -3436,25 +3475,37 @@
     const SUB_ISSUE_LIST = ['Banner', 'Background', 'Quality', 'Hero Angle'];
     const SUB_ISSUE_KEYS = {'Banner':'ban','Background':'bg','Quality':'qty','Hero Angle':'hero'};
 
+    function _subKey(teamId, vin) {
+        const rooftop = currentImg1VINs?.[currentImg1Idx]?.vin === vin
+            ? (currentImg1VINs[currentImg1Idx].rooftop || '')
+            : getVinRooftop(vin);
+        return teamId + '::' + rooftop + '::' + vin;
+    }
     function getSubIssues(teamId, vin) {
-        const k = teamId + '::' + vin;
-        return subIssues[k] || new Set();
+        return subIssues[_subKey(teamId, vin)] || new Set();
     }
     function toggleSubIssue(teamId, vin, label) {
-        const k = teamId + '::' + vin;
+        const k = _subKey(teamId, vin);
         if (!subIssues[k]) subIssues[k] = new Set();
         if (subIssues[k].has(label)) subIssues[k].delete(label);
         else subIssues[k].add(label);
     }
     function clearSubIssues(teamId, vin) {
-        const k = teamId + '::' + vin;
-        delete subIssues[k];
+        delete subIssues[_subKey(teamId, vin)];
     }
     function setImg1Review(teamId, vin, status, comment) {
-        if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
-        if (!img1Comments[teamId]) img1Comments[teamId] = {};
-        img1Reviews[teamId][vin] = status;
-        img1Comments[teamId][vin] = comment || '';
+        // Use currentImg1Idx to identify which rooftop instance this VIN is
+        const rooftop = currentImg1VINs?.[currentImg1Idx]?.vin === vin
+            ? (currentImg1VINs[currentImg1Idx].rooftop || '')
+            : getVinRooftop(vin);
+        const key     = img1ReviewKey(teamId, vin, rooftop);
+        const vinKey  = rooftop ? vin + '|~|' + rooftop : vin;
+        if (!img1Reviews[key]) img1Reviews[key] = {};
+        if (!img1Comments[key]) img1Comments[key] = {};
+        img1Reviews[key][vinKey] = status;
+        img1Comments[key][vinKey] = comment || '';
+        // Keep backward-compat: also write plain vin key if no rooftop
+        if (!rooftop) { img1Reviews[key][vin] = status; img1Comments[key][vin] = comment || ''; }
         persist1ImgReviews();
 
         // Sync to Google Sheet → '1st_image_review' tab
@@ -3540,7 +3591,7 @@
             doneBtn.className = 'bg-emerald-600 text-white px-3 py-1.5 rounded text-[11px] font-bold hover:bg-emerald-700 flex items-center space-x-1.5';
             doneBtn.innerHTML = '<span>Done ✓</span>';
             doneBtn.onclick = () => {
-                const pending = currentImg1VINs.filter(v => !getImg1Review(currentImg1Team.teamId, v.vin)).length;
+                const pending = currentImg1VINs.filter(v => !getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '')).length;
                 if (pending > 0 && !confirm(pending + ' VINs still pending. Mark all as Done anyway?')) return;
                 openImg1Complete();
             };
@@ -3628,8 +3679,8 @@
         let ok = 0, raw = 0, stock = 0, internal = 0, pending = 0;
         let banner = 0, bg = 0, quality = 0, hero = 0, photo_na_count = 0;
 
-        currentImg1VINs.forEach(v => {
-            const st = getImg1Review(teamId, v.vin);
+        currentImg1VINs.forEach((v, idx) => {
+            const st = getImg1Review(teamId, v.vin, idx);  // uses img1ReviewKey internally
             if      (st === 'ok')         ok++;
             else if (st === 'raw')        raw++;
             else if (st === 'stock')      stock++;
@@ -3679,7 +3730,7 @@
         list.innerHTML = '';
         let ok = 0, issue = 0;
         currentImg1VINs.forEach((v, idx) => {
-            const st = getImg1Review(currentImg1Team.teamId, v.vin);
+            const st = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
             if (st === 'ok') ok++;
             if (st === 'raw' || st === 'stock' || st === 'internal') issue++;
             if (searchTerm && !v.vin.toLowerCase().includes(searchTerm)) return;
@@ -3725,7 +3776,7 @@
 
         // Update header VIN display
         document.getElementById('current-vin-text').innerText = v.vin;
-        const st = getImg1Review(currentImg1Team.teamId, v.vin);
+        const st = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
         const badge = document.getElementById('current-vin-status-badge');
         if (st === 'ok') {
             badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700';
@@ -3786,7 +3837,7 @@
         const frag = document.createDocumentFragment();
 
         currentImg1VINs.forEach((v, idx) => {
-            const st = getImg1Review(currentImg1Team.teamId, v.vin) || 'pending';
+            const st = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '') || 'pending';
             const firstUrl = v.urls[0] || '';
 
             // Outer wrapper — acts like image-tile but with status border
@@ -3962,7 +4013,7 @@
     function setImg1IssueType(idx, btn) {
         const v      = currentImg1VINs[idx];
         const value  = btn.dataset.value;           // 'raw' or 'stock'
-        const cur    = getImg1Review(currentImg1Team.teamId, v.vin);
+        const cur    = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
         // If already this value → deselect (set to null = pending/ok)
         const newSt  = (cur === value) ? null : value;
         setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
@@ -4033,8 +4084,9 @@
 
             if (!alreadyReviewed) {
                 // Auto-approve: update local state only, no individual sync
-                if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
-                img1Reviews[teamId][v.vin] = 'ok';
+                const _key = img1ReviewKey(teamId, v.vin);
+                if (!img1Reviews[_key]) img1Reviews[_key] = {};
+                img1Reviews[_key][v.vin] = 'ok';
                 // Update tile outline
                 const tile = document.getElementById('img1-tile-' + idx);
                 if (tile) {
@@ -4073,7 +4125,7 @@
 
         let ok = 0, issue = 0;
         currentImg1VINs.forEach(v => {
-            const st = getImg1Review(teamId, v.vin);
+            const st = getImg1Review(teamId, v.vin, idx);
             if (st === 'ok') ok++; else if (st && st !== 'ok') issue++;
         });
         document.getElementById('complete-subtitle').innerText = currentImg1Team.name + ' · 1st Image Review';
@@ -4092,7 +4144,7 @@
         tbody.innerHTML = '';
         let ok = 0, issue = 0, pending = 0;
         currentImg1VINs.forEach((v, idx) => {
-            const st = getImg1Review(currentImg1Team.teamId, v.vin) || 'pending';
+            const st = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '') || 'pending';
             if (st === 'ok') ok++; else if (st !== 'ok' && st !== 'pending') issue++; else pending++;
             const stClass = st === 'ok'    ? 'bg-emerald-100 text-emerald-700'
                           : st === 'raw'   ? 'bg-orange-100 text-orange-700'
@@ -4313,7 +4365,7 @@
                 if (img1ViewMode === 'single') svToggleIssue('raw');
                 else {
                     const v = currentImg1VINs[currentImg1Idx];
-                    const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+                    const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
                     const ns = cur === 'raw' ? null : 'raw';
                     setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
                     updateImg1ProgressBadge();
@@ -4327,7 +4379,7 @@
                 if (img1ViewMode === 'single') svToggleIssue('stock');
                 else {
                     const v = currentImg1VINs[currentImg1Idx];
-                    const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+                    const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
                     const ns = cur === 'stock' ? null : 'stock';
                     setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
                     updateImg1ProgressBadge();
@@ -4341,7 +4393,7 @@
                 if (img1ViewMode === 'single') svToggleIssue('issue');
                 else {
                     const v = currentImg1VINs[currentImg1Idx];
-                    const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+                    const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
                     const ns = cur === 'issue' ? null : 'issue';
                     setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
                     updateImg1ProgressBadge();
