@@ -4183,25 +4183,25 @@
         if (!currentImg1Team) return;
         const header = [
             '#', 'Rooftop', 'Condition', 'Team ID', 'VIN', 'Total Images',
-            'Issue Type',
-            '1st Image URL', 'Comment'
+            'Issue Type', '1st Image URL', 'Comment'
         ];
         const lines = [header.join(',')];
         currentImg1VINs.forEach((v, idx) => {
-            const teamId = currentImg1Team.teamId;
-            const st     = getImg1Review(teamId, v.vin) || 'pending';
-            const subs   = getSubIssues(teamId, v.vin);
-            const cm     = img1Comments[teamId]?.[v.vin] || '';
+            const teamId  = currentImg1Team.teamId;
+            const rooftop = v.rooftop || '';
+            // Pass rooftop so we get the correct per-rooftop review
+            const st  = getImg1Review(teamId, v.vin, rooftop) || 'pending';
+            // Get comment from the rooftop-aware key
+            const reviewKey = img1ReviewKey(teamId, v.vin, rooftop);
+            const vinKey    = rooftop ? v.vin + '|~|' + rooftop : v.vin;
+            const cm = (img1Comments[reviewKey] && (img1Comments[reviewKey][vinKey] || img1Comments[reviewKey][v.vin])) || '';
 
-            // Issue Type: list all problems; if none → OK; unreviewed → Pending
-            const issueParts = [];
-            // Single-select model — st holds the one issue type
-            const stLabel = stateLabel(st);
+            const stLabel  = stateLabel(st);
             const issueType = stLabel && st !== 'ok' ? stLabel : st === 'ok' ? 'OK' : 'Pending';
 
             const row = [
                 idx + 1,
-                csvCell(v.rooftop || currentImg1Team.rooftop || currentImg1Team.name),
+                csvCell(rooftop || currentImg1Team.rooftop || currentImg1Team.name),
                 csvCell(v.condition || ''),
                 csvCell(teamId),
                 csvCell(v.vin),
