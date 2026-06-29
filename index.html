@@ -577,6 +577,7 @@
                     <span id="pg-bg"        class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-quality"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-hero"      class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
+                    <span id="pg-unsupported" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700 hidden"></span>
                     <span id="pg-pending"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700 hidden"></span>
                 </div>
                 <!-- Normal progress pill — non-1img modes -->
@@ -591,6 +592,30 @@
                     </svg>
                     <span id="review-timer-display" class="text-[12px] font-mono font-bold text-slate-700">00:00</span>
                     <span id="timer-pause-indicator" class="text-[9px] font-semibold text-amber-500 hidden">PAUSED</span>
+                </div>
+                <!-- VIN review view controls -->
+                <div id="vin-view-controls" class="flex items-center space-x-2">
+                    <!-- Zoom slider -->
+                    <div class="flex items-center space-x-1.5" title="Grid size">
+                        <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                        <input id="vin-zoom-slider" type="range" min="1" max="5" step="1" value="3"
+                            oninput="applyVinZoom(this.value)"
+                            style="-webkit-appearance:none;width:80px;height:4px;border-radius:2px;background:linear-gradient(to right,#3b82f6 50%,#e2e8f0 50%);outline:none;cursor:pointer;">
+                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+                    </div>
+                    <!-- Grid / Single toggle -->
+                    <div class="flex items-center rounded-lg border border-slate-200 overflow-hidden">
+                        <button id="vr-grid-btn" onclick="setVinView('grid')"
+                            class="view-toggle-btn active px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                            <span>Grid</span>
+                        </button>
+                        <button id="vr-single-btn" onclick="setVinView('single')"
+                            class="view-toggle-btn px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/></svg>
+                            <span>Single</span>
+                        </button>
+                    </div>
                 </div>
                 <div class="relative">
                     <input id="vin-search" type="text" placeholder="Search VIN..." class="pl-3 pr-8 py-1.5 border border-slate-200 rounded-lg text-[12px] w-44 focus:ring-1 focus:ring-blue-500 outline-none transition">
@@ -618,8 +643,8 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-1.5 mt-2">
-                        <button onclick="selectAllVINs()" class="text-[10px] px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium transition">Select All</button>
-                        <button onclick="clearVINSelection()" class="text-[10px] px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium transition">Clear</button>
+                        <button onclick="sidebarSelectAll()" class="text-[10px] px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium transition">Select All</button>
+                        <button onclick="sidebarClear()" class="text-[10px] px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-600 font-medium transition">Clear</button>
                         <span id="sel-count-badge" class="hidden text-[10px] px-2 py-1 rounded bg-blue-100 text-blue-700 font-semibold"></span>
                     </div>
                 </div>
@@ -650,6 +675,7 @@
                                 <button id="sv-qt-btn" onclick="svToggleIssue('quality')"    title="q" class="sv-issue-btn-hdr">Quality <small style="opacity:.55;font-size:9px">(q)</small></button>
                                 <button id="sv-ha-btn" onclick="svToggleIssue('hero')"       title="h" class="sv-issue-btn-hdr">Hero Angle <small style="opacity:.55;font-size:9px">(h)</small></button>
                                 <button id="sv-p-btn"  onclick="svToggleIssue('photo_na')"  title="p" class="sv-issue-btn-hdr">Photo NA <small style="opacity:.55;font-size:9px">(p)</small></button>
+                                <button id="sv-u-btn"  onclick="svToggleIssue('unsupported')" title="u" class="sv-issue-btn-hdr">Unsupported Vehicle <small style="opacity:.55;font-size:9px">(u)</small></button>
                                 <div class="w-px h-4 bg-slate-200 mx-0.5"></div>
                                 <button id="sv-ok-btn" onclick="svMarkOk()"
                                     class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1">
@@ -739,6 +765,25 @@
                     </div>
                 </div>
 
+                <!-- VIN single view — sibling to image-area, fills same space -->
+                <div id="vin-single-view" style="display:none;flex:1;flex-direction:column;min-height:0;">
+                    <div style="flex:1;position:relative;background:#0f172a;display:flex;align-items:center;justify-content:center;min-height:0;overflow:hidden;">
+                        <img id="vr-sv-img" src="" referrerpolicy="no-referrer" decoding="async"
+                            style="max-width:100%;max-height:100%;object-fit:contain;opacity:0;transition:opacity 0.15s;">
+                        <div id="vr-sv-skel" class="absolute inset-0 flex items-center justify-center" style="background:#0f172a;">
+                            <div class="spinner-blue"></div>
+                        </div>
+                        <div class="sv-nav" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);" onclick="vrSvNav(-1)">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+                        </div>
+                        <div class="sv-nav" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);" onclick="vrSvNav(1)">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+                        </div>
+                        <div id="vr-sv-counter" style="position:absolute;top:12px;right:12px;background:rgba(0,0,0,.5);color:#fff;font-size:11px;font-family:monospace;padding:3px 10px;border-radius:8px;pointer-events:none;"></div>
+                        <div style="position:absolute;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.45);color:rgba(255,255,255,.7);font-size:10px;padding:3px 12px;border-radius:8px;pointer-events:none;white-space:nowrap;">← → images &nbsp;·&nbsp; 1-8 issues &nbsp;·&nbsp; Enter = submit</div>
+                    </div>
+                </div>
+
                 <div id="image-area" class="flex-1 min-h-0 overflow-y-auto p-4" onscroll="handleImageAreaScroll()">
 
                     <div id="no-vin-state" class="h-full flex items-center justify-center">
@@ -755,7 +800,7 @@
                             <p class="text-slate-400 text-sm">Loading images...</p>
                         </div>
                     </div>
-                    <div id="images-grid" class="hidden grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3"></div>
+                    <div id="images-grid" class="hidden grid gap-3"></div>
                     <div id="no-images-state" class="hidden h-full flex items-center justify-center">
                         <div class="text-center">
                             <p class="text-slate-400 text-sm">No images found for this VIN.</p>
@@ -783,10 +828,10 @@
                                 <span class="issue-kbd">3</span>
                                 <span>Background</span>
                             </label>
-                            <label class="issue-chip" data-issue="Quality" data-key="4">
+                            <label class="issue-chip" data-issue="Photo NA" data-key="4">
                                 <input type="checkbox" class="issue-cb">
                                 <span class="issue-kbd">4</span>
-                                <span>Quality</span>
+                                <span>Photo NA</span>
                             </label>
                             <label class="issue-chip" data-issue="Hero angle missing" data-key="5">
                                 <input type="checkbox" class="issue-cb">
@@ -797,6 +842,21 @@
                                 <input type="checkbox" class="issue-cb">
                                 <span class="issue-kbd">6</span>
                                 <span>No exterior</span>
+                            </label>
+                            <label class="issue-chip" data-issue="Raw" data-key="7">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">7</span>
+                                <span>Raw</span>
+                            </label>
+                            <label class="issue-chip" data-issue="Stock" data-key="8">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">8</span>
+                                <span>Stock</span>
+                            </label>
+                            <label class="issue-chip" data-issue="Input Overlap" data-key="9">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">9</span>
+                                <span>Input Overlap</span>
                             </label>
                             <div class="flex-1"></div>
                             <input id="review-comment" type="text" placeholder="Other comment..." class="w-56 p-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition">
@@ -1146,41 +1206,37 @@
     }
 
     // Robust CSV parser: returns { headers, rows: [cellArr, cellArr, ...] }
-    // Ultra-fast CSV parser — splits on commas up to (N-1) times so the last column
-    // (which contains pipe-separated URLs) is never broken. Falls back to a
-    // quoted-field-aware parser for files with quoted cells.
+    // RFC 4180-compliant CSV parser — handles quoted fields with embedded commas.
+    // Fast: uses a single-pass char scan rather than regex on each line.
     function parseCSV(text) {
-        const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-        if (lines.length === 0) return { headers: [], rows: [] };
-
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-        const numCols = headers.length;
+        const norm = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
         const dataRows = [];
+        let row = [], field = '', inQ = false;
 
-        for (let i = 1; i < lines.length; i++) {
-            const line = lines[i];
-            if (!line.trim()) continue;
-
-            // Fast path: split on first (numCols-1) commas, rest = last column
-            const cols = [];
-            let start = 0, found = 0;
-            const limit = numCols - 1;
-            for (let j = 0; j < line.length && found < limit; j++) {
-                if (line[j] === ',') {
-                    let val = line.slice(start, j).trim();
-                    if (val.startsWith('"') && val.endsWith('"')) val = val.slice(1, -1);
-                    cols.push(val);
-                    start = j + 1;
-                    found++;
+        for (let i = 0; i < norm.length; i++) {
+            const c = norm[i];
+            if (inQ) {
+                if (c === '"') {
+                    if (norm[i + 1] === '"') { field += '"'; i++; }  // escaped quote
+                    else inQ = false;                                  // end of quoted field
+                } else {
+                    field += c;
                 }
+            } else {
+                if      (c === '"')  { inQ = true; }
+                else if (c === ',')  { row.push(field); field = ''; }
+                else if (c === '\n') { row.push(field); if (row.some(v => v.trim())) dataRows.push(row); row = []; field = ''; }
+                else                 { field += c; }
             }
-            let last = line.slice(start).trim();
-            if (last.startsWith('"') && last.endsWith('"')) last = last.slice(1, -1);
-            cols.push(last);
-
-            if (cols.some(v => v.length > 0)) dataRows.push(cols);
         }
-        return { headers, rows: dataRows };
+        // flush last field/row
+        row.push(field);
+        if (row.some(v => v.trim())) dataRows.push(row);
+
+        if (dataRows.length === 0) return { headers: [], rows: [] };
+        const headers = dataRows[0].map(h => h.trim());
+        const rows    = dataRows.slice(1).filter(r => r.some(v => v.trim()));
+        return { headers, rows };
     }
 
     function findColIdx(headers, candidates) {
@@ -1609,12 +1665,12 @@
             if (!entry.rooftop && rooftopName) entry.rooftop = rooftopName;
             const arr = entry.urls;
 
-            // For CSV mode rows, URLs are already clean pipe-separated strings —
+            // For CSV mode rows, URLs are pipe-OR-comma separated (splitUrls handles both) —
             // skip the slow regex extractUrlsFromRow and split directly
             let urls;
             if (dataSourceMode === 'csv') {
                 const raw = (r[C.imageUrls] || '').trim();
-                urls = raw ? raw.split('|').map(u => u.trim()).filter(Boolean) : [];
+                urls = splitUrls(raw);
             } else {
                 urls = extractUrlsFromRow(r, C.imageUrls);
             }
@@ -1644,6 +1700,14 @@
         teamsList.sort((a, b) => a.name.localeCompare(b.name));
         console.log('[buildTeamIndex] done —', teamsList.length, 'teams,',
             teamsList.reduce((s, t) => s + t.vinCount, 0), 'VINs total');
+    }
+
+    // Split a pipe-or-comma separated URL string into an array of clean URLs
+    function splitUrls(raw) {
+        if (!raw) return [];
+        // Try pipe first (most common), then comma
+        const sep = raw.includes('|') ? '|' : ',';
+        return raw.split(sep).map(u => u.trim()).filter(Boolean);
     }
 
     // =========================================================================
@@ -1781,7 +1845,7 @@
                     const key = vin + '|~|' + rooftop;
                     if (!vinMap.has(key)) vinMap.set(key, { vin, rooftop, condition, urls: new Set() });
                     const entry = vinMap.get(key);
-                    if (imgRaw) imgRaw.split('|').forEach(u => { const c = u.trim(); if (c) entry.urls.add(c); });
+                    if (imgRaw) splitUrls(imgRaw).forEach(u => { if (u) entry.urls.add(u); });
                     if (!entry.condition && condition) entry.condition = condition;
                 });
 
@@ -1978,7 +2042,7 @@
         if (!currentImg1VINs || idx < 0 || idx >= currentImg1VINs.length) return;
         currentImg1Idx = idx;
         const v   = currentImg1VINs[idx];
-        const st  = getImg1Review(currentImg1Team?.teamId, v.vin);
+        const st  = getImg1Review(currentImg1Team?.teamId, v.vin, v.rooftop || '');
         const url = v.urls[0] || '';
 
         document.getElementById('sv-vin').textContent     = v.vin;
@@ -2059,6 +2123,7 @@
             'sv-qt-btn': 'quality',
             'sv-ha-btn': 'hero',
             'sv-p-btn':  'photo_na',
+            'sv-u-btn':  'unsupported',
         };
         Object.entries(allBtns).forEach(([id, val]) => {
             const btn = document.getElementById(id);
@@ -2117,12 +2182,12 @@
     function svToggleIssue(value) {
         if (currentImg1Idx < 0 || !currentImg1Team) return;
         const v   = currentImg1VINs[currentImg1Idx];
-        const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+        const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
         svSetIssue(cur === value ? null : value);
     }
 
     function svMarkOk() {
-        const cur = getImg1Review(currentImg1Team.teamId, currentImg1VINs[currentImg1Idx]?.vin);
+        const cur = getImg1Review(currentImg1Team.teamId, currentImg1VINs[currentImg1Idx]?.vin, currentImg1VINs[currentImg1Idx]?.rooftop || '');
         svSetIssue(cur === 'ok' ? null : 'ok');
     }
 
@@ -2262,7 +2327,7 @@
         const tile = document.getElementById('img1-tile-' + idx);
         if (!tile) return;
         const isSelected = selectedVINIndices.has(idx);
-        const st = getImg1Review(currentImg1Team?.teamId, currentImg1VINs?.[idx]?.vin);
+        const st = getImg1Review(currentImg1Team?.teamId, currentImg1VINs?.[idx]?.vin, currentImg1VINs?.[idx]?.rooftop || '');
         if (isSelected) {
             tile.style.outline = '3px solid #6366f1'; // indigo for selection
         } else {
@@ -2309,8 +2374,24 @@
         selectedVINIndices.clear();
         lastCheckedIdx = null;
         updateBulkBar();
-        render1ImgVinList();
+        // Uncheck all checkboxes in the VIN list immediately
+        document.querySelectorAll('#vin-list .vin-checkbox').forEach(cb => { cb.checked = false; });
+        document.querySelectorAll('#vin-list .vin-item').forEach(el => el.classList.remove('vin-selected'));
         currentImg1VINs?.forEach((_, i) => updateTileSelectionStyle(i));
+        const badge = document.getElementById('sel-count-badge');
+        if (badge) badge.classList.add('hidden');
+    }
+
+    // Select All / Clear for the VIN list sidebar — works in both 1img and vin-review modes
+    function sidebarSelectAll() {
+        if (reviewMode === '1img') { selectAllVINs(); return; }
+        // VIN review: just a visual select (no bulk action yet)
+        document.querySelectorAll('#vin-list .vin-item').forEach(el => el.classList.add('vin-selected'));
+    }
+    function sidebarClear() {
+        if (reviewMode === '1img') { clearVINSelection(); return; }
+        // VIN review: clear visual selection
+        document.querySelectorAll('#vin-list .vin-item').forEach(el => el.classList.remove('vin-selected'));
     }
 
     function updateBulkBar() {
@@ -3108,23 +3189,13 @@
             img.referrerPolicy = 'no-referrer';
             img.alt = '';
 
-            // Track fallback step so we try Spyne CDN → wsrv.nl → original before giving up
-            let fallbackStep = 0;   // 0 = primary thumb, 1 = secondary thumb, 2 = original, 3 = broken
+            // Use smart fallback chain (same as 1st-image gallery)
+            const vinFallbacks = getFallbacks(url, 500, 75);
+            let vinFbStep = 0;
             img.addEventListener('load', () => { skel.remove(); });
             img.addEventListener('error', () => {
-                fallbackStep++;
-                if (fallbackStep === 1) {
-                    // First failure: try the other proxy
-                    img.src = (IMG_PROXY_PRIMARY === 'spyne')
-                        ? wsrvThumbUrl(url, 500, 75)
-                        : spyneThumbUrl(url, 500, 75);
-                    return;
-                }
-                if (fallbackStep === 2) {
-                    // Second failure: try the raw original URL
-                    img.src = url;
-                    return;
-                }
+                vinFbStep++;
+                if (vinFbStep < vinFallbacks.length) { img.src = vinFallbacks[vinFbStep]; return; }
                 skel.remove();
                 tile.innerHTML = `
                     <div class="img-index">${i + 1}</div>
@@ -3133,30 +3204,115 @@
                         <a href="${escapeHtml(url)}" target="_blank" rel="noreferrer" class="text-blue-500 underline mt-1 text-[10px]">open direct</a>
                     </div>`;
             });
-            // Clicking opens the FULL-RESOLUTION original in the lightbox
             img.addEventListener('click', () => openLightbox(url));
-            // Thumbnail uses the proxied, resized, recompressed version — way faster
-            img.src = thumbUrl(url, 500, 75);
+            img.src = vinFallbacks[0] || url;
             tile.appendChild(img);
             frag.appendChild(tile);
         });
         grid.appendChild(frag);
 
         prefetchNextVINs();
+        vrOnVinChange(v);
     }
 
     function prefetchNextVINs() {
-        // Prefetch next VIN's THUMBNAILS (proxied, so <30KB each) — fills cache cheaply
-        const next1 = currentTeamVINs[currentVINIndex + 1];
-        const next2 = currentTeamVINs[currentVINIndex + 2];
-        if (next1) {
-            next1.urls.forEach(u => { const p = new Image(); p.referrerPolicy = 'no-referrer'; p.src = thumbUrl(u, 500, 75); });
-        }
-        if (next2) {
-            next2.urls.slice(0, 12).forEach(u => { const p = new Image(); p.referrerPolicy = 'no-referrer'; p.src = thumbUrl(u, 500, 75); });
+        // Prefetch next VINs thumbnails using the same getFallbacks chain as display
+        // so browser cache is guaranteed to hit when renderImages fires
+        for (let offset = 1; offset <= 3; offset++) {
+            const nxt = currentTeamVINs[currentVINIndex + offset];
+            if (!nxt) break;
+            const limit = offset === 1 ? nxt.urls.length : Math.min(nxt.urls.length, 6);
+            nxt.urls.slice(0, limit).forEach(u => {
+                const chain = getFallbacks(u, 500, 75);
+                if (!_svPreloadCache.has(chain[0])) {
+                    _svPreloadCache.add(chain[0]);
+                    const p = new Image();
+                    p.referrerPolicy = 'no-referrer';
+                    p.decoding = 'async';
+                    p.src = chain[0];
+                }
+            });
         }
     }
 
+    // ── VIN Review zoom + single view ─────────────────────────────────────────
+    const VIN_ZOOM_COLS = [2, 3, 4, 6, 8];
+    let vinViewMode  = 'grid';
+    let vrSvImgIndex = 0;   // current image index in single view
+    let vrCurrentUrls = [];  // current VIN's urls in single view
+
+    function applyVinZoom(val) {
+        const cols  = VIN_ZOOM_COLS[parseInt(val) - 1];
+        const grid  = document.getElementById('images-grid');
+        const pct   = ((parseInt(val) - 1) / 4) * 100;
+        if (grid) grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+        const slider = document.getElementById('vin-zoom-slider');
+        if (slider) slider.style.background = 'linear-gradient(to right, #3b82f6 ' + pct + '%, #e2e8f0 ' + pct + '%)';
+    }
+
+    function setVinView(mode) {
+        vinViewMode = mode;
+        const grid      = document.getElementById('images-grid');
+        const area      = document.getElementById('image-area');
+        const sv        = document.getElementById('vin-single-view');
+        const gridBtn   = document.getElementById('vr-grid-btn');
+        const singleBtn = document.getElementById('vr-single-btn');
+        const zoomSlider = document.getElementById('vin-zoom-slider');
+
+        if (mode === 'single') {
+            if (area) area.style.display = 'none';
+            if (sv)   sv.style.display   = 'flex';
+            if (gridBtn)   gridBtn.classList.remove('active');
+            if (singleBtn) singleBtn.classList.add('active');
+            if (zoomSlider) zoomSlider.parentElement.style.visibility = 'hidden';
+            // Load current VIN
+            const idx = currentVINIndex >= 0 ? currentVINIndex : 0;
+            const v = currentTeamVINs[idx];
+            if (v && v.urls && v.urls.length) { vrCurrentUrls = v.urls; vrSvShow(0); }
+            else if (vrCurrentUrls.length) vrSvShow(0);
+        } else {
+            if (sv)   sv.style.display   = 'none';
+            if (area) area.style.display = '';
+            if (gridBtn)   gridBtn.classList.add('active');
+            if (singleBtn) singleBtn.classList.remove('active');
+            if (zoomSlider) zoomSlider.parentElement.style.visibility = 'visible';
+            applyVinZoom(zoomSlider ? zoomSlider.value : 3);
+        }
+    }
+
+    function vrSvShow(idx) {
+        if (!vrCurrentUrls.length) return;
+        vrSvImgIndex = Math.max(0, Math.min(vrCurrentUrls.length - 1, idx));
+        const url  = vrCurrentUrls[vrSvImgIndex];
+        const img  = document.getElementById('vr-sv-img');
+        const skel = document.getElementById('vr-sv-skel');
+        const ctr  = document.getElementById('vr-sv-counter');
+        img.onload = img.onerror = null;
+        img.src = ''; img.style.opacity = '0';
+        skel.style.display = 'flex';
+        if (ctr) ctr.textContent = (vrSvImgIndex + 1) + ' / ' + vrCurrentUrls.length;
+        const fallbacks = getFallbacks(url, 900, 90);
+        let step = 0;
+        img.onload  = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
+        img.onerror = () => { step++; if (step < fallbacks.length) { img.src = fallbacks[step]; } else { skel.style.display = 'none'; } };
+        img.src = fallbacks[0] || url;
+    }
+
+    function vrSvNav(dir) {
+        vrSvShow(vrSvImgIndex + dir);
+    }
+
+    // Update single view when VIN changes
+    function vrOnVinChange(v) {
+        // Always update the url cache so switching to single view works even if grid was active
+        if (v && v.urls) vrCurrentUrls = v.urls;
+        if (vinViewMode === 'single' && v) {
+            vrSvShow(0);
+        }
+        applyVinZoom(document.getElementById('vin-zoom-slider')?.value || 3);
+    }
+
+    // ── Issue chips — toggle UI state when checkbox changes ──
     // Issue chips — toggle UI state when checkbox changes
     document.querySelectorAll('.issue-chip').forEach(chip => {
         const cb = chip.querySelector('.issue-cb');
@@ -3252,7 +3408,46 @@
     let currentImg1Idx  = -1;
     let reviewMode = 'vin'; // 'vin' | '1img'
 
-    function getImg1Review(teamId, vin) { return (img1Reviews[teamId] && img1Reviews[teamId][vin]) || null; }
+    // Build the review storage key — uses teamId+rooftop when available
+    // so same VIN at different rooftops gets independent review state
+    // Build the review store key for a VIN.
+    // When the same VIN exists at multiple rooftops (e.g. "Review All Rooftops"),
+    // we key by teamId + vin + rooftop so each instance is independent.
+    function img1ReviewKey(teamId, vin, rooftop) {
+        // rooftop may be passed directly, or we look it up from currentImg1VINs
+        // Use findAll and check: only use rooftop if this VIN appears at multiple rooftops
+        if (rooftop === undefined) {
+            const matches = currentImg1VINs ? currentImg1VINs.filter(x => x.vin === vin) : [];
+            rooftop = matches.length > 0 ? (matches[0].rooftop || '') : '';
+        }
+        return rooftop ? teamId + '::' + rooftop : teamId;
+    }
+
+    // Returns the rooftop for a specific occurrence of a VIN in currentImg1VINs by index
+    function getVinRooftop(vin, idx) {
+        if (!currentImg1VINs) return '';
+        // If idx is given, use it directly
+        if (idx !== undefined && currentImg1VINs[idx] && currentImg1VINs[idx].vin === vin) {
+            return currentImg1VINs[idx].rooftop || '';
+        }
+        const v = currentImg1VINs.find(x => x.vin === vin);
+        return v ? (v.rooftop || '') : '';
+    }
+
+    function getImg1Review(teamId, vin, rooftopOrIdx) {
+        // rooftopOrIdx can be a rooftop string or an index into currentImg1VINs
+        let rooftop = '';
+        if (typeof rooftopOrIdx === 'number') {
+            rooftop = currentImg1VINs?.[rooftopOrIdx]?.rooftop || '';
+        } else if (typeof rooftopOrIdx === 'string') {
+            rooftop = rooftopOrIdx;
+        } else {
+            rooftop = getVinRooftop(vin);
+        }
+        const key = img1ReviewKey(teamId, vin, rooftop);
+        return (img1Reviews[key] && img1Reviews[key][vin + '|~|' + rooftop]) ||
+               (img1Reviews[key] && img1Reviews[key][vin]) || null;
+    }
 
     // Helpers to work with raw/stock sub-states
     function isRaw(st)      { return st === 'raw'; }
@@ -3269,16 +3464,17 @@
         if (st === 'quality')    return '#f59e0b';
         if (st === 'hero')       return '#6366f1';
         if (st === 'photo_na')   return '#94a3b8';  // grey
+        if (st === 'unsupported') return '#dc2626';  // red
         return 'transparent';
     }
     function stateLabel(st) {
         const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Issue',
-                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA' };
+                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA', unsupported:'Unsupported Vehicle' };
         return map[st] || '';
     }
     function stateBadgeText(st) {
         const map = { ok:'✓', raw:'R', stock:'S', issue:'I',
-                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA', photo_na:'P' };
+                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA', photo_na:'P', unsupported:'U' };
         return map[st] || '';
     }
 
@@ -3288,25 +3484,37 @@
     const SUB_ISSUE_LIST = ['Banner', 'Background', 'Quality', 'Hero Angle'];
     const SUB_ISSUE_KEYS = {'Banner':'ban','Background':'bg','Quality':'qty','Hero Angle':'hero'};
 
+    function _subKey(teamId, vin) {
+        const rooftop = currentImg1VINs?.[currentImg1Idx]?.vin === vin
+            ? (currentImg1VINs[currentImg1Idx].rooftop || '')
+            : getVinRooftop(vin);
+        return teamId + '::' + rooftop + '::' + vin;
+    }
     function getSubIssues(teamId, vin) {
-        const k = teamId + '::' + vin;
-        return subIssues[k] || new Set();
+        return subIssues[_subKey(teamId, vin)] || new Set();
     }
     function toggleSubIssue(teamId, vin, label) {
-        const k = teamId + '::' + vin;
+        const k = _subKey(teamId, vin);
         if (!subIssues[k]) subIssues[k] = new Set();
         if (subIssues[k].has(label)) subIssues[k].delete(label);
         else subIssues[k].add(label);
     }
     function clearSubIssues(teamId, vin) {
-        const k = teamId + '::' + vin;
-        delete subIssues[k];
+        delete subIssues[_subKey(teamId, vin)];
     }
     function setImg1Review(teamId, vin, status, comment) {
-        if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
-        if (!img1Comments[teamId]) img1Comments[teamId] = {};
-        img1Reviews[teamId][vin] = status;
-        img1Comments[teamId][vin] = comment || '';
+        // Use currentImg1Idx to identify which rooftop instance this VIN is
+        const rooftop = currentImg1VINs?.[currentImg1Idx]?.vin === vin
+            ? (currentImg1VINs[currentImg1Idx].rooftop || '')
+            : getVinRooftop(vin);
+        const key     = img1ReviewKey(teamId, vin, rooftop);
+        const vinKey  = rooftop ? vin + '|~|' + rooftop : vin;
+        if (!img1Reviews[key]) img1Reviews[key] = {};
+        if (!img1Comments[key]) img1Comments[key] = {};
+        img1Reviews[key][vinKey] = status;
+        img1Comments[key][vinKey] = comment || '';
+        // Keep backward-compat: also write plain vin key if no rooftop
+        if (!rooftop) { img1Reviews[key][vin] = status; img1Comments[key][vin] = comment || ''; }
         persist1ImgReviews();
 
         // Sync to Google Sheet → '1st_image_review' tab
@@ -3392,7 +3600,7 @@
             doneBtn.className = 'bg-emerald-600 text-white px-3 py-1.5 rounded text-[11px] font-bold hover:bg-emerald-700 flex items-center space-x-1.5';
             doneBtn.innerHTML = '<span>Done ✓</span>';
             doneBtn.onclick = () => {
-                const pending = currentImg1VINs.filter(v => !getImg1Review(currentImg1Team.teamId, v.vin)).length;
+                const pending = currentImg1VINs.filter(v => !getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '')).length;
                 if (pending > 0 && !confirm(pending + ' VINs still pending. Mark all as Done anyway?')) return;
                 openImg1Complete();
             };
@@ -3439,6 +3647,11 @@
     function restore1ImgMode() {
         reviewMode = 'vin';
         startReviewTimer();
+        const vrCtrls = document.getElementById('vin-view-controls');
+        if (vrCtrls) vrCtrls.style.display = 'flex';
+        // Reset to grid
+        setVinView('grid');
+        applyVinZoom(document.getElementById('vin-zoom-slider')?.value || 3);
         // Hide view toggle + progress bar; restore normal pill
         const vt2 = document.getElementById('img1-view-toggle');
         if (vt2) vt2.style.display = 'none';
@@ -3473,10 +3686,10 @@
         const teamId = currentImg1Team?.teamId;
         const total  = currentImg1VINs.length;
         let ok = 0, raw = 0, stock = 0, internal = 0, pending = 0;
-        let banner = 0, bg = 0, quality = 0, hero = 0, photo_na_count = 0;
+        let banner = 0, bg = 0, quality = 0, hero = 0, photo_na_count = 0, unsupported_count = 0;
 
-        currentImg1VINs.forEach(v => {
-            const st = getImg1Review(teamId, v.vin);
+        currentImg1VINs.forEach((v, idx) => {
+            const st = getImg1Review(teamId, v.vin, idx);  // uses img1ReviewKey internally
             if      (st === 'ok')         ok++;
             else if (st === 'raw')        raw++;
             else if (st === 'stock')      stock++;
@@ -3486,6 +3699,7 @@
             else if (st === 'quality')    quality++;
             else if (st === 'hero')       hero++;
             else if (st === 'photo_na')   photo_na_count++;
+            else if (st === 'unsupported') unsupported_count++;
             else                          pending++;
         });
         const done = ok + raw + stock + internal;
@@ -3513,6 +3727,7 @@
         setpill('pg-bg',       bg,       'BG');
         setpill('pg-quality',  quality,  'Quality');
         setpill('pg-hero',     hero,     'Hero');
+        setpill('pg-unsupported', unsupported_count, 'Unsupported');
         setpill('pg-pending',  pending,  '⏳');
 
         const anySub = banner + bg + quality + hero > 0;
@@ -3526,7 +3741,7 @@
         list.innerHTML = '';
         let ok = 0, issue = 0;
         currentImg1VINs.forEach((v, idx) => {
-            const st = getImg1Review(currentImg1Team.teamId, v.vin);
+            const st = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
             if (st === 'ok') ok++;
             if (st === 'raw' || st === 'stock' || st === 'internal') issue++;
             if (searchTerm && !v.vin.toLowerCase().includes(searchTerm)) return;
@@ -3572,7 +3787,7 @@
 
         // Update header VIN display
         document.getElementById('current-vin-text').innerText = v.vin;
-        const st = getImg1Review(currentImg1Team.teamId, v.vin);
+        const st = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
         const badge = document.getElementById('current-vin-status-badge');
         if (st === 'ok') {
             badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-700';
@@ -3633,7 +3848,7 @@
         const frag = document.createDocumentFragment();
 
         currentImg1VINs.forEach((v, idx) => {
-            const st = getImg1Review(currentImg1Team.teamId, v.vin) || 'pending';
+            const st = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '') || 'pending';
             const firstUrl = v.urls[0] || '';
 
             // Outer wrapper — acts like image-tile but with status border
@@ -3809,7 +4024,7 @@
     function setImg1IssueType(idx, btn) {
         const v      = currentImg1VINs[idx];
         const value  = btn.dataset.value;           // 'raw' or 'stock'
-        const cur    = getImg1Review(currentImg1Team.teamId, v.vin);
+        const cur    = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
         // If already this value → deselect (set to null = pending/ok)
         const newSt  = (cur === value) ? null : value;
         setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
@@ -3876,12 +4091,15 @@
         const bulkRows = [];   // only newly auto-approved VINs
 
         currentImg1VINs.forEach((v, idx) => {
-            const alreadyReviewed = !!getImg1Review(teamId, v.vin);
+            const rooftop = v.rooftop || '';
+            const alreadyReviewed = !!getImg1Review(teamId, v.vin, rooftop);
 
             if (!alreadyReviewed) {
                 // Auto-approve: update local state only, no individual sync
-                if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
-                img1Reviews[teamId][v.vin] = 'ok';
+                const _key   = img1ReviewKey(teamId, v.vin, rooftop);
+                const _vKey  = rooftop ? v.vin + '|~|' + rooftop : v.vin;
+                if (!img1Reviews[_key]) img1Reviews[_key] = {};
+                img1Reviews[_key][_vKey] = 'ok';
                 // Update tile outline
                 const tile = document.getElementById('img1-tile-' + idx);
                 if (tile) {
@@ -3919,8 +4137,8 @@
         updateImg1ProgressBadge();
 
         let ok = 0, issue = 0;
-        currentImg1VINs.forEach(v => {
-            const st = getImg1Review(teamId, v.vin);
+        currentImg1VINs.forEach((v, i) => {
+            const st = getImg1Review(teamId, v.vin, v.rooftop || '');
             if (st === 'ok') ok++; else if (st && st !== 'ok') issue++;
         });
         document.getElementById('complete-subtitle').innerText = currentImg1Team.name + ' · 1st Image Review';
@@ -3939,7 +4157,7 @@
         tbody.innerHTML = '';
         let ok = 0, issue = 0, pending = 0;
         currentImg1VINs.forEach((v, idx) => {
-            const st = getImg1Review(currentImg1Team.teamId, v.vin) || 'pending';
+            const st = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '') || 'pending';
             if (st === 'ok') ok++; else if (st !== 'ok' && st !== 'pending') issue++; else pending++;
             const stClass = st === 'ok'    ? 'bg-emerald-100 text-emerald-700'
                           : st === 'raw'   ? 'bg-orange-100 text-orange-700'
@@ -3975,45 +4193,49 @@
     }
 
     function download1ImgCSV() {
-        if (!currentImg1Team) return;
-        const header = [
-            '#', 'Rooftop', 'Condition', 'Team ID', 'VIN', 'Total Images',
-            'Issue Type',
-            '1st Image URL', 'Comment'
-        ];
-        const lines = [header.join(',')];
-        currentImg1VINs.forEach((v, idx) => {
-            const teamId = currentImg1Team.teamId;
-            const st     = getImg1Review(teamId, v.vin) || 'pending';
-            const subs   = getSubIssues(teamId, v.vin);
-            const cm     = img1Comments[teamId]?.[v.vin] || '';
-
-            // Issue Type: list all problems; if none → OK; unreviewed → Pending
-            const issueParts = [];
-            // Single-select model — st holds the one issue type
-            const stLabel = stateLabel(st);
-            const issueType = stLabel && st !== 'ok' ? stLabel : st === 'ok' ? 'OK' : 'Pending';
-
-            const row = [
-                idx + 1,
-                csvCell(v.rooftop || currentImg1Team.rooftop || currentImg1Team.name),
-                csvCell(v.condition || ''),
-                csvCell(teamId),
-                csvCell(v.vin),
-                v.urls.length,
-                csvCell(issueType),
-                csvCell(v.urls[0] || ''),
-                csvCell(cm)
+        try {
+            if (!currentImg1Team) { console.error('No currentImg1Team'); return; }
+            if (!currentImg1VINs || !currentImg1VINs.length) { console.error('No currentImg1VINs'); return; }
+            const header = [
+                '#', 'Rooftop', 'Condition', 'Team ID', 'VIN', 'Total Images',
+                'Issue Type', '1st Image URL', 'Comment'
             ];
-            lines.push(row.join(','));
-        });
-        const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        const safe = currentImg1Team.teamId.replace(/[^a-z0-9_-]/gi, '_');
-        a.download = '1st_image_review_' + safe + '_' + new Date().toISOString().slice(0,10) + '.csv';
-        document.body.appendChild(a); a.click(); document.body.removeChild(a);
-        URL.revokeObjectURL(a.href);
+            const lines = [header.join(',')];
+            currentImg1VINs.forEach((v, idx) => {
+                const teamId  = currentImg1Team.teamId;
+                const rooftop = v.rooftop || '';
+                const st      = getImg1Review(teamId, v.vin, rooftop) || 'pending';
+                const reviewKey = img1ReviewKey(teamId, v.vin, rooftop);
+                const vinKey    = rooftop ? v.vin + '|~|' + rooftop : v.vin;
+                const cm = (img1Comments[reviewKey] && (img1Comments[reviewKey][vinKey] || img1Comments[reviewKey][v.vin])) || '';
+                const stLabel   = stateLabel(st);
+                const issueType = stLabel && st !== 'ok' ? stLabel : st === 'ok' ? 'OK' : 'Pending';
+                const row = [
+                    idx + 1,
+                    csvCell(rooftop || currentImg1Team.rooftop || currentImg1Team.name),
+                    csvCell(v.condition || ''),
+                    csvCell(teamId),
+                    csvCell(v.vin),
+                    v.urls.length,
+                    csvCell(issueType),
+                    csvCell(v.urls[0] || ''),
+                    csvCell(cm)
+                ];
+                lines.push(row.join(','));
+            });
+            const blob = new Blob([lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+            const a    = document.createElement('a');
+            a.href     = URL.createObjectURL(blob);
+            const safe = (currentImg1Team.rooftop || currentImg1Team.teamId || 'review').replace(/[^a-z0-9_-]/gi, '_');
+            a.download = '1st_image_review_' + safe + '_' + new Date().toISOString().slice(0,10) + '.csv';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(a.href);
+        } catch(e) {
+            console.error('download1ImgCSV error:', e);
+            alert('Download failed: ' + e.message);
+        }
     }
 
     // =========================================================================
@@ -4160,7 +4382,7 @@
                 if (img1ViewMode === 'single') svToggleIssue('raw');
                 else {
                     const v = currentImg1VINs[currentImg1Idx];
-                    const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+                    const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
                     const ns = cur === 'raw' ? null : 'raw';
                     setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
                     updateImg1ProgressBadge();
@@ -4174,7 +4396,7 @@
                 if (img1ViewMode === 'single') svToggleIssue('stock');
                 else {
                     const v = currentImg1VINs[currentImg1Idx];
-                    const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+                    const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
                     const ns = cur === 'stock' ? null : 'stock';
                     setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
                     updateImg1ProgressBadge();
@@ -4188,7 +4410,7 @@
                 if (img1ViewMode === 'single') svToggleIssue('issue');
                 else {
                     const v = currentImg1VINs[currentImg1Idx];
-                    const cur = getImg1Review(currentImg1Team.teamId, v.vin);
+                    const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
                     const ns = cur === 'issue' ? null : 'issue';
                     setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
                     updateImg1ProgressBadge();
@@ -4198,7 +4420,7 @@
                 return;
             }
             // Sub-issue shortcuts (single view only) — now all single-select
-            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero','p':'photo_na','P':'photo_na' };
+            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero','p':'photo_na','P':'photo_na','u':'unsupported','U':'unsupported' };
             if (img1ViewMode === 'single' && subShortcuts[e.key] && currentImg1Idx >= 0) {
                 e.preventDefault();
                 svToggleIssue(subShortcuts[e.key]);
@@ -4219,13 +4441,37 @@
         // Remaining shortcuts don't fire while typing
         if (inInput) return;
 
-        // 1-6 toggle issues
-        if (['1','2','3','4','5','6'].includes(e.key)) {
+        // Arrow keys
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+            e.preventDefault();
+            if (vinViewMode === 'single') vrSvNav(1);   // next image
+            else navigateVIN(1);                         // next VIN
+            return;
+        }
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+            e.preventDefault();
+            if (vinViewMode === 'single') vrSvNav(-1);  // prev image
+            else navigateVIN(-1);                        // prev VIN
+            return;
+        }
+
+        // 1-8 toggle issues
+        if (['1','2','3','4','5','6','7','8','9'].includes(e.key)) {
             e.preventDefault();
             const chip = document.querySelector(`.issue-chip[data-key="${e.key}"]`);
             if (chip) chip.click();
         }
     });
+
+    // Navigate to prev/next VIN in VIN review mode
+    function navigateVIN(dir) {
+        const next = currentVINIndex + dir;
+        if (next < 0 || next >= currentTeamVINs.length) return;
+        const v = currentTeamVINs[next];
+        if (!v) return;
+        // Simulate clicking the VIN in the sidebar
+        document.querySelectorAll('#vin-list .vin-item')[next]?.click();
+    }
 
     // =========================================================================
     // LIGHTBOX
