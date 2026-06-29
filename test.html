@@ -577,6 +577,7 @@
                     <span id="pg-bg"        class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-quality"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-hero"      class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
+                    <span id="pg-unsupported" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700 hidden"></span>
                     <span id="pg-pending"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700 hidden"></span>
                 </div>
                 <!-- Normal progress pill — non-1img modes -->
@@ -674,6 +675,7 @@
                                 <button id="sv-qt-btn" onclick="svToggleIssue('quality')"    title="q" class="sv-issue-btn-hdr">Quality <small style="opacity:.55;font-size:9px">(q)</small></button>
                                 <button id="sv-ha-btn" onclick="svToggleIssue('hero')"       title="h" class="sv-issue-btn-hdr">Hero Angle <small style="opacity:.55;font-size:9px">(h)</small></button>
                                 <button id="sv-p-btn"  onclick="svToggleIssue('photo_na')"  title="p" class="sv-issue-btn-hdr">Photo NA <small style="opacity:.55;font-size:9px">(p)</small></button>
+                                <button id="sv-u-btn"  onclick="svToggleIssue('unsupported')" title="u" class="sv-issue-btn-hdr">Unsupported Vehicle <small style="opacity:.55;font-size:9px">(u)</small></button>
                                 <div class="w-px h-4 bg-slate-200 mx-0.5"></div>
                                 <button id="sv-ok-btn" onclick="svMarkOk()"
                                     class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1">
@@ -2116,6 +2118,7 @@
             'sv-qt-btn': 'quality',
             'sv-ha-btn': 'hero',
             'sv-p-btn':  'photo_na',
+            'sv-u-btn':  'unsupported',
         };
         Object.entries(allBtns).forEach(([id, val]) => {
             const btn = document.getElementById(id);
@@ -3456,16 +3459,17 @@
         if (st === 'quality')    return '#f59e0b';
         if (st === 'hero')       return '#6366f1';
         if (st === 'photo_na')   return '#94a3b8';  // grey
+        if (st === 'unsupported') return '#dc2626';  // red
         return 'transparent';
     }
     function stateLabel(st) {
         const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Issue',
-                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA' };
+                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA', unsupported:'Unsupported Vehicle' };
         return map[st] || '';
     }
     function stateBadgeText(st) {
         const map = { ok:'✓', raw:'R', stock:'S', issue:'I',
-                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA', photo_na:'P' };
+                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA', photo_na:'P', unsupported:'U' };
         return map[st] || '';
     }
 
@@ -3677,7 +3681,7 @@
         const teamId = currentImg1Team?.teamId;
         const total  = currentImg1VINs.length;
         let ok = 0, raw = 0, stock = 0, internal = 0, pending = 0;
-        let banner = 0, bg = 0, quality = 0, hero = 0, photo_na_count = 0;
+        let banner = 0, bg = 0, quality = 0, hero = 0, photo_na_count = 0, unsupported_count = 0;
 
         currentImg1VINs.forEach((v, idx) => {
             const st = getImg1Review(teamId, v.vin, idx);  // uses img1ReviewKey internally
@@ -3690,6 +3694,7 @@
             else if (st === 'quality')    quality++;
             else if (st === 'hero')       hero++;
             else if (st === 'photo_na')   photo_na_count++;
+            else if (st === 'unsupported') unsupported_count++;
             else                          pending++;
         });
         const done = ok + raw + stock + internal;
@@ -3717,6 +3722,7 @@
         setpill('pg-bg',       bg,       'BG');
         setpill('pg-quality',  quality,  'Quality');
         setpill('pg-hero',     hero,     'Hero');
+        setpill('pg-unsupported', unsupported_count, 'Unsupported');
         setpill('pg-pending',  pending,  '⏳');
 
         const anySub = banner + bg + quality + hero > 0;
@@ -4409,7 +4415,7 @@
                 return;
             }
             // Sub-issue shortcuts (single view only) — now all single-select
-            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero','p':'photo_na','P':'photo_na' };
+            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero','p':'photo_na','P':'photo_na','u':'unsupported','U':'unsupported' };
             if (img1ViewMode === 'single' && subShortcuts[e.key] && currentImg1Idx >= 0) {
                 e.preventDefault();
                 svToggleIssue(subShortcuts[e.key]);
