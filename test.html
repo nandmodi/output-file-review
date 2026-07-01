@@ -828,10 +828,10 @@
                                 <span class="issue-kbd">3</span>
                                 <span>Background</span>
                             </label>
-                            <label class="issue-chip" data-issue="Quality" data-key="4">
+                            <label class="issue-chip" data-issue="Photo NA" data-key="4">
                                 <input type="checkbox" class="issue-cb">
                                 <span class="issue-kbd">4</span>
-                                <span>Quality</span>
+                                <span>Photo NA</span>
                             </label>
                             <label class="issue-chip" data-issue="Hero angle missing" data-key="5">
                                 <input type="checkbox" class="issue-cb">
@@ -852,6 +852,11 @@
                                 <input type="checkbox" class="issue-cb">
                                 <span class="issue-kbd">8</span>
                                 <span>Stock</span>
+                            </label>
+                            <label class="issue-chip" data-issue="Input Overlap" data-key="9">
+                                <input type="checkbox" class="issue-cb">
+                                <span class="issue-kbd">9</span>
+                                <span>Input Overlap</span>
                             </label>
                             <div class="flex-1"></div>
                             <input id="review-comment" type="text" placeholder="Other comment..." class="w-56 p-1.5 border border-slate-200 rounded-lg text-xs outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition">
@@ -4193,7 +4198,7 @@
             if (!currentImg1VINs || !currentImg1VINs.length) { console.error('No currentImg1VINs'); return; }
             const header = [
                 '#', 'Rooftop', 'Condition', 'Team ID', 'VIN', 'Total Images',
-                'Issue Type', '1st Image URL', 'Comment'
+                'Issue Type', '1st Image URL', 'Comment', 'User'
             ];
             const lines = [header.join(',')];
             currentImg1VINs.forEach((v, idx) => {
@@ -4214,7 +4219,8 @@
                     v.urls.length,
                     csvCell(issueType),
                     csvCell(v.urls[0] || ''),
-                    csvCell(cm)
+                    csvCell(cm),
+                    csvCell(getCurrentUser())
                 ];
                 lines.push(row.join(','));
             });
@@ -4222,7 +4228,7 @@
             const a    = document.createElement('a');
             a.href     = URL.createObjectURL(blob);
             const safe = (currentImg1Team.rooftop || currentImg1Team.teamId || 'review').replace(/[^a-z0-9_-]/gi, '_');
-            a.download = '1st_image_review_' + safe + '_' + new Date().toISOString().slice(0,10) + '.csv';
+            a.download = safe + '_' + new Date().toISOString().slice(0,10) + '.csv';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -4451,7 +4457,7 @@
         }
 
         // 1-8 toggle issues
-        if (['1','2','3','4','5','6','7','8'].includes(e.key)) {
+        if (['1','2','3','4','5','6','7','8','9'].includes(e.key)) {
             e.preventDefault();
             const chip = document.querySelector(`.issue-chip[data-key="${e.key}"]`);
             if (chip) chip.click();
