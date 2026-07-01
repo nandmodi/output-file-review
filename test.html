@@ -669,7 +669,7 @@
                             <div id="sv-issue-bar" class="hidden items-center space-x-1.5 ml-3 flex-wrap gap-y-1">
                                 <button id="sv-r-btn"  onclick="svToggleIssue('raw')"        title="r" class="sv-issue-btn-hdr">Raw <small style="opacity:.55;font-size:9px">(r)</small></button>
                                 <button id="sv-s-btn"  onclick="svToggleIssue('stock')"      title="s" class="sv-issue-btn-hdr">Stock <small style="opacity:.55;font-size:9px">(s)</small></button>
-                                <button id="sv-i-btn"  onclick="svToggleIssue('issue')"      title="i" class="sv-issue-btn-hdr">Issue <small style="opacity:.55;font-size:9px">(i)</small></button>
+                                <button id="sv-i-btn"  onclick="svToggleIssue('issue')"      title="i" class="sv-issue-btn-hdr">Bad Input <small style="opacity:.55;font-size:9px">(i)</small></button>
                                 <button id="sv-bn-btn" onclick="svToggleIssue('banner')"     title="o" class="sv-issue-btn-hdr">Banner <small style="opacity:.55;font-size:9px">(o)</small></button>
                                 <button id="sv-bg-btn" onclick="svToggleIssue('background')" title="b" class="sv-issue-btn-hdr">Background <small style="opacity:.55;font-size:9px">(b)</small></button>
                                 <button id="sv-qt-btn" onclick="svToggleIssue('quality')"    title="q" class="sv-issue-btn-hdr">Quality <small style="opacity:.55;font-size:9px">(q)</small></button>
@@ -3468,8 +3468,8 @@
         return 'transparent';
     }
     function stateLabel(st) {
-        const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Issue',
-                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA', unsupported:'Unsupported Vehicle' };
+        const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Bad Input',
+                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA', unsupported:'Unsupported Vehicle', issue:'Bad Input' };
         return map[st] || '';
     }
     function stateBadgeText(st) {
