@@ -658,6 +658,7 @@
                         <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Reviewing VIN</p>
                         <div class="flex items-center space-x-2 mt-0.5">
                             <h2 id="current-vin-text" class="text-slate-800 font-bold text-[16px] font-mono tracking-tight">—</h2>
+                        <span id="vin-pos-counter" class="text-[11px] text-slate-400 font-medium ml-1"></span>
                             <button id="copy-vin-btn" class="text-slate-400 hover:text-blue-600 transition p-1 rounded hover:bg-slate-100" title="Copy VIN">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             </button>
@@ -2047,7 +2048,9 @@
 
         document.getElementById('sv-vin').textContent     = v.vin;
         document.getElementById('sv-counter').textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
-        document.getElementById('current-vin-image-count').innerText = (idx + 1) + ' / ' + currentImg1VINs.length;
+        const _vpc = document.getElementById('vin-pos-counter');
+        if (_vpc) _vpc.textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
+        document.getElementById('current-vin-image-count').innerText = '';  // hide in 1img mode
         // Show rooftop + condition in header
         updateVinMetaBadges(v);
 
@@ -2069,7 +2072,9 @@
         if (!url) {
             // No image — update header VIN name and controls, then show placeholder
             document.getElementById('current-vin-text').innerText = v.vin;
-            document.getElementById('current-vin-image-count').innerText = (idx + 1) + ' / ' + currentImg1VINs.length;
+            const _vpc = document.getElementById('vin-pos-counter');
+        if (_vpc) _vpc.textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
+        document.getElementById('current-vin-image-count').innerText = '';  // hide in 1img mode
             updateVinMetaBadges(v);
             if (noImgEl) noImgEl.style.display = 'flex';
             img.style.opacity = '0';
@@ -3549,7 +3554,7 @@
         const pgBar = document.getElementById('img1-progress-bar');
         if (pgBar) pgBar.classList.replace('hidden', 'flex') || pgBar.classList.remove('hidden') || (pgBar.style.display='flex');
         const pgPill = document.getElementById('review-progress');
-        if (pgPill) pgPill.classList.add('hidden');
+        if (pgPill) { pgPill.classList.add('hidden'); pgPill.style.display = 'none'; }
         // Ensure grid view active on entry
         document.getElementById('image-area').classList.remove('hidden');
         document.getElementById('single-view-area').classList.remove('active');
@@ -3571,19 +3576,12 @@
         }) : [];
 
         // Reuse the same review page — update header labels
-        document.getElementById('review-team-name').innerText = (team.rooftop || team.name) + ' — 1st Image Review';
+        document.getElementById('review-team-name').innerText = '1st Image Review';
         document.getElementById('review-team-id').innerText   = '';  // hide teamId in 1img mode
 
-        // Show a mode badge in topbar
-        let modeBadge = document.getElementById('review-mode-badge');
-        if (!modeBadge) {
-            modeBadge = document.createElement('span');
-            modeBadge.id = 'review-mode-badge';
-            modeBadge.className = 'bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider';
-            document.getElementById('review-progress').after(modeBadge);
-        }
-        modeBadge.textContent = '1st Image Mode';
-        modeBadge.classList.remove('hidden');
+        // Mode badge removed — title already says "1st Image Review"
+        const modeBadge = document.getElementById('review-mode-badge');
+        if (modeBadge) modeBadge.classList.add('hidden');
 
         // Hide issue chips and comment for 1st image mode — not needed
         document.getElementById('review-footer').classList.add('hidden');
