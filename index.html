@@ -578,7 +578,7 @@
                     <span id="pg-quality"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-hero"      class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-unsupported" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700 hidden"></span>
-                    <span id="pg-pending"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700 hidden"></span>
+<!-- pg-pending removed: redundant with reviewed count -->
                 </div>
                 <!-- Normal progress pill — non-1img modes -->
                 <span id="review-progress" class="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full text-[11px] font-semibold"></span>
@@ -669,7 +669,7 @@
                             <div id="sv-issue-bar" class="hidden items-center space-x-1.5 ml-3 flex-wrap gap-y-1">
                                 <button id="sv-r-btn"  onclick="svToggleIssue('raw')"        title="r" class="sv-issue-btn-hdr">Raw <small style="opacity:.55;font-size:9px">(r)</small></button>
                                 <button id="sv-s-btn"  onclick="svToggleIssue('stock')"      title="s" class="sv-issue-btn-hdr">Stock <small style="opacity:.55;font-size:9px">(s)</small></button>
-                                <button id="sv-i-btn"  onclick="svToggleIssue('issue')"      title="i" class="sv-issue-btn-hdr">Issue <small style="opacity:.55;font-size:9px">(i)</small></button>
+                                <button id="sv-i-btn"  onclick="svToggleIssue('issue')"      title="i" class="sv-issue-btn-hdr">Bad Input <small style="opacity:.55;font-size:9px">(i)</small></button>
                                 <button id="sv-bn-btn" onclick="svToggleIssue('banner')"     title="o" class="sv-issue-btn-hdr">Banner <small style="opacity:.55;font-size:9px">(o)</small></button>
                                 <button id="sv-bg-btn" onclick="svToggleIssue('background')" title="b" class="sv-issue-btn-hdr">Background <small style="opacity:.55;font-size:9px">(b)</small></button>
                                 <button id="sv-qt-btn" onclick="svToggleIssue('quality')"    title="q" class="sv-issue-btn-hdr">Quality <small style="opacity:.55;font-size:9px">(q)</small></button>
@@ -2067,7 +2067,10 @@
         img.referrerPolicy = 'no-referrer';
 
         if (!url) {
-            // No image for this VIN — show explicit placeholder, nothing else
+            // No image — update header VIN name and controls, then show placeholder
+            document.getElementById('current-vin-text').innerText = v.vin;
+            document.getElementById('current-vin-image-count').innerText = (idx + 1) + ' / ' + currentImg1VINs.length;
+            updateVinMetaBadges(v);
             if (noImgEl) noImgEl.style.display = 'flex';
             img.style.opacity = '0';
             svUpdateControls(st);
@@ -2918,7 +2921,7 @@
         currentVINIndex = -1;
 
         document.getElementById('review-team-name').innerText = team.name;
-        document.getElementById('review-team-id').innerText   = team.teamId;
+        document.getElementById('review-team-id').innerText   = '';  // hide teamId in 1img mode
 
         const teamVins = vinsByTeam.get(team.teamId);
         currentTeamVINs = teamVins ? [...teamVins.entries()].map(([key, entry]) => { const vin = key.includes('|~|') ? key.split('|~|')[0] : key; return { vin, urls: Array.isArray(entry) ? entry : (entry.urls||[]), rooftop: Array.isArray(entry) ? '' : (entry.rooftop||''), condition: Array.isArray(entry) ? '' : (entry.condition||'') }; }) : [];
@@ -3468,8 +3471,8 @@
         return 'transparent';
     }
     function stateLabel(st) {
-        const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Issue',
-                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA', unsupported:'Unsupported Vehicle' };
+        const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Bad Input',
+                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA', unsupported:'Unsupported Vehicle', issue:'Bad Input' };
         return map[st] || '';
     }
     function stateBadgeText(st) {
@@ -3568,8 +3571,8 @@
         }) : [];
 
         // Reuse the same review page — update header labels
-        document.getElementById('review-team-name').innerText = team.name + ' — 1st Image Review';
-        document.getElementById('review-team-id').innerText   = team.teamId;
+        document.getElementById('review-team-name').innerText = (team.rooftop || team.name) + ' — 1st Image Review';
+        document.getElementById('review-team-id').innerText   = '';  // hide teamId in 1img mode
 
         // Show a mode badge in topbar
         let modeBadge = document.getElementById('review-mode-badge');
@@ -3728,7 +3731,7 @@
         setpill('pg-quality',  quality,  'Quality');
         setpill('pg-hero',     hero,     'Hero');
         setpill('pg-unsupported', unsupported_count, 'Unsupported');
-        setpill('pg-pending',  pending,  '⏳');
+        // pending pill removed
 
         const anySub = banner + bg + quality + hero > 0;
         const sep = document.getElementById('pg-sub-sep');
@@ -4198,7 +4201,7 @@
             if (!currentImg1VINs || !currentImg1VINs.length) { console.error('No currentImg1VINs'); return; }
             const header = [
                 '#', 'Rooftop', 'Condition', 'Team ID', 'VIN', 'Total Images',
-                'Issue Type', '1st Image URL', 'Comment'
+                'Issue Type', '1st Image URL', 'Comment', 'User'
             ];
             const lines = [header.join(',')];
             currentImg1VINs.forEach((v, idx) => {
@@ -4219,7 +4222,8 @@
                     v.urls.length,
                     csvCell(issueType),
                     csvCell(v.urls[0] || ''),
-                    csvCell(cm)
+                    csvCell(cm),
+                    csvCell(getCurrentUser())
                 ];
                 lines.push(row.join(','));
             });
@@ -4227,7 +4231,7 @@
             const a    = document.createElement('a');
             a.href     = URL.createObjectURL(blob);
             const safe = (currentImg1Team.rooftop || currentImg1Team.teamId || 'review').replace(/[^a-z0-9_-]/gi, '_');
-            a.download = '1st_image_review_' + safe + '_' + new Date().toISOString().slice(0,10) + '.csv';
+            a.download = safe + '_' + new Date().toISOString().slice(0,10) + '.csv';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
