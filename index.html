@@ -6,7 +6,7 @@
     <title>Spyne Image Review Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style> 
+    <style>
         body { font-family: 'Inter', sans-serif; background-color: #f0f7ff; }
         .spyne-blue { background-color: #2b6cb0; }
 
@@ -2008,7 +2008,9 @@
             svShow(idx);
         } else {
             gridArea.classList.remove('hidden');
+            gridArea.style.display = '';     // clear any inline display:none from VIN review
             singleArea.classList.remove('active');
+            singleArea.style.display = 'none';  // ensure single area is hidden
             vtGrid.classList.add('active');
             vtSingle.classList.remove('active');
             if (issueBar) issueBar.style.display = 'none';
