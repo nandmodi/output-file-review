@@ -2167,6 +2167,17 @@
 
     function svNav(dir) {
         if (!currentImg1VINs.length) return;
+        // Auto-mark current VIN as OK when navigating away (if not already reviewed)
+        if (currentImg1Idx >= 0 && currentImg1Team) {
+            const v   = currentImg1VINs[currentImg1Idx];
+            const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
+            if (!cur) {
+                // Not yet reviewed — mark as OK on navigate
+                setImg1Review(currentImg1Team.teamId, v.vin, 'ok', '');
+                updateImg1ProgressBadge();
+                updateTileIssueState(currentImg1Idx, 'ok');
+            }
+        }
         const next = Math.max(0, Math.min(currentImg1VINs.length - 1, currentImg1Idx + dir));
         svShow(next);
     }
@@ -4366,6 +4377,12 @@
                 return;
             }
             // Arrow keys — navigate VINs (works in both grid + single view)
+            // Enter in single view = auto-OK current VIN and advance to next
+            if (e.key === 'Enter' && img1ViewMode === 'single') {
+                e.preventDefault();
+                svNav(1);  // svNav auto-marks OK if unreviewed
+                return;
+            }
             if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
                 e.preventDefault();
                 if (img1ViewMode === 'single') svNav(1);
