@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Spyne Image Review Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"> 
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f0f7ff; }
         .spyne-blue { background-color: #2b6cb0; }
- 
+
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #f1f1f1; }
         ::-webkit-scrollbar-thumb { background: #cbd5e0; border-radius: 10px; }
@@ -17,7 +17,7 @@
 
         .card-hover:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); 
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05);
         }
 
         .loading-spinner {
@@ -1996,28 +1996,28 @@
         const zoomWrap   = document.getElementById('grid-zoom-wrap');
 
         if (mode === 'single') {
-            gridArea.classList.add('hidden');
-            singleArea.classList.add('active');
+            gridArea.style.display   = 'none';
+            singleArea.style.display = 'flex';
+            singleArea.style.flexDirection = 'column';
+            singleArea.style.flex    = '1';
+            singleArea.style.minHeight = '0';
             vtGrid.classList.remove('active');
             vtSingle.classList.add('active');
             if (issueBar) issueBar.style.display = 'flex';
             if (zoomWrap) zoomWrap.style.visibility = 'hidden';
             const idx = currentImg1Idx >= 0 ? currentImg1Idx : 0;
-            // Aggressively preload a window of VINs before showing current
             svPreloadWindow(idx, 15);
             svShow(idx);
         } else {
+            gridArea.style.display   = '';
             gridArea.classList.remove('hidden');
-            gridArea.style.display = '';     // clear any inline display:none from VIN review
+            singleArea.style.display = 'none';
             singleArea.classList.remove('active');
-            singleArea.style.display = 'none';  // ensure single area is hidden
             vtGrid.classList.add('active');
             vtSingle.classList.remove('active');
             if (issueBar) issueBar.style.display = 'none';
             if (zoomWrap) zoomWrap.style.visibility = 'visible';
-            // Restore image count to tile-based display
             document.getElementById('current-vin-image-count').innerText = '';
-            // Re-apply current zoom to freshly rendered grid
             const grid = document.getElementById('images-grid');
             if (grid) {
                 const cols = ZOOM_COLS[currentGridZoom - 1];
