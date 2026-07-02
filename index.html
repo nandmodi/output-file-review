@@ -2090,7 +2090,7 @@
 
         skel.style.display = 'flex';
         const showFull = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
-        const svFallbacks = getFallbacks(url, 900, 90);
+        const svFallbacks = getFallbacks(url, 800, 82);
         let svStep = 0;
         const tryNext = () => {
             if (svStep < svFallbacks.length) { img.src = svFallbacks[svStep++]; return; }
@@ -2214,7 +2214,7 @@
 
     function preloadUrl(url) {
         if (!url) return;
-        const chain = getFallbacks(url, 900, 90);  // MUST match svShow params exactly
+        const chain = getFallbacks(url, 800, 82);  // MUST match svShow params exactly
         const resolvedUrl = chain[0];
         if (_svPreloadCache.has(resolvedUrl)) return;
         _svPreloadCache.add(resolvedUrl);
@@ -3556,7 +3556,7 @@
         reviewMode = '1img';
         startReviewTimer();
         img1ViewMode = 'grid';
-        currentGridZoom = 3; // reset zoom to default
+        // Keep currentGridZoom as-is — preserve user's zoom preference within session
         // Show view toggle + progress bar; hide normal pill
         const vt = document.getElementById('img1-view-toggle');
         if (vt) { vt.style.display = 'flex'; }
@@ -4409,9 +4409,12 @@
             if (e.key === 'Escape' && img1ViewMode === 'single') {
                 e.preventDefault();
                 setImg1View('grid');
-                // Restore the zoom level that was active before entering single view
+                // Force re-apply the current zoom (slider value = source of truth)
                 const slider = document.getElementById('grid-zoom-slider');
-                if (slider) applyGridZoom(slider.value);
+                if (slider) {
+                    slider.value = currentGridZoom;  // ensure slider matches state
+                    applyGridZoom(currentGridZoom);
+                }
                 // Scroll selected tile into view and highlight VIN in sidebar
                 const tile = document.getElementById('img1-tile-' + currentImg1Idx);
                 if (tile) tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
