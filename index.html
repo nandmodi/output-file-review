@@ -4006,7 +4006,9 @@
             // Click on tile body = navigate to VIN (issue set via checkboxes only)
             tile.addEventListener('click', (e) => {
                 if (e.target.type === 'checkbox' || e.target.tagName === 'LABEL') return;
+                // Clicking a tile: select this VIN and switch to single view
                 select1ImgVIN(idx);
+                setImg1View('single');
             });
 
             frag.appendChild(tile);
@@ -4403,6 +4405,17 @@
                 toggle1ImgIssue(currentImg1Idx);
                 return;
             }
+            // Esc in single view → back to grid, scroll tile into view
+            if (e.key === 'Escape' && img1ViewMode === 'single') {
+                e.preventDefault();
+                setImg1View('grid');
+                // Scroll selected tile into view and highlight VIN in sidebar
+                const tile = document.getElementById('img1-tile-' + currentImg1Idx);
+                if (tile) tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                select1ImgVIN(currentImg1Idx);
+                return;
+            }
+
             // Arrow keys — navigate VINs (works in both grid + single view)
             // Enter in single view = auto-OK current VIN and advance to next
             if (e.key === 'Enter' && img1ViewMode === 'single') {
