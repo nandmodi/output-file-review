@@ -6,7 +6,7 @@
     <title>Spyne Image Review Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style> 
+    <style>
         body { font-family: 'Inter', sans-serif; background-color: #f0f7ff; }
         .spyne-blue { background-color: #2b6cb0; }
 
@@ -4405,10 +4405,13 @@
                 toggle1ImgIssue(currentImg1Idx);
                 return;
             }
-            // Esc in single view → back to grid, scroll tile into view
+            // Esc in single view → back to grid, restore zoom, scroll tile into view
             if (e.key === 'Escape' && img1ViewMode === 'single') {
                 e.preventDefault();
                 setImg1View('grid');
+                // Restore the zoom level that was active before entering single view
+                const slider = document.getElementById('grid-zoom-slider');
+                if (slider) applyGridZoom(slider.value);
                 // Scroll selected tile into view and highlight VIN in sidebar
                 const tile = document.getElementById('img1-tile-' + currentImg1Idx);
                 if (tile) tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
