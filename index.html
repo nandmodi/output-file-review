@@ -2104,14 +2104,11 @@
         document.getElementById('current-vin-text').innerText = v.vin;
         updateVinMetaBadges(v);
         const badge = document.getElementById('current-vin-status-badge');
-        const badgeStyles = {
-            ok:    ['bg-emerald-100 text-emerald-700', 'ok'],
-            raw:   ['bg-orange-100 text-orange-700',   'raw'],
-            stock: ['bg-blue-100 text-blue-700',       'stock'],
-        };
-        const [cls, lbl] = badgeStyles[st] || ['bg-slate-100 text-slate-600', 'In Review'];
-        badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ' + cls;
-        badge.innerText = lbl;
+        const _stLabel = stateLabel(st);
+        const _stColor = st === 'ok' ? 'bg-emerald-100 text-emerald-700'
+            : st ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600';
+        badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ' + _stColor;
+        badge.innerText = st === 'ok' ? 'OK' : _stLabel || 'In Review';
     }
 
     function svUpdateControls(st) {
@@ -3744,28 +3741,22 @@
             if (st === 'raw' || st === 'stock' || st === 'internal') issue++;
             if (searchTerm && !v.vin.toLowerCase().includes(searchTerm)) return;
 
-            let stateClass = 'pending', dotClass = 'dot-pending';
-            if (st === 'ok')         { stateClass = 'approved'; dotClass = 'dot-approved'; }
-            if (st === 'raw')        { stateClass = 'rejected'; dotClass = 'dot-raw'; }
-            if (st === 'stock')      { stateClass = 'rejected'; dotClass = 'dot-stock'; }
-            if (st === 'issue')      { stateClass = 'rejected'; dotClass = 'dot-internal'; }
-            if (st === 'banner')     { stateClass = 'rejected'; dotClass = 'dot-raw'; }
-            if (st === 'background') { stateClass = 'rejected'; dotClass = 'dot-stock'; }
-            if (st === 'quality')    { stateClass = 'rejected'; dotClass = 'dot-internal'; }
-            if (st === 'hero')       { stateClass = 'rejected'; dotClass = 'dot-raw'; }
-            if (st === 'photo_na')   { stateClass = 'rejected'; dotClass = 'dot-internal'; }
-            if (st === 'unsupported'){ stateClass = 'rejected'; dotClass = 'dot-raw'; }
+            // stateClass drives CSS: 'approved'=green bg, 'rejected'=red bg, 'pending'=grey
+            let stateClass, dotClass;
+            if (!st)              { stateClass = 'pending';  dotClass = 'dot-pending'; }
+            else if (st === 'ok') { stateClass = 'approved'; dotClass = 'dot-approved'; }
+            else {
+                stateClass = 'rejected';
+                dotClass = st === 'raw'   ? 'dot-raw'
+                         : st === 'stock' ? 'dot-stock'
+                         : 'dot-internal';
+            }
 
             if (idx === currentImg1Idx) stateClass += ' current';
 
             const item = document.createElement('div');
             const isSelected = selectedVINIndices.has(idx);
-            // Apply green/red background tint to reviewed VINs
-            let reviewTint = '';
-            if (st === 'ok') reviewTint = ';border-left:3px solid #10b981;background:#f0fdf4';
-            else if (st && st !== 'ok') reviewTint = ';border-left:3px solid #f97316;background:#fff7ed';
             item.className = 'vin-item ' + stateClass + (isSelected ? ' vin-selected' : '');
-            if (reviewTint) item.style.cssText = reviewTint;
             item.dataset.idx = idx;
             item.innerHTML = `
                 <div class="flex items-center gap-1.5 min-w-0">
