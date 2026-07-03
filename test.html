@@ -209,7 +209,7 @@
         #single-view-area {
             display: none; flex-direction: column; flex: 1; min-height: 0; overflow: hidden;
         }
-        #single-view-area.active { display: flex; }
+        #single-view-area.active { display: flex; flex: 1; min-height: 0; }
         .sv-circle {
             width: 44px; height: 44px; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
@@ -566,7 +566,7 @@
                 </div>
                 <!-- Progress summary bar — 1st image mode -->
                 <div id="img1-progress-bar" class="hidden items-center space-x-1 flex-wrap gap-y-1">
-                    <span id="pg-reviewed"  class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600"></span>
+                    <span id="pg-reviewed" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-600"></span>
                     <span class="text-slate-300 text-[10px]">|</span>
                     <span id="pg-ok"        class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-700 hidden"></span>
                     <span id="pg-raw"       class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-orange-100 text-orange-700 hidden"></span>
@@ -578,7 +578,7 @@
                     <span id="pg-quality"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-hero"      class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-unsupported" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700 hidden"></span>
-                    <span id="pg-pending"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700 hidden"></span>
+<!-- pg-pending removed: redundant with reviewed count -->
                 </div>
                 <!-- Normal progress pill — non-1img modes -->
                 <span id="review-progress" class="bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-full text-[11px] font-semibold"></span>
@@ -658,12 +658,13 @@
                         <p class="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">Reviewing VIN</p>
                         <div class="flex items-center space-x-2 mt-0.5">
                             <h2 id="current-vin-text" class="text-slate-800 font-bold text-[16px] font-mono tracking-tight">—</h2>
+<span id="vin-pos-counter" class="hidden"></span>
                             <button id="copy-vin-btn" class="text-slate-400 hover:text-blue-600 transition p-1 rounded hover:bg-slate-100" title="Copy VIN">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
                             </button>
                             <span id="copy-vin-feedback" class="text-[10px] font-semibold text-emerald-600 opacity-0 transition-opacity">Copied!</span>
                             <!-- Rooftop + condition badges — shown when reviewing all rooftops -->
-                            <span id="current-vin-rooftop" class="hidden text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded"></span>
+<span id="current-vin-rooftop" class="hidden" style="display:none!important"></span>
                             <span id="current-vin-condition" class="hidden text-[10px] font-semibold px-2 py-0.5 rounded"></span>
                             <!-- Issue buttons — only shown in single view -->
                             <div id="sv-issue-bar" class="hidden items-center space-x-1.5 ml-3 flex-wrap gap-y-1">
@@ -690,30 +691,8 @@
                     </div>
                     <div class="flex items-center space-x-3">
                         <span id="current-vin-image-count" class="text-[11px] text-slate-500"></span>
-                        <span id="current-vin-status-badge" class="px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider">pending</span>
-                        <!-- View toggle — only visible in 1img mode -->
-                        <div id="img1-view-toggle" class="hidden items-center space-x-2">
-                            <!-- Zoom slider (grid only) -->
-                            <div id="grid-zoom-wrap" class="flex items-center space-x-1.5" title="Zoom grid size">
-                                <svg class="w-3 h-3 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-                                <input id="grid-zoom-slider" type="range" min="1" max="5" step="1" value="3"
-                                    oninput="applyGridZoom(this.value)" title="Grid size">
-                                <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
-                            </div>
-                            <!-- Grid / Single buttons -->
-                            <div class="flex items-center rounded-lg border border-slate-200 overflow-hidden">
-                                <button id="vt-grid" onclick="setImg1View('grid')"
-                                    class="view-toggle-btn active px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1" title="Grid view">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                                    <span>Grid</span>
-                                </button>
-                                <button id="vt-single" onclick="setImg1View('single')"
-                                    class="view-toggle-btn px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1" title="Single view">
-                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/></svg>
-                                    <span>Single</span>
-                                </button>
-                            </div>
-                        </div>
+                        <span id="current-vin-status-badge" class="px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider">In Review</span>
+                        
                     </div>
                 </div>
 
@@ -932,7 +911,7 @@
                 </div>
                 <h3 class="text-slate-800 font-bold text-[18px] text-center mb-1">All VINs reviewed</h3>
                 <p id="complete-subtitle" class="text-slate-500 text-[13px] text-center mb-5"></p>
-                <div class="grid grid-cols-3 gap-2 mb-5 text-center">
+                <div class="grid grid-cols-4 gap-2 mb-5 text-center">
                     <div class="bg-emerald-50 rounded-lg p-2.5">
                         <div class="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Approved</div>
                         <div id="complete-approved" class="text-lg font-bold text-emerald-700">0</div>
@@ -940,6 +919,10 @@
                     <div class="bg-rose-50 rounded-lg p-2.5">
                         <div class="text-[10px] font-bold text-rose-600 uppercase tracking-wider">Rejected</div>
                         <div id="complete-rejected" class="text-lg font-bold text-rose-700">0</div>
+                    </div>
+                    <div id="complete-pending-box" class="bg-amber-50 rounded-lg p-2.5 hidden">
+                        <div class="text-[10px] font-bold text-amber-600 uppercase tracking-wider">Pending</div>
+                        <div id="complete-pending" class="text-lg font-bold text-amber-700">0</div>
                     </div>
                     <div class="bg-slate-50 rounded-lg p-2.5">
                         <div class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total</div>
@@ -1970,7 +1953,7 @@
         currentGridZoom = parseInt(val);
         const cols = ZOOM_COLS[currentGridZoom - 1];
         const grid = document.getElementById('images-grid');
-        if (grid && !grid.classList.contains('hidden')) {
+        if (grid) {
             grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
         }
         // Update slider gradient
@@ -1991,28 +1974,28 @@
         const zoomWrap   = document.getElementById('grid-zoom-wrap');
 
         if (mode === 'single') {
-            gridArea.classList.add('hidden');
-            singleArea.classList.add('active');
+            gridArea.style.display   = 'none';
+            singleArea.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;';
             vtGrid.classList.remove('active');
             vtSingle.classList.add('active');
             if (issueBar) issueBar.style.display = 'flex';
             if (zoomWrap) zoomWrap.style.visibility = 'hidden';
             const idx = currentImg1Idx >= 0 ? currentImg1Idx : 0;
-            // Aggressively preload a window of VINs before showing current
             svPreloadWindow(idx, 15);
             svShow(idx);
         } else {
+            gridArea.style.display   = '';
             gridArea.classList.remove('hidden');
+            singleArea.style.display = 'none';
             singleArea.classList.remove('active');
             vtGrid.classList.add('active');
             vtSingle.classList.remove('active');
             if (issueBar) issueBar.style.display = 'none';
             if (zoomWrap) zoomWrap.style.visibility = 'visible';
-            // Restore image count to tile-based display
             document.getElementById('current-vin-image-count').innerText = '';
-            // Re-apply current zoom to freshly rendered grid
             const grid = document.getElementById('images-grid');
             if (grid) {
+                grid.classList.remove('hidden');  // images-grid starts with hidden class
                 const cols = ZOOM_COLS[currentGridZoom - 1];
                 grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
             }
@@ -2022,10 +2005,7 @@
     function updateVinMetaBadges(v) {
         const rtEl = document.getElementById('current-vin-rooftop');
         const cdEl = document.getElementById('current-vin-condition');
-        if (rtEl) {
-            if (v && v.rooftop) { rtEl.textContent = v.rooftop; rtEl.classList.remove('hidden'); }
-            else rtEl.classList.add('hidden');
-        }
+        if (rtEl) { rtEl.classList.add('hidden'); }  // rooftop badge removed from VIN header
         if (cdEl) {
             if (v && v.condition) {
                 cdEl.textContent = v.condition;
@@ -2047,7 +2027,9 @@
 
         document.getElementById('sv-vin').textContent     = v.vin;
         document.getElementById('sv-counter').textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
-        document.getElementById('current-vin-image-count').innerText = (idx + 1) + ' / ' + currentImg1VINs.length;
+        const _vpc = document.getElementById('vin-pos-counter');
+        if (_vpc) _vpc.textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
+        document.getElementById('current-vin-image-count').innerText = '';  // hide in 1img mode
         // Show rooftop + condition in header
         updateVinMetaBadges(v);
 
@@ -2067,7 +2049,12 @@
         img.referrerPolicy = 'no-referrer';
 
         if (!url) {
-            // No image for this VIN — show explicit placeholder, nothing else
+            // No image — update header VIN name and controls, then show placeholder
+            document.getElementById('current-vin-text').innerText = v.vin;
+            const _vpc = document.getElementById('vin-pos-counter');
+        if (_vpc) _vpc.textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
+        document.getElementById('current-vin-image-count').innerText = '';  // hide in 1img mode
+            updateVinMetaBadges(v);
             if (noImgEl) noImgEl.style.display = 'flex';
             img.style.opacity = '0';
             svUpdateControls(st);
@@ -2081,7 +2068,7 @@
 
         skel.style.display = 'flex';
         const showFull = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
-        const svFallbacks = getFallbacks(url, 900, 90);
+        const svFallbacks = getFallbacks(url, 800, 82);
         let svStep = 0;
         const tryNext = () => {
             if (svStep < svFallbacks.length) { img.src = svFallbacks[svStep++]; return; }
@@ -2099,14 +2086,11 @@
         document.getElementById('current-vin-text').innerText = v.vin;
         updateVinMetaBadges(v);
         const badge = document.getElementById('current-vin-status-badge');
-        const badgeStyles = {
-            ok:    ['bg-emerald-100 text-emerald-700', 'ok'],
-            raw:   ['bg-orange-100 text-orange-700',   'raw'],
-            stock: ['bg-blue-100 text-blue-700',       'stock'],
-        };
-        const [cls, lbl] = badgeStyles[st] || ['bg-orange-100 text-orange-600', 'pending'];
-        badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ' + cls;
-        badge.innerText = lbl;
+        const _stLabel = stateLabel(st);
+        const _stColor = st === 'ok' ? 'bg-emerald-100 text-emerald-700'
+            : st ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600';
+        badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ' + _stColor;
+        badge.innerText = st === 'ok' ? 'OK' : _stLabel || 'In Review';
     }
 
     function svUpdateControls(st) {
@@ -2165,6 +2149,17 @@
 
     function svNav(dir) {
         if (!currentImg1VINs.length) return;
+        // Auto-mark current VIN as OK when navigating away (if not already reviewed)
+        if (currentImg1Idx >= 0 && currentImg1Team) {
+            const v   = currentImg1VINs[currentImg1Idx];
+            const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
+            if (!cur) {
+                // Not yet reviewed — mark as OK on navigate
+                setImg1Review(currentImg1Team.teamId, v.vin, 'ok', '');
+                updateImg1ProgressBadge();
+                updateTileIssueState(currentImg1Idx, 'ok');
+            }
+        }
         const next = Math.max(0, Math.min(currentImg1VINs.length - 1, currentImg1Idx + dir));
         svShow(next);
     }
@@ -2197,7 +2192,7 @@
 
     function preloadUrl(url) {
         if (!url) return;
-        const chain = getFallbacks(url, 900, 90);  // MUST match svShow params exactly
+        const chain = getFallbacks(url, 800, 82);  // MUST match svShow params exactly
         const resolvedUrl = chain[0];
         if (_svPreloadCache.has(resolvedUrl)) return;
         _svPreloadCache.add(resolvedUrl);
@@ -2918,7 +2913,7 @@
         currentVINIndex = -1;
 
         document.getElementById('review-team-name').innerText = team.name;
-        document.getElementById('review-team-id').innerText   = team.teamId;
+        document.getElementById('review-team-id').innerText   = '';  // hide teamId in 1img mode
 
         const teamVins = vinsByTeam.get(team.teamId);
         currentTeamVINs = teamVins ? [...teamVins.entries()].map(([key, entry]) => { const vin = key.includes('|~|') ? key.split('|~|')[0] : key; return { vin, urls: Array.isArray(entry) ? entry : (entry.urls||[]), rooftop: Array.isArray(entry) ? '' : (entry.rooftop||''), condition: Array.isArray(entry) ? '' : (entry.condition||'') }; }) : [];
@@ -3002,7 +2997,7 @@
             badge.innerText = 'rejected';
         } else {
             badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-600';
-            badge.innerText = 'pending';
+            badge.innerText = 'In Review';
         }
 
         document.getElementById('review-comment').value = r?.comment || '';
@@ -3539,14 +3534,14 @@
         reviewMode = '1img';
         startReviewTimer();
         img1ViewMode = 'grid';
-        currentGridZoom = 3; // reset zoom to default
+        // Keep currentGridZoom as-is — preserve user's zoom preference within session
         // Show view toggle + progress bar; hide normal pill
         const vt = document.getElementById('img1-view-toggle');
         if (vt) { vt.style.display = 'flex'; }
         const pgBar = document.getElementById('img1-progress-bar');
         if (pgBar) pgBar.classList.replace('hidden', 'flex') || pgBar.classList.remove('hidden') || (pgBar.style.display='flex');
         const pgPill = document.getElementById('review-progress');
-        if (pgPill) pgPill.classList.add('hidden');
+        if (pgPill) { pgPill.classList.add('hidden'); pgPill.style.display = 'none'; }
         // Ensure grid view active on entry
         document.getElementById('image-area').classList.remove('hidden');
         document.getElementById('single-view-area').classList.remove('active');
@@ -3568,19 +3563,12 @@
         }) : [];
 
         // Reuse the same review page — update header labels
-        document.getElementById('review-team-name').innerText = team.name + ' — 1st Image Review';
-        document.getElementById('review-team-id').innerText   = team.teamId;
+        document.getElementById('review-team-name').innerText = team.rooftop || team.name || '1st Image Review';
+        document.getElementById('review-team-id').innerText   = '';  // hide teamId in 1img mode
 
-        // Show a mode badge in topbar
-        let modeBadge = document.getElementById('review-mode-badge');
-        if (!modeBadge) {
-            modeBadge = document.createElement('span');
-            modeBadge.id = 'review-mode-badge';
-            modeBadge.className = 'bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider';
-            document.getElementById('review-progress').after(modeBadge);
-        }
-        modeBadge.textContent = '1st Image Mode';
-        modeBadge.classList.remove('hidden');
+        // Mode badge removed — title already says "1st Image Review"
+        const modeBadge = document.getElementById('review-mode-badge');
+        if (modeBadge) modeBadge.classList.add('hidden');
 
         // Hide issue chips and comment for 1st image mode — not needed
         document.getElementById('review-footer').classList.add('hidden');
@@ -3600,9 +3588,15 @@
             doneBtn.className = 'bg-emerald-600 text-white px-3 py-1.5 rounded text-[11px] font-bold hover:bg-emerald-700 flex items-center space-x-1.5';
             doneBtn.innerHTML = '<span>Done ✓</span>';
             doneBtn.onclick = () => {
-                const pending = currentImg1VINs.filter(v => !getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '')).length;
-                if (pending > 0 && !confirm(pending + ' VINs still pending. Mark all as Done anyway?')) return;
-                openImg1Complete();
+                if (img1ViewMode === 'single') {
+                    // Single view: show summary modal, pending VINs stay as pending
+                    openImg1Complete(false);  // false = don't auto-approve pending
+                } else {
+                    // Grid view: confirm then auto-approve pending as OK (original behaviour)
+                    const pending = currentImg1VINs.filter(v => !getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '')).length;
+                    if (pending > 0 && !confirm(pending + ' VINs still pending. Mark all as Done anyway?')) return;
+                    openImg1Complete(true);   // true = auto-approve pending as OK
+                }
             };
             sumBtn.parentElement.insertBefore(doneBtn, sumBtn);
         }
@@ -3702,7 +3696,7 @@
             else if (st === 'unsupported') unsupported_count++;
             else                          pending++;
         });
-        const done = ok + raw + stock + internal;
+        const done = ok + raw + stock + internal + banner + bg + quality + hero + photo_na_count + unsupported_count;
 
         document.getElementById('review-progress').innerText = done + ' / ' + total + ' reviewed';
 
@@ -3717,7 +3711,7 @@
         };
 
         const rv = document.getElementById('pg-reviewed');
-        if (rv) { rv.textContent = done + '/' + total + ' reviewed'; rv.classList.remove('hidden'); }
+        if (rv) { rv.textContent = done + '/' + total; rv.classList.remove('hidden'); }
 
         setpill('pg-ok',       ok,       '✓ OK');
         setpill('pg-raw',      raw,      'R');
@@ -3728,7 +3722,7 @@
         setpill('pg-quality',  quality,  'Quality');
         setpill('pg-hero',     hero,     'Hero');
         setpill('pg-unsupported', unsupported_count, 'Unsupported');
-        setpill('pg-pending',  pending,  '⏳');
+        // pending pill removed
 
         const anySub = banner + bg + quality + hero > 0;
         const sep = document.getElementById('pg-sub-sep');
@@ -3746,10 +3740,16 @@
             if (st === 'raw' || st === 'stock' || st === 'internal') issue++;
             if (searchTerm && !v.vin.toLowerCase().includes(searchTerm)) return;
 
-            let stateClass = 'pending', dotClass = 'dot-pending';
-            if (st === 'ok')    { stateClass = 'approved'; dotClass = 'dot-approved'; }
-            if (st === 'raw')   { stateClass = 'rejected'; dotClass = 'dot-raw'; }
-            if (st === 'stock') { stateClass = 'rejected'; dotClass = 'dot-stock'; }
+            // stateClass drives CSS: 'approved'=green bg, 'rejected'=red bg, 'pending'=grey
+            let stateClass, dotClass;
+            if (!st)              { stateClass = 'pending';  dotClass = 'dot-pending'; }
+            else if (st === 'ok') { stateClass = 'approved'; dotClass = 'dot-approved'; }
+            else {
+                stateClass = 'rejected';
+                dotClass = st === 'raw'   ? 'dot-raw'
+                         : st === 'stock' ? 'dot-stock'
+                         : 'dot-internal';
+            }
 
             if (idx === currentImg1Idx) stateClass += ' current';
 
@@ -3797,7 +3797,7 @@
             badge.innerText = 'issue';
         } else {
             badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-600';
-            badge.innerText = 'pending';
+            badge.innerText = 'In Review';
         }
         document.getElementById('current-vin-image-count').innerText = '1/' + v.urls.length + ' shown';
 
@@ -3984,7 +3984,9 @@
             // Click on tile body = navigate to VIN (issue set via checkboxes only)
             tile.addEventListener('click', (e) => {
                 if (e.target.type === 'checkbox' || e.target.tagName === 'LABEL') return;
+                // Clicking a tile: select this VIN and switch to single view
                 select1ImgVIN(idx);
+                setImg1View('single');
             });
 
             frag.appendChild(tile);
@@ -4079,7 +4081,7 @@
         toggle1ImgIssue(idx);  // reuse in-place update
     }
 
-    function openImg1Complete() {
+    function openImg1Complete(autoApprove = true) {
         const teamId  = currentImg1Team.teamId;
         const team    = currentImg1Team;
         const now     = new Date();
@@ -4094,22 +4096,29 @@
             const rooftop = v.rooftop || '';
             const alreadyReviewed = !!getImg1Review(teamId, v.vin, rooftop);
 
-            if (!alreadyReviewed) {
-                // Auto-approve: update local state only, no individual sync
-                const _key   = img1ReviewKey(teamId, v.vin, rooftop);
-                const _vKey  = rooftop ? v.vin + '|~|' + rooftop : v.vin;
+            if (!alreadyReviewed && autoApprove) {
+                // Grid mode: auto-approve pending VINs as OK
+                const _key  = img1ReviewKey(teamId, v.vin, rooftop);
+                const _vKey = rooftop ? v.vin + '|~|' + rooftop : v.vin;
                 if (!img1Reviews[_key]) img1Reviews[_key] = {};
                 img1Reviews[_key][_vKey] = 'ok';
-                // Update tile outline
-                const tile = document.getElementById('img1-tile-' + idx);
-                if (tile) {
-                    tile.style.outline = '2px solid #10b981';
-                    const stBadge = tile.children[1];
-                    if (stBadge && stBadge.style.position === 'absolute') {
-                        stBadge.textContent = '✓ OK'; stBadge.style.background = '#10b981';
-                    }
-                }
-                // Only add to bulk POST if it was pending (not already synced individually)
+                updateTileIssueState(idx, 'ok');
+                bulkRows.push({
+                    reviewer:    reviewer,
+                    enterprise:  selectedEnterprise,
+                    teamName:    team.name || '',
+                    teamId:      teamId,
+                    vin:         v.vin,
+                    status:      'ok',
+                    firstImgUrl: v?.urls?.[0] || '',
+                    imageCount:  v?.urls?.length ?? 0,
+                    reviewDate:  ddmmyyyy(now),
+                    reviewedAt:  now.toISOString()
+                });
+            } else if (!alreadyReviewed) {
+                // Single view: leave as pending — skip bulkRows
+            } else {
+                // Already reviewed — sync
                 bulkRows.push({
                     reviewer:    reviewer,
                     enterprise:  selectedEnterprise,
@@ -4136,15 +4145,25 @@
         render1ImgSidebar();
         updateImg1ProgressBadge();
 
-        let ok = 0, issue = 0;
-        currentImg1VINs.forEach((v, i) => {
+        let ok = 0, issue = 0, pending = 0;
+        currentImg1VINs.forEach((v) => {
             const st = getImg1Review(teamId, v.vin, v.rooftop || '');
-            if (st === 'ok') ok++; else if (st && st !== 'ok') issue++;
+            if (st === 'ok') ok++;
+            else if (st && st !== 'ok') issue++;
+            else pending++;
         });
-        document.getElementById('complete-subtitle').innerText = currentImg1Team.name + ' · 1st Image Review';
+        const titleName = currentImg1Team.rooftop || currentImg1Team.name || '';
+        document.getElementById('complete-subtitle').innerText = titleName + ' · 1st Image Review';
         document.getElementById('complete-approved').innerText = ok;
         document.getElementById('complete-rejected').innerText = issue;
         document.getElementById('complete-total').innerText    = currentImg1VINs.length;
+        // Show pending tile only when there are pending VINs
+        const pendingBox = document.getElementById('complete-pending-box');
+        const pendingEl  = document.getElementById('complete-pending');
+        if (pendingBox && pendingEl) {
+            if (pending > 0) { pendingEl.innerText = pending; pendingBox.classList.remove('hidden'); }
+            else             { pendingBox.classList.add('hidden'); }
+        }
         const okBtn = document.getElementById('complete-ok-btn');
         okBtn.__1imgMode = true;
         document.getElementById('complete-modal').classList.add('active');
@@ -4364,7 +4383,32 @@
                 toggle1ImgIssue(currentImg1Idx);
                 return;
             }
+            // Esc in single view → back to grid, restore zoom, scroll tile into view
+            if (e.key === 'Escape' && img1ViewMode === 'single') {
+                e.preventDefault();
+                setImg1View('grid');
+                // Re-apply zoom after grid is visible
+                requestAnimationFrame(() => {
+                    const slider = document.getElementById('grid-zoom-slider');
+                    if (slider) {
+                        slider.value = currentGridZoom;
+                        applyGridZoom(currentGridZoom);
+                    }
+                });
+                // Scroll selected tile into view and highlight VIN in sidebar
+                const tile = document.getElementById('img1-tile-' + currentImg1Idx);
+                if (tile) tile.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                select1ImgVIN(currentImg1Idx);
+                return;
+            }
+
             // Arrow keys — navigate VINs (works in both grid + single view)
+            // Enter in single view = auto-OK current VIN and advance to next
+            if (e.key === 'Enter' && img1ViewMode === 'single') {
+                e.preventDefault();
+                svNav(1);  // svNav auto-marks OK if unreviewed
+                return;
+            }
             if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
                 e.preventDefault();
                 if (img1ViewMode === 'single') svNav(1);
