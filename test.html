@@ -690,7 +690,7 @@
                         </div>
                     </div>
                     <div class="flex items-center space-x-3">
-                        <span id="current-vin-image-count" class="text-[11px] text-slate-500"></span>
+<span id="current-vin-image-count" class="hidden"></span>
                         <span id="current-vin-status-badge" class="px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider">In Review</span>
                         
                     </div>
@@ -1992,7 +1992,7 @@
             vtSingle.classList.remove('active');
             if (issueBar) issueBar.style.display = 'none';
             if (zoomWrap) zoomWrap.style.visibility = 'visible';
-            document.getElementById('current-vin-image-count').innerText = '';
+            // current-vin-image-count removed
             const grid = document.getElementById('images-grid');
             if (grid) {
                 grid.classList.remove('hidden');  // images-grid starts with hidden class
@@ -2029,7 +2029,7 @@
         document.getElementById('sv-counter').textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
         const _vpc = document.getElementById('vin-pos-counter');
         if (_vpc) _vpc.textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
-        document.getElementById('current-vin-image-count').innerText = '';  // hide in 1img mode
+        // current-vin-image-count removed  // hide in 1img mode
         // Show rooftop + condition in header
         updateVinMetaBadges(v);
 
@@ -2053,7 +2053,7 @@
             document.getElementById('current-vin-text').innerText = v.vin;
             const _vpc = document.getElementById('vin-pos-counter');
         if (_vpc) _vpc.textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
-        document.getElementById('current-vin-image-count').innerText = '';  // hide in 1img mode
+        // current-vin-image-count removed  // hide in 1img mode
             updateVinMetaBadges(v);
             if (noImgEl) noImgEl.style.display = 'flex';
             img.style.opacity = '0';
@@ -2929,7 +2929,7 @@
             document.getElementById('no-images-state').classList.add('hidden');
             document.getElementById('review-footer').classList.add('hidden');
             document.getElementById('current-vin-text').innerText = '—';
-            document.getElementById('current-vin-image-count').innerText = '';
+            // current-vin-image-count removed
             return;
         }
 
@@ -2985,7 +2985,7 @@
         currentVINIndex = idx;
         const v = currentTeamVINs[idx];
         document.getElementById('current-vin-text').innerText = v.vin;
-        document.getElementById('current-vin-image-count').innerText = `${v.urls.length} image${v.urls.length === 1 ? '' : 's'}`;
+        // current-vin-image-count removed
 
         const r = getReview(currentTeam.teamId, v.vin);
         const badge = document.getElementById('current-vin-status-badge');
@@ -3799,7 +3799,7 @@
             badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-600';
             badge.innerText = 'In Review';
         }
-        document.getElementById('current-vin-image-count').innerText = '1/' + v.urls.length + ' shown';
+        // current-vin-image-count removed
 
         // Remove highlight from previously selected tile
         const prevTile = document.querySelector('.img1-tile-selected');
