@@ -3024,6 +3024,19 @@
         setCheckedIssues(r?.issues || []);
         renderImages(v);
         renderVINSidebar();
+        // Preload single-view size (800/82) immediately on VIN select
+        if (v.urls) {
+            v.urls.slice(0, 8).forEach(u => {
+                const chain = getFallbacks(u, 800, 82);
+                if (!_svPreloadCache.has(chain[0])) {
+                    _svPreloadCache.add(chain[0]);
+                    const p = new Image();
+                    p.referrerPolicy = 'no-referrer';
+                    p.decoding = 'async';
+                    p.src = chain[0];
+                }
+            });
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -3231,21 +3244,21 @@
     }
 
     function prefetchNextVINs() {
-        // Prefetch next VINs thumbnails using the same getFallbacks chain as display
-        // so browser cache is guaranteed to hit when renderImages fires
         for (let offset = 1; offset <= 3; offset++) {
             const nxt = currentTeamVINs[currentVINIndex + offset];
             if (!nxt) break;
             const limit = offset === 1 ? nxt.urls.length : Math.min(nxt.urls.length, 6);
             nxt.urls.slice(0, limit).forEach(u => {
-                const chain = getFallbacks(u, 500, 75);
-                if (!_svPreloadCache.has(chain[0])) {
-                    _svPreloadCache.add(chain[0]);
-                    const p = new Image();
-                    p.referrerPolicy = 'no-referrer';
-                    p.decoding = 'async';
-                    p.src = chain[0];
-                }
+                // Preload both thumbnail (500/75) and single-view (800/82) sizes
+                [getFallbacks(u, 500, 75), getFallbacks(u, 800, 82)].forEach(chain => {
+                    if (!_svPreloadCache.has(chain[0])) {
+                        _svPreloadCache.add(chain[0]);
+                        const p = new Image();
+                        p.referrerPolicy = 'no-referrer';
+                        p.decoding = 'async';
+                        p.src = chain[0];
+                    }
+                });
             });
         }
     }
@@ -3306,7 +3319,7 @@
         img.src = ''; img.style.opacity = '0';
         skel.style.display = 'flex';
         if (ctr) ctr.textContent = (vrSvImgIndex + 1) + ' / ' + vrCurrentUrls.length;
-        const fallbacks = getFallbacks(url, 900, 90);
+        const fallbacks = getFallbacks(url, 800, 82);
         let step = 0;
         img.onload  = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
         img.onerror = () => { step++; if (step < fallbacks.length) { img.src = fallbacks[step]; } else { skel.style.display = 'none'; } };
@@ -4542,7 +4555,16 @@
     // LIGHTBOX
     // =========================================================================
     function openLightbox(url) {
-        document.getElementById('lightbox-img').src = url;
+        const lbImg = document.getElementById('lightbox-img');
+        // Clear handlers + src first to avoid previous image bleed
+        lbImg.onload = lbImg.onerror = null;
+        lbImg.src = '';
+        lbImg.style.opacity = '0';
+        const fallbacks = getFallbacks(url, 800, 82);
+        let step = 0;
+        lbImg.onload  = () => { lbImg.style.opacity = '1'; };
+        lbImg.onerror = () => { step++; if (step < fallbacks.length) lbImg.src = fallbacks[step]; };
+        lbImg.src = fallbacks[0] || url;
         document.getElementById('lightbox').classList.add('active');
     }
     function closeLightbox(e) {
