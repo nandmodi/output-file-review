@@ -2941,6 +2941,9 @@
         showPage('page-review');
         updateProgressBadge();
         renderVINSidebar();
+        // Show VIN review controls in topbar
+        const _vrc = document.getElementById('vin-view-controls');
+        if (_vrc) { _vrc.classList.remove('hidden'); _vrc.style.display = 'flex'; }
 
         if (!currentTeamVINs.length) {
             document.getElementById('no-vin-state').classList.remove('hidden');
