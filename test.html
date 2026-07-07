@@ -594,7 +594,7 @@
                     <span id="timer-pause-indicator" class="text-[9px] font-semibold text-amber-500 hidden">PAUSED</span>
                 </div>
                 <!-- VIN review view controls -->
-                <div id="vin-view-controls" class="hidden items-center space-x-2">
+                <div id="vin-view-controls" class="items-center space-x-2" style="display:none;">
                     <!-- Zoom slider -->
                     <div class="flex items-center space-x-1.5" title="Grid size">
                         <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
@@ -1141,7 +1141,7 @@
     const GOOGLE_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLScVlcfx6cSrfTohohTJY9zOv4GTiKQf5d0CmLHkPEWg8VMLgA/formResponse";
     const CLIENT_NAME_ENTRY_ID   = "entry.371922314";
 
-    const REVIEW_SYNC_ENABLED = true;
+    const REVIEW_SYNC_ENABLED = false;  // Sheet sync disabled
     const REVIEW_WEBAPP_URL   = "https://script.google.com/macros/s/AKfycbyk_puhcCuKAxC3PaZqUq-hTm8jeH8iaJuXbNFX-9Zj6c3L4Voht1HD_Wr3kxvywcxK/exec";
 
     // Fixed column indices in All_Data (0-based, cols A-K)
@@ -1374,132 +1374,7 @@
         _vinSyncRunning = false;
     }
 
-    async function syncReviewToSheet(payload) {
-        if (!REVIEW_SYNC_ENABLED) return;
-        _vinSyncQueue.push(payload);
-        _processVinSyncQueue();
-    }
-
-    // ── 1st Image Review sync — queued & rate-limited ─────────────────────────
-    // All saves go through a queue processed one-at-a-time with a small delay
-    // between each POST. This prevents Google Apps Script from dropping requests
-    // when many VINs are auto-approved simultaneously (e.g. Done button).
-    const _img1SyncQueue = [];
-    let   _img1SyncRunning = false;
-
-    async function _processImg1SyncQueue() {
-        if (_img1SyncRunning) return;
-        _img1SyncRunning = true;
-        while (_img1SyncQueue.length > 0) {
-            const payload = _img1SyncQueue.shift();
-            let retries = 3;
-            while (retries-- > 0) {
-                try {
-                    await fetch(REVIEW_WEBAPP_URL, {
-                        method:  'POST',
-                        mode:    'no-cors',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body:    JSON.stringify({
-                            sheet:       '1st_image_review',
-                            reviewer:    payload.reviewer    || '',
-                            enterprise:  payload.enterprise  || '',
-                            teamName:    payload.teamName    || '',
-                            teamId:      payload.teamId      || '',
-                            vin:         payload.vin         || '',
-                            status:      payload.status      || '',
-                            firstImgUrl: payload.firstImgUrl || '',
-                            imageCount:  payload.imageCount  ?? 0,
-                            reviewDate:  payload.reviewDate  || '',
-                            reviewedAt:  payload.reviewedAt  || ''
-                        })
-                    });
-                    break;   // success — move to next item
-                } catch (e) {
-                    if (retries === 0) console.warn('1img sync failed after retries:', e);
-                    else await new Promise(r => setTimeout(r, 400));
-                }
-            }
-            // Small delay between requests so Apps Script isn't overwhelmed
-            if (_img1SyncQueue.length > 0) await new Promise(r => setTimeout(r, 150));
-        }
-        _img1SyncRunning = false;
-    }
-
-    async function sync1ImgToSheet(payload) {
-        if (!REVIEW_SYNC_ENABLED) return;
-        _img1SyncQueue.push(payload);
-        _processImg1SyncQueue();  // fire-and-forget; queue ensures serialisation
-    }
-
-    // Bulk sync — sends ALL rows in a single POST to Apps Script.
-    // Used by openImg1Complete() to avoid N individual requests.
-    async function sync1ImgBulkToSheet(rows) {
-        if (!REVIEW_SYNC_ENABLED || !rows || !rows.length) return;
-        // Split into chunks of 100 so Apps Script doesn't time out on huge teams
-        const CHUNK = 100;
-        for (let i = 0; i < rows.length; i += CHUNK) {
-            const chunk = rows.slice(i, i + CHUNK);
-            let retries = 4;
-            while (retries-- > 0) {
-                try {
-                    await fetch(REVIEW_WEBAPP_URL, {
-                        method:  'POST',
-                        mode:    'no-cors',
-                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                        body:    JSON.stringify({
-                            sheet: '1st_image_review',
-                            bulk:  true,       // flag for Apps Script to handle array
-                            rows:  chunk
-                        })
-                    });
-                    break;
-                } catch (e) {
-                    if (retries === 0) console.warn('bulk 1img sync failed:', e);
-                    else await new Promise(r => setTimeout(r, 600));
-                }
-            }
-            // Small pause between chunks
-            if (i + CHUNK < rows.length) await new Promise(r => setTimeout(r, 300));
-        }
-        console.log(`[bulk sync] sent ${rows.length} 1st-image rows in ${Math.ceil(rows.length/CHUNK)} chunk(s)`);
-    }
-
-    // ── READ progress back from Sheet on login (cross-device restore) ──
-    // GET ?action=getReviews&reviewer=praveen@spyne.ai&enterprise=Gettel...
-    async function loadProgressFromSheet(enterprise) {
-        if (!REVIEW_SYNC_ENABLED) return false;
-        try {
-            const reviewer = getCurrentUser() || '';
-            const url = REVIEW_WEBAPP_URL
-                + '?action=getReviews'
-                + '&reviewer='   + encodeURIComponent(reviewer)
-                + '&enterprise=' + encodeURIComponent(enterprise || '');
-            const res = await fetch(url, { cache: 'no-cache' });
-            if (!res.ok) return false;
-            const data = await res.json();
-            // data = { vinReviews: { teamId: { vin: {status,issues,comment,reviewedAt} } },
-            //          imgReviews: { teamId: { vin: 'ok'|'issue' } } }
-            if (data.vinReviews && typeof data.vinReviews === 'object') {
-                // Merge sheet data into local — sheet wins for cross-device
-                for (const [teamId, vins] of Object.entries(data.vinReviews)) {
-                    if (!reviews[teamId]) reviews[teamId] = {};
-                    Object.assign(reviews[teamId], vins);
-                }
-                persistReviews();
-            }
-            if (data.imgReviews && typeof data.imgReviews === 'object') {
-                for (const [teamId, vins] of Object.entries(data.imgReviews)) {
-                    if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
-                    Object.assign(img1Reviews[teamId], vins);
-                }
-                persist1ImgReviews();
-            }
-            return true;
-        } catch (e) {
-            console.warn('Sheet progress load failed (non-fatal):', e);
-            return false;
-        }
-    }
+    function syncReviewToSheet() {  /* sync removed */ }
 
     function loadReviews() {
         try { reviews = JSON.parse(localStorage.getItem(storageKey()) || '{}'); } catch (e) { reviews = {}; }
@@ -1937,9 +1812,7 @@
                     loadingOv.classList.add('hidden');
 
                     // Load progress in background — refresh dashboard when done
-                    loadProgressFromSheet(selectedEnterprise).then(loaded => {
-                        if (loaded) renderDashboard();
-                    }).catch(() => {});
+                    // sheet load removed
                 } catch (err) {
                     loadingOv.classList.add('hidden');
                     console.error(err);
@@ -2683,7 +2556,7 @@
             }
 
             loadingMsg.textContent = "Restoring your progress…";
-            await loadProgressFromSheet(selectedEnterprise);
+            // sheet load removed
             renderDashboard();
             showPage('page-dashboard');
             requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -2941,6 +2814,9 @@
         showPage('page-review');
         updateProgressBadge();
         renderVINSidebar();
+        // Show VIN review controls in topbar
+        const _vrc = document.getElementById('vin-view-controls');
+        if (_vrc) { _vrc.classList.remove('hidden'); _vrc.style.display = 'flex'; }
 
         if (!currentTeamVINs.length) {
             document.getElementById('no-vin-state').classList.remove('hidden');
@@ -3024,6 +2900,16 @@
         setCheckedIssues(r?.issues || []);
         renderImages(v);
         renderVINSidebar();
+        // Preload single-view size (800/82) immediately on VIN select
+        if (v.urls) {
+            v.urls.slice(0, 8).forEach(u => {
+                const chain = getFallbacks(u, 800, 82);
+                if (!_svPreloadCache.has(chain[0])) {
+                    _svPreloadCache.add(chain[0]);
+                    const p = new Image(); p.referrerPolicy = 'no-referrer'; p.decoding = 'async'; p.src = chain[0];
+                }
+            });
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -3231,21 +3117,17 @@
     }
 
     function prefetchNextVINs() {
-        // Prefetch next VINs thumbnails using the same getFallbacks chain as display
-        // so browser cache is guaranteed to hit when renderImages fires
         for (let offset = 1; offset <= 3; offset++) {
             const nxt = currentTeamVINs[currentVINIndex + offset];
             if (!nxt) break;
             const limit = offset === 1 ? nxt.urls.length : Math.min(nxt.urls.length, 6);
             nxt.urls.slice(0, limit).forEach(u => {
-                const chain = getFallbacks(u, 500, 75);
-                if (!_svPreloadCache.has(chain[0])) {
-                    _svPreloadCache.add(chain[0]);
-                    const p = new Image();
-                    p.referrerPolicy = 'no-referrer';
-                    p.decoding = 'async';
-                    p.src = chain[0];
-                }
+                [getFallbacks(u, 500, 75), getFallbacks(u, 800, 82)].forEach(chain => {
+                    if (!_svPreloadCache.has(chain[0])) {
+                        _svPreloadCache.add(chain[0]);
+                        const p = new Image(); p.referrerPolicy = 'no-referrer'; p.decoding = 'async'; p.src = chain[0];
+                    }
+                });
             });
         }
     }
@@ -3306,7 +3188,7 @@
         img.src = ''; img.style.opacity = '0';
         skel.style.display = 'flex';
         if (ctr) ctr.textContent = (vrSvImgIndex + 1) + ' / ' + vrCurrentUrls.length;
-        const fallbacks = getFallbacks(url, 900, 90);
+        const fallbacks = getFallbacks(url, 800, 82);
         let step = 0;
         img.onload  = () => { img.style.opacity = '1'; skel.style.display = 'none'; };
         img.onerror = () => { step++; if (step < fallbacks.length) { img.src = fallbacks[step]; } else { skel.style.display = 'none'; } };
@@ -3662,7 +3544,7 @@
         reviewMode = 'vin';
         startReviewTimer();
         const vrCtrls = document.getElementById('vin-view-controls');
-        if (vrCtrls) vrCtrls.style.display = 'flex';
+        if (vrCtrls) { vrCtrls.classList.remove('hidden'); vrCtrls.style.display = 'flex'; }
         // Reset to grid
         setVinView('grid');
         applyVinZoom(document.getElementById('vin-zoom-slider')?.value || 3);
@@ -4542,7 +4424,15 @@
     // LIGHTBOX
     // =========================================================================
     function openLightbox(url) {
-        document.getElementById('lightbox-img').src = url;
+        const lbImg = document.getElementById('lightbox-img');
+        lbImg.onload = lbImg.onerror = null;
+        lbImg.src = '';
+        lbImg.style.opacity = '0';
+        const fallbacks = getFallbacks(url, 800, 82);
+        let step = 0;
+        lbImg.onload  = () => { lbImg.style.opacity = '1'; };
+        lbImg.onerror = () => { step++; if (step < fallbacks.length) lbImg.src = fallbacks[step]; };
+        lbImg.src = fallbacks[0] || url;
         document.getElementById('lightbox').classList.add('active');
     }
     function closeLightbox(e) {
