@@ -1141,7 +1141,8 @@
     const GOOGLE_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLScVlcfx6cSrfTohohTJY9zOv4GTiKQf5d0CmLHkPEWg8VMLgA/formResponse";
     const CLIENT_NAME_ENTRY_ID   = "entry.371922314";
 
-    const REVIEW_SYNC_ENABLED = false;  // Sheet sync disabled
+    const REVIEW_SYNC_ENABLED = true;   // gates reading progress back from the sheet on login
+    const REVIEW_WRITE_ENABLED = false; // set false to STOP storing review data to the Google Sheet
     const REVIEW_WEBAPP_URL   = "https://script.google.com/macros/s/AKfycbyk_puhcCuKAxC3PaZqUq-hTm8jeH8iaJuXbNFX-9Zj6c3L4Voht1HD_Wr3kxvywcxK/exec";
 
     // Fixed column indices in All_Data (0-based, cols A-K)
@@ -1374,7 +1375,132 @@
         _vinSyncRunning = false;
     }
 
-    function syncReviewToSheet() {  /* sync removed */ }
+    async function syncReviewToSheet(payload) {
+        if (!REVIEW_WRITE_ENABLED) return;
+        _vinSyncQueue.push(payload);
+        _processVinSyncQueue();
+    }
+
+    // ── 1st Image Review sync — queued & rate-limited ─────────────────────────
+    // All saves go through a queue processed one-at-a-time with a small delay
+    // between each POST. This prevents Google Apps Script from dropping requests
+    // when many VINs are auto-approved simultaneously (e.g. Done button).
+    const _img1SyncQueue = [];
+    let   _img1SyncRunning = false;
+
+    async function _processImg1SyncQueue() {
+        if (_img1SyncRunning) return;
+        _img1SyncRunning = true;
+        while (_img1SyncQueue.length > 0) {
+            const payload = _img1SyncQueue.shift();
+            let retries = 3;
+            while (retries-- > 0) {
+                try {
+                    await fetch(REVIEW_WEBAPP_URL, {
+                        method:  'POST',
+                        mode:    'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body:    JSON.stringify({
+                            sheet:       '1st_image_review',
+                            reviewer:    payload.reviewer    || '',
+                            enterprise:  payload.enterprise  || '',
+                            teamName:    payload.teamName    || '',
+                            teamId:      payload.teamId      || '',
+                            vin:         payload.vin         || '',
+                            status:      payload.status      || '',
+                            firstImgUrl: payload.firstImgUrl || '',
+                            imageCount:  payload.imageCount  ?? 0,
+                            reviewDate:  payload.reviewDate  || '',
+                            reviewedAt:  payload.reviewedAt  || ''
+                        })
+                    });
+                    break;   // success — move to next item
+                } catch (e) {
+                    if (retries === 0) console.warn('1img sync failed after retries:', e);
+                    else await new Promise(r => setTimeout(r, 400));
+                }
+            }
+            // Small delay between requests so Apps Script isn't overwhelmed
+            if (_img1SyncQueue.length > 0) await new Promise(r => setTimeout(r, 150));
+        }
+        _img1SyncRunning = false;
+    }
+
+    async function sync1ImgToSheet(payload) {
+        if (!REVIEW_WRITE_ENABLED) return;
+        _img1SyncQueue.push(payload);
+        _processImg1SyncQueue();  // fire-and-forget; queue ensures serialisation
+    }
+
+    // Bulk sync — sends ALL rows in a single POST to Apps Script.
+    // Used by openImg1Complete() to avoid N individual requests.
+    async function sync1ImgBulkToSheet(rows) {
+        if (!REVIEW_WRITE_ENABLED || !rows || !rows.length) return;
+        // Split into chunks of 100 so Apps Script doesn't time out on huge teams
+        const CHUNK = 100;
+        for (let i = 0; i < rows.length; i += CHUNK) {
+            const chunk = rows.slice(i, i + CHUNK);
+            let retries = 4;
+            while (retries-- > 0) {
+                try {
+                    await fetch(REVIEW_WEBAPP_URL, {
+                        method:  'POST',
+                        mode:    'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body:    JSON.stringify({
+                            sheet: '1st_image_review',
+                            bulk:  true,       // flag for Apps Script to handle array
+                            rows:  chunk
+                        })
+                    });
+                    break;
+                } catch (e) {
+                    if (retries === 0) console.warn('bulk 1img sync failed:', e);
+                    else await new Promise(r => setTimeout(r, 600));
+                }
+            }
+            // Small pause between chunks
+            if (i + CHUNK < rows.length) await new Promise(r => setTimeout(r, 300));
+        }
+        console.log(`[bulk sync] sent ${rows.length} 1st-image rows in ${Math.ceil(rows.length/CHUNK)} chunk(s)`);
+    }
+
+    // ── READ progress back from Sheet on login (cross-device restore) ──
+    // GET ?action=getReviews&reviewer=praveen@spyne.ai&enterprise=Gettel...
+    async function loadProgressFromSheet(enterprise) {
+        if (!REVIEW_SYNC_ENABLED) return false;
+        try {
+            const reviewer = getCurrentUser() || '';
+            const url = REVIEW_WEBAPP_URL
+                + '?action=getReviews'
+                + '&reviewer='   + encodeURIComponent(reviewer)
+                + '&enterprise=' + encodeURIComponent(enterprise || '');
+            const res = await fetch(url, { cache: 'no-cache' });
+            if (!res.ok) return false;
+            const data = await res.json();
+            // data = { vinReviews: { teamId: { vin: {status,issues,comment,reviewedAt} } },
+            //          imgReviews: { teamId: { vin: 'ok'|'issue' } } }
+            if (data.vinReviews && typeof data.vinReviews === 'object') {
+                // Merge sheet data into local — sheet wins for cross-device
+                for (const [teamId, vins] of Object.entries(data.vinReviews)) {
+                    if (!reviews[teamId]) reviews[teamId] = {};
+                    Object.assign(reviews[teamId], vins);
+                }
+                persistReviews();
+            }
+            if (data.imgReviews && typeof data.imgReviews === 'object') {
+                for (const [teamId, vins] of Object.entries(data.imgReviews)) {
+                    if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
+                    Object.assign(img1Reviews[teamId], vins);
+                }
+                persist1ImgReviews();
+            }
+            return true;
+        } catch (e) {
+            console.warn('Sheet progress load failed (non-fatal):', e);
+            return false;
+        }
+    }
 
     function loadReviews() {
         try { reviews = JSON.parse(localStorage.getItem(storageKey()) || '{}'); } catch (e) { reviews = {}; }
@@ -1812,7 +1938,9 @@
                     loadingOv.classList.add('hidden');
 
                     // Load progress in background — refresh dashboard when done
-                    // sheet load removed
+                    loadProgressFromSheet(selectedEnterprise).then(loaded => {
+                        if (loaded) renderDashboard();
+                    }).catch(() => {});
                 } catch (err) {
                     loadingOv.classList.add('hidden');
                     console.error(err);
@@ -1899,7 +2027,16 @@
         const rtEl = document.getElementById('current-vin-rooftop');
         const cdEl = document.getElementById('current-vin-condition');
         if (rtEl) { rtEl.classList.add('hidden'); }  // rooftop badge removed from VIN header
-        if (cdEl) cdEl.classList.add('hidden');  // condition badge removed from VIN header
+        if (cdEl) {
+            if (v && v.condition) {
+                cdEl.textContent = v.condition;
+                const isNew = v.condition.toLowerCase().includes('new');
+                cdEl.style.background = isNew ? '#dcfce7' : '#fef9c3';
+                cdEl.style.color      = isNew ? '#16a34a' : '#ca8a04';
+                cdEl.style.display    = '';
+                cdEl.classList.remove('hidden');
+            } else cdEl.classList.add('hidden');
+        }
     }
 
     function svShow(idx) {
@@ -2051,22 +2188,11 @@
     function svSetIssue(newSt) {
         if (currentImg1Idx < 0) return;
         const v = currentImg1VINs[currentImg1Idx];
-        setImg1Review(currentImg1Team.teamId, v.vin, newSt, '', v.rooftop || '');
+        setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
         updateImg1ProgressBadge();
         updateTileIssueState(currentImg1Idx, newSt);
         svUpdateControls(newSt);
-        // Only re-render sidebar in grid view — in single view it's not needed
-        // and calling it after svUpdateControls can cause race conditions
-        if (img1ViewMode !== 'single') render1ImgSidebar();
-        // Update the header status badge immediately
-        const _badge = document.getElementById('current-vin-status-badge');
-        if (_badge) {
-            const _stLabel = stateLabel(newSt);
-            _badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ' +
-                (newSt === 'ok' ? 'bg-emerald-100 text-emerald-700' :
-                 newSt ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600');
-            _badge.innerText = newSt === 'ok' ? 'OK' : _stLabel || 'In Review';
-        }
+        render1ImgSidebar();
     }
 
     function svToggleIssue(value) {
@@ -2558,7 +2684,7 @@
             }
 
             loadingMsg.textContent = "Restoring your progress…";
-            // sheet load removed
+            await loadProgressFromSheet(selectedEnterprise);
             renderDashboard();
             showPage('page-dashboard');
             requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -3401,12 +3527,11 @@
     function clearSubIssues(teamId, vin) {
         delete subIssues[_subKey(teamId, vin)];
     }
-    function setImg1Review(teamId, vin, status, comment, rooftopOverride) {
-        // Use explicit rooftop if passed, else derive from currentImg1Idx
-        const rooftop = rooftopOverride !== undefined ? rooftopOverride
-            : (currentImg1VINs?.[currentImg1Idx]?.vin === vin
-                ? (currentImg1VINs[currentImg1Idx].rooftop || '')
-                : getVinRooftop(vin));
+    function setImg1Review(teamId, vin, status, comment) {
+        // Use currentImg1Idx to identify which rooftop instance this VIN is
+        const rooftop = currentImg1VINs?.[currentImg1Idx]?.vin === vin
+            ? (currentImg1VINs[currentImg1Idx].rooftop || '')
+            : getVinRooftop(vin);
         const key     = img1ReviewKey(teamId, vin, rooftop);
         const vinKey  = rooftop ? vin + '|~|' + rooftop : vin;
         if (!img1Reviews[key]) img1Reviews[key] = {};
@@ -3444,7 +3569,7 @@
         const vt = document.getElementById('img1-view-toggle');
         if (vt) { vt.style.display = 'flex'; }
         const pgBar = document.getElementById('img1-progress-bar');
-        if (pgBar) { pgBar.classList.remove('hidden'); pgBar.style.display = 'flex'; }
+        if (pgBar) pgBar.classList.replace('hidden', 'flex') || pgBar.classList.remove('hidden') || (pgBar.style.display='flex');
         const pgPill = document.getElementById('review-progress');
         if (pgPill) { pgPill.classList.add('hidden'); pgPill.style.display = 'none'; }
         // Ensure grid view active on entry
