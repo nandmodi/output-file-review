@@ -2065,6 +2065,15 @@
         updateTileIssueState(currentImg1Idx, newSt);
         svUpdateControls(newSt);
         render1ImgSidebar();
+        // Update the header status badge immediately
+        const _badge = document.getElementById('current-vin-status-badge');
+        if (_badge) {
+            const _stLabel = stateLabel(newSt);
+            _badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ' +
+                (newSt === 'ok' ? 'bg-emerald-100 text-emerald-700' :
+                 newSt ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600');
+            _badge.innerText = newSt === 'ok' ? 'OK' : _stLabel || 'In Review';
+        }
     }
 
     function svToggleIssue(value) {
