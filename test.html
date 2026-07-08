@@ -1989,20 +1989,37 @@
     // Grid zoom: 1=2col, 2=3col, 3=4col(default), 4=6col, 5=8col
     const ZOOM_COLS = [2, 3, 4, 6, 8];
     let currentGridZoom = 3; // default: 4 columns
+    let allViewZoom     = 3; // independent zoom for the All-images view
 
     function applyGridZoom(val) {
-        currentGridZoom = parseInt(val);
-        const cols = ZOOM_COLS[currentGridZoom - 1];
-        const grid = document.getElementById('images-grid');
-        if (grid) {
-            grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+        val = parseInt(val);
+        // The single slider drives whichever view is active (independent levels)
+        if (img1ViewMode === 'all') {
+            allViewZoom = val;
+            const cols = ZOOM_COLS[allViewZoom - 1];
+            const grid = document.getElementById('img1-all-grid');
+            if (grid) grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+        } else {
+            currentGridZoom = val;
+            const cols = ZOOM_COLS[currentGridZoom - 1];
+            const grid = document.getElementById('images-grid');
+            if (grid) grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
         }
         // Update slider gradient
         const slider = document.getElementById('grid-zoom-slider');
         if (slider) {
-            const pct = ((currentGridZoom - 1) / 4) * 100 + '%';
+            const pct = ((val - 1) / 4) * 100 + '%';
             slider.style.setProperty('--pct', pct);
         }
+    }
+
+    // Point the shared zoom slider at the active view's stored level
+    function syncZoomSlider() {
+        const slider = document.getElementById('grid-zoom-slider');
+        if (!slider) return;
+        const val = img1ViewMode === 'all' ? allViewZoom : currentGridZoom;
+        slider.value = val;
+        slider.style.setProperty('--pct', ((val - 1) / 4) * 100 + '%');
     }
 
     function setImg1View(mode) {
@@ -2036,7 +2053,8 @@
             if (allArea) allArea.style.display = 'flex';
             if (vtAll) vtAll.classList.add('active');
             if (issueBar) issueBar.style.display = 'flex';   // keep issue-marking active
-            if (zoomWrap) zoomWrap.style.visibility = 'hidden';
+            if (zoomWrap) zoomWrap.style.visibility = 'visible';
+            syncZoomSlider();
             const idx = currentImg1Idx >= 0 ? currentImg1Idx : 0;
             currentImg1Idx = idx;
             render1ImgAllView(idx);
@@ -2048,6 +2066,7 @@
             if (vtGrid) vtGrid.classList.add('active');
             if (issueBar) issueBar.style.display = 'none';
             if (zoomWrap) zoomWrap.style.visibility = 'visible';
+            syncZoomSlider();
             // current-vin-image-count removed
             const grid = document.getElementById('images-grid');
             if (grid) {
@@ -2069,6 +2088,8 @@
         if (!v || !grid) return;
         const urls = v.urls || [];
         if (head) head.textContent = 'All images · ' + v.vin + ' · ' + urls.length + ' image' + (urls.length === 1 ? '' : 's');
+        // Apply the All-view's own zoom level (columns)
+        grid.style.gridTemplateColumns = 'repeat(' + ZOOM_COLS[allViewZoom - 1] + ', minmax(0, 1fr))';
         grid.innerHTML = '';
         if (!urls.length) {
             grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#94a3b8;font-size:13px;padding:40px 0;">No images found for this VIN.</div>';
