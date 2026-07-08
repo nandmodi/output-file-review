@@ -1899,16 +1899,7 @@
         const rtEl = document.getElementById('current-vin-rooftop');
         const cdEl = document.getElementById('current-vin-condition');
         if (rtEl) { rtEl.classList.add('hidden'); }  // rooftop badge removed from VIN header
-        if (cdEl) {
-            if (v && v.condition) {
-                cdEl.textContent = v.condition;
-                const isNew = v.condition.toLowerCase().includes('new');
-                cdEl.style.background = isNew ? '#dcfce7' : '#fef9c3';
-                cdEl.style.color      = isNew ? '#16a34a' : '#ca8a04';
-                cdEl.style.display    = '';
-                cdEl.classList.remove('hidden');
-            } else cdEl.classList.add('hidden');
-        }
+        if (cdEl) cdEl.classList.add('hidden');  // condition badge removed from VIN header
     }
 
     function svShow(idx) {
