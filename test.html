@@ -2051,7 +2051,7 @@
     function svSetIssue(newSt) {
         if (currentImg1Idx < 0) return;
         const v = currentImg1VINs[currentImg1Idx];
-        setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
+        setImg1Review(currentImg1Team.teamId, v.vin, newSt, '', v.rooftop || '');
         updateImg1ProgressBadge();
         updateTileIssueState(currentImg1Idx, newSt);
         svUpdateControls(newSt);
@@ -3399,11 +3399,12 @@
     function clearSubIssues(teamId, vin) {
         delete subIssues[_subKey(teamId, vin)];
     }
-    function setImg1Review(teamId, vin, status, comment) {
-        // Use currentImg1Idx to identify which rooftop instance this VIN is
-        const rooftop = currentImg1VINs?.[currentImg1Idx]?.vin === vin
-            ? (currentImg1VINs[currentImg1Idx].rooftop || '')
-            : getVinRooftop(vin);
+    function setImg1Review(teamId, vin, status, comment, rooftopOverride) {
+        // Use explicit rooftop if passed, else derive from currentImg1Idx
+        const rooftop = rooftopOverride !== undefined ? rooftopOverride
+            : (currentImg1VINs?.[currentImg1Idx]?.vin === vin
+                ? (currentImg1VINs[currentImg1Idx].rooftop || '')
+                : getVinRooftop(vin));
         const key     = img1ReviewKey(teamId, vin, rooftop);
         const vinKey  = rooftop ? vin + '|~|' + rooftop : vin;
         if (!img1Reviews[key]) img1Reviews[key] = {};
@@ -3441,7 +3442,7 @@
         const vt = document.getElementById('img1-view-toggle');
         if (vt) { vt.style.display = 'flex'; }
         const pgBar = document.getElementById('img1-progress-bar');
-        if (pgBar) pgBar.classList.replace('hidden', 'flex') || pgBar.classList.remove('hidden') || (pgBar.style.display='flex');
+        if (pgBar) { pgBar.classList.remove('hidden'); pgBar.style.display = 'flex'; }
         const pgPill = document.getElementById('review-progress');
         if (pgPill) { pgPill.classList.add('hidden'); pgPill.style.display = 'none'; }
         // Ensure grid view active on entry
