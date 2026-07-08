@@ -2055,7 +2055,9 @@
         updateImg1ProgressBadge();
         updateTileIssueState(currentImg1Idx, newSt);
         svUpdateControls(newSt);
-        render1ImgSidebar();
+        // Only re-render sidebar in grid view — in single view it's not needed
+        // and calling it after svUpdateControls can cause race conditions
+        if (img1ViewMode !== 'single') render1ImgSidebar();
         // Update the header status badge immediately
         const _badge = document.getElementById('current-vin-status-badge');
         if (_badge) {
