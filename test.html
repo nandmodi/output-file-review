@@ -577,6 +577,7 @@
                     <span id="pg-bg"        class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-quality"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-hero"      class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
+                    <span id="pg-photo"     class="px-2 py-0.5 rounded-full text-[11px] font-semibold text-white hidden" style="background:#94a3b8"></span>
                     <span id="pg-unsupported" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700 hidden"></span>
 <!-- pg-pending removed: redundant with reviewed count -->
                 </div>
@@ -3744,17 +3745,18 @@
         if (rv) { rv.textContent = done + '/' + total; rv.classList.remove('hidden'); }
 
         setpill('pg-ok',       ok,       '✓ OK');
-        setpill('pg-raw',      raw,      'R');
-        setpill('pg-stock',    stock,    'S');
-        setpill('pg-internal', internal, 'I Issue');
+        setpill('pg-raw',      raw,      'Raw');
+        setpill('pg-stock',    stock,    'Stock');
+        setpill('pg-internal', internal, 'Bad Input');
         setpill('pg-banner',   banner,   'Banner');
-        setpill('pg-bg',       bg,       'BG');
+        setpill('pg-bg',       bg,       'Background');
         setpill('pg-quality',  quality,  'Quality');
-        setpill('pg-hero',     hero,     'Hero');
-        setpill('pg-unsupported', unsupported_count, 'Unsupported');
+        setpill('pg-hero',     hero,     'Hero Angle');
+        setpill('pg-photo',    photo_na_count, 'Photo NA');
+        setpill('pg-unsupported', unsupported_count, 'Unsupported Vehicle');
         // pending pill removed
 
-        const anySub = banner + bg + quality + hero > 0;
+        const anySub = banner + bg + quality + hero + photo_na_count > 0;
         const sep = document.getElementById('pg-sub-sep');
         if (sep) sep.style.display = anySub ? '' : 'none';
     }
