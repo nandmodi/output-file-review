@@ -577,7 +577,9 @@
                     <span id="pg-bg"        class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-quality"   class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
                     <span id="pg-hero"      class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-slate-700 text-white hidden"></span>
+                    <span id="pg-photo"     class="px-2 py-0.5 rounded-full text-[11px] font-semibold text-white hidden" style="background:#94a3b8"></span>
                     <span id="pg-unsupported" class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-red-100 text-red-700 hidden"></span>
+                    <span id="pg-sequence"  class="px-2 py-0.5 rounded-full text-[11px] font-semibold text-white hidden" style="background:#0891b2"></span>
 <!-- pg-pending removed: redundant with reviewed count -->
                 </div>
                 <!-- Normal progress pill — non-1img modes -->
@@ -677,6 +679,7 @@
                                 <button id="sv-ha-btn" onclick="svToggleIssue('hero')"       title="h" class="sv-issue-btn-hdr">Hero Angle <small style="opacity:.55;font-size:9px">(h)</small></button>
                                 <button id="sv-p-btn"  onclick="svToggleIssue('photo_na')"  title="p" class="sv-issue-btn-hdr">Photo NA <small style="opacity:.55;font-size:9px">(p)</small></button>
                                 <button id="sv-u-btn"  onclick="svToggleIssue('unsupported')" title="u" class="sv-issue-btn-hdr">Unsupported Vehicle <small style="opacity:.55;font-size:9px">(u)</small></button>
+                                <button id="sv-seq-btn" onclick="svToggleIssue('sequence')" title="e" class="sv-issue-btn-hdr">Sequence <small style="opacity:.55;font-size:9px">(e)</small></button>
                                 <div class="w-px h-4 bg-slate-200 mx-0.5"></div>
                                 <button id="sv-ok-btn" onclick="svMarkOk()"
                                     class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1">
@@ -701,15 +704,20 @@
                                 <svg class="w-4 h-4 text-slate-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
                             </div>
                             <div class="flex items-center rounded-lg border border-slate-200 overflow-hidden">
-                                <button id="vt-grid" onclick="setImg1View('grid')"
+                                <button id="vt-grid" onclick="setImg1View('grid')" title="Grid view (g)"
                                     class="view-toggle-btn active px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
-                                    <span>Grid</span>
+                                    <span>Grid <small style="opacity:.55;font-size:9px">(g)</small></span>
                                 </button>
-                                <button id="vt-single" onclick="setImg1View('single')"
+                                <button id="vt-single" onclick="setImg1View('single')" title="Single image (f)"
                                     class="view-toggle-btn px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v14a1 1 0 01-1 1H5a1 1 0 01-1-1V5z"/></svg>
-                                    <span>Single</span>
+                                    <span>Single <small style="opacity:.55;font-size:9px">(f)</small></span>
+                                </button>
+                                <button id="vt-all" onclick="setImg1View('all')" title="All images of this VIN (a)"
+                                    class="view-toggle-btn px-2.5 py-1.5 text-[10px] font-bold flex items-center space-x-1 border-l border-slate-200">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 15h4M4 19h8M14 7h6M14 11h6M14 15h6M14 19h6"/></svg>
+                                    <span>All <small style="opacity:.55;font-size:9px">(a)</small></span>
                                 </button>
                             </div>
                         </div>
@@ -762,6 +770,20 @@
                         <span id="sv-vin" class="hidden"></span>
                         <span id="sv-counter" class="hidden"></span>
                     </div>
+                </div>
+
+                <!-- ── All Images View (1st-image mode: every image of the selected VIN) ── -->
+                <div id="img1-all-view" style="display:none;flex-direction:column;flex:1;min-height:0;overflow:hidden;">
+                    <div id="img1-all-head" style="flex-shrink:0;padding:8px 16px;border-bottom:1px solid #e2e8f0;background:#fff;font-size:12px;color:#475569;font-weight:600;"></div>
+                    <div style="flex:1;min-height:0;overflow-y:auto;padding:16px;background:#f8fbff;">
+                        <div id="img1-all-grid" class="grid gap-3" style="grid-template-columns:repeat(4,minmax(0,1fr));"></div>
+                    </div>
+                </div>
+
+                <!-- Lightbox for enlarging a single image from the All-images grid -->
+                <div id="img1-lightbox" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.9);align-items:center;justify-content:center;cursor:zoom-out;" onclick="closeImg1Lightbox()">
+                    <img id="img1-lightbox-img" src="" referrerpolicy="no-referrer" decoding="async" style="max-width:94vw;max-height:94vh;object-fit:contain;">
+                    <div style="position:absolute;top:14px;right:22px;color:#fff;font-size:30px;line-height:1;cursor:pointer;">&times;</div>
                 </div>
 
                 <!-- VIN single view — sibling to image-area, fills same space -->
@@ -1013,7 +1035,7 @@
         'ajay.devrani@spyne.co.in': 'b00ca705240bae3e13fff0254248b6f7c320020e188cc6347ccaa0e9fa0c9278',
         'raj.tripathi@spyne.ai': 'fdd90f6ba06bf72cdc63b5257878dea7ef74662ba14534d6854dc5a38a737134',
         'ranbir.manoranjan@spyne.ai': '70dd70adc813b91a0671d09587d23594509aaff54286ac865203545bfc88546e',
-        'khushi.gautam@spyne.co.in': '1db634dc43290f04d87d7b56bfd8e57958262df851544034b9f1cf802258ade2',
+        'khushi.gautam@spyne.co.in': 'b2424df1d7c7ed5c66a6123f9e70e14ea765c890cbfef4ea304de3d30def6e9e',
         'shweta.gupta@spyne.co.in': 'e385c383fe98fbe65a050d6b83470942dbc67685509263b2edadeea2dbdf0da4',
         'tannu.singh@spyne.co.in': 'b8e53242c1be067e02e1bfc75b49b9d3c040413b34f5599fd8f66ea0db4247e5',
         'vijay.gautam@spyne.co.in': '158332fbacc47f60b3adab66013930e56550f5b86bc5de59443fccfedbc071cd',
@@ -1141,7 +1163,8 @@
     const GOOGLE_FORM_ACTION_URL = "https://docs.google.com/forms/d/e/1FAIpQLScVlcfx6cSrfTohohTJY9zOv4GTiKQf5d0CmLHkPEWg8VMLgA/formResponse";
     const CLIENT_NAME_ENTRY_ID   = "entry.371922314";
 
-    const REVIEW_SYNC_ENABLED = false;  // Sheet sync disabled
+    const REVIEW_SYNC_ENABLED = true;   // gates reading progress back from the sheet on login
+    const REVIEW_WRITE_ENABLED = false; // set false to STOP storing review data to the Google Sheet
     const REVIEW_WEBAPP_URL   = "https://script.google.com/macros/s/AKfycbyk_puhcCuKAxC3PaZqUq-hTm8jeH8iaJuXbNFX-9Zj6c3L4Voht1HD_Wr3kxvywcxK/exec";
 
     // Fixed column indices in All_Data (0-based, cols A-K)
@@ -1374,7 +1397,132 @@
         _vinSyncRunning = false;
     }
 
-    function syncReviewToSheet() {  /* sync removed */ }
+    async function syncReviewToSheet(payload) {
+        if (!REVIEW_WRITE_ENABLED) return;
+        _vinSyncQueue.push(payload);
+        _processVinSyncQueue();
+    }
+
+    // ── 1st Image Review sync — queued & rate-limited ─────────────────────────
+    // All saves go through a queue processed one-at-a-time with a small delay
+    // between each POST. This prevents Google Apps Script from dropping requests
+    // when many VINs are auto-approved simultaneously (e.g. Done button).
+    const _img1SyncQueue = [];
+    let   _img1SyncRunning = false;
+
+    async function _processImg1SyncQueue() {
+        if (_img1SyncRunning) return;
+        _img1SyncRunning = true;
+        while (_img1SyncQueue.length > 0) {
+            const payload = _img1SyncQueue.shift();
+            let retries = 3;
+            while (retries-- > 0) {
+                try {
+                    await fetch(REVIEW_WEBAPP_URL, {
+                        method:  'POST',
+                        mode:    'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body:    JSON.stringify({
+                            sheet:       '1st_image_review',
+                            reviewer:    payload.reviewer    || '',
+                            enterprise:  payload.enterprise  || '',
+                            teamName:    payload.teamName    || '',
+                            teamId:      payload.teamId      || '',
+                            vin:         payload.vin         || '',
+                            status:      payload.status      || '',
+                            firstImgUrl: payload.firstImgUrl || '',
+                            imageCount:  payload.imageCount  ?? 0,
+                            reviewDate:  payload.reviewDate  || '',
+                            reviewedAt:  payload.reviewedAt  || ''
+                        })
+                    });
+                    break;   // success — move to next item
+                } catch (e) {
+                    if (retries === 0) console.warn('1img sync failed after retries:', e);
+                    else await new Promise(r => setTimeout(r, 400));
+                }
+            }
+            // Small delay between requests so Apps Script isn't overwhelmed
+            if (_img1SyncQueue.length > 0) await new Promise(r => setTimeout(r, 150));
+        }
+        _img1SyncRunning = false;
+    }
+
+    async function sync1ImgToSheet(payload) {
+        if (!REVIEW_WRITE_ENABLED) return;
+        _img1SyncQueue.push(payload);
+        _processImg1SyncQueue();  // fire-and-forget; queue ensures serialisation
+    }
+
+    // Bulk sync — sends ALL rows in a single POST to Apps Script.
+    // Used by openImg1Complete() to avoid N individual requests.
+    async function sync1ImgBulkToSheet(rows) {
+        if (!REVIEW_WRITE_ENABLED || !rows || !rows.length) return;
+        // Split into chunks of 100 so Apps Script doesn't time out on huge teams
+        const CHUNK = 100;
+        for (let i = 0; i < rows.length; i += CHUNK) {
+            const chunk = rows.slice(i, i + CHUNK);
+            let retries = 4;
+            while (retries-- > 0) {
+                try {
+                    await fetch(REVIEW_WEBAPP_URL, {
+                        method:  'POST',
+                        mode:    'no-cors',
+                        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                        body:    JSON.stringify({
+                            sheet: '1st_image_review',
+                            bulk:  true,       // flag for Apps Script to handle array
+                            rows:  chunk
+                        })
+                    });
+                    break;
+                } catch (e) {
+                    if (retries === 0) console.warn('bulk 1img sync failed:', e);
+                    else await new Promise(r => setTimeout(r, 600));
+                }
+            }
+            // Small pause between chunks
+            if (i + CHUNK < rows.length) await new Promise(r => setTimeout(r, 300));
+        }
+        console.log(`[bulk sync] sent ${rows.length} 1st-image rows in ${Math.ceil(rows.length/CHUNK)} chunk(s)`);
+    }
+
+    // ── READ progress back from Sheet on login (cross-device restore) ──
+    // GET ?action=getReviews&reviewer=praveen@spyne.ai&enterprise=Gettel...
+    async function loadProgressFromSheet(enterprise) {
+        if (!REVIEW_SYNC_ENABLED) return false;
+        try {
+            const reviewer = getCurrentUser() || '';
+            const url = REVIEW_WEBAPP_URL
+                + '?action=getReviews'
+                + '&reviewer='   + encodeURIComponent(reviewer)
+                + '&enterprise=' + encodeURIComponent(enterprise || '');
+            const res = await fetch(url, { cache: 'no-cache' });
+            if (!res.ok) return false;
+            const data = await res.json();
+            // data = { vinReviews: { teamId: { vin: {status,issues,comment,reviewedAt} } },
+            //          imgReviews: { teamId: { vin: 'ok'|'issue' } } }
+            if (data.vinReviews && typeof data.vinReviews === 'object') {
+                // Merge sheet data into local — sheet wins for cross-device
+                for (const [teamId, vins] of Object.entries(data.vinReviews)) {
+                    if (!reviews[teamId]) reviews[teamId] = {};
+                    Object.assign(reviews[teamId], vins);
+                }
+                persistReviews();
+            }
+            if (data.imgReviews && typeof data.imgReviews === 'object') {
+                for (const [teamId, vins] of Object.entries(data.imgReviews)) {
+                    if (!img1Reviews[teamId]) img1Reviews[teamId] = {};
+                    Object.assign(img1Reviews[teamId], vins);
+                }
+                persist1ImgReviews();
+            }
+            return true;
+        } catch (e) {
+            console.warn('Sheet progress load failed (non-fatal):', e);
+            return false;
+        }
+    }
 
     function loadReviews() {
         try { reviews = JSON.parse(localStorage.getItem(storageKey()) || '{}'); } catch (e) { reviews = {}; }
@@ -1812,7 +1960,9 @@
                     loadingOv.classList.add('hidden');
 
                     // Load progress in background — refresh dashboard when done
-                    // sheet load removed
+                    loadProgressFromSheet(selectedEnterprise).then(loaded => {
+                        if (loaded) renderDashboard();
+                    }).catch(() => {});
                 } catch (err) {
                     loadingOv.classList.add('hidden');
                     console.error(err);
@@ -1841,50 +1991,84 @@
     // Grid zoom: 1=2col, 2=3col, 3=4col(default), 4=6col, 5=8col
     const ZOOM_COLS = [2, 3, 4, 6, 8];
     let currentGridZoom = 3; // default: 4 columns
+    let allViewZoom     = 3; // independent zoom for the All-images view
 
     function applyGridZoom(val) {
-        currentGridZoom = parseInt(val);
-        const cols = ZOOM_COLS[currentGridZoom - 1];
-        const grid = document.getElementById('images-grid');
-        if (grid) {
-            grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+        val = parseInt(val);
+        // The single slider drives whichever view is active (independent levels)
+        if (img1ViewMode === 'all') {
+            allViewZoom = val;
+            const cols = ZOOM_COLS[allViewZoom - 1];
+            const grid = document.getElementById('img1-all-grid');
+            if (grid) grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+        } else {
+            currentGridZoom = val;
+            const cols = ZOOM_COLS[currentGridZoom - 1];
+            const grid = document.getElementById('images-grid');
+            if (grid) grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
         }
         // Update slider gradient
         const slider = document.getElementById('grid-zoom-slider');
         if (slider) {
-            const pct = ((currentGridZoom - 1) / 4) * 100 + '%';
+            const pct = ((val - 1) / 4) * 100 + '%';
             slider.style.setProperty('--pct', pct);
         }
+    }
+
+    // Point the shared zoom slider at the active view's stored level
+    function syncZoomSlider() {
+        const slider = document.getElementById('grid-zoom-slider');
+        if (!slider) return;
+        const val = img1ViewMode === 'all' ? allViewZoom : currentGridZoom;
+        slider.value = val;
+        slider.style.setProperty('--pct', ((val - 1) / 4) * 100 + '%');
     }
 
     function setImg1View(mode) {
         img1ViewMode = mode;
         const gridArea   = document.getElementById('image-area');
         const singleArea = document.getElementById('single-view-area');
+        const allArea    = document.getElementById('img1-all-view');
         const vtGrid     = document.getElementById('vt-grid');
         const vtSingle   = document.getElementById('vt-single');
+        const vtAll      = document.getElementById('vt-all');
         const issueBar   = document.getElementById('sv-issue-bar');
         const zoomWrap   = document.getElementById('grid-zoom-wrap');
+
+        // Reset toggle highlight + hide the all-view by default
+        [vtGrid, vtSingle, vtAll].forEach(b => b && b.classList.remove('active'));
+        if (allArea) allArea.style.display = 'none';
 
         if (mode === 'single') {
             gridArea.style.display   = 'none';
             singleArea.style.cssText = 'display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;';
-            vtGrid.classList.remove('active');
-            vtSingle.classList.add('active');
+            if (vtSingle) vtSingle.classList.add('active');
             if (issueBar) issueBar.style.display = 'flex';
             if (zoomWrap) zoomWrap.style.visibility = 'hidden';
             const idx = currentImg1Idx >= 0 ? currentImg1Idx : 0;
             svPreloadWindow(idx, 15);
             svShow(idx);
+        } else if (mode === 'all') {
+            gridArea.style.display   = 'none';
+            singleArea.style.display = 'none';
+            singleArea.classList.remove('active');
+            if (allArea) allArea.style.display = 'flex';
+            if (vtAll) vtAll.classList.add('active');
+            if (issueBar) issueBar.style.display = 'flex';   // keep issue-marking active
+            if (zoomWrap) zoomWrap.style.visibility = 'visible';
+            syncZoomSlider();
+            const idx = currentImg1Idx >= 0 ? currentImg1Idx : 0;
+            currentImg1Idx = idx;
+            render1ImgAllView(idx);
         } else {
             gridArea.style.display   = '';
             gridArea.classList.remove('hidden');
             singleArea.style.display = 'none';
             singleArea.classList.remove('active');
-            vtGrid.classList.add('active');
-            vtSingle.classList.remove('active');
+            if (vtGrid) vtGrid.classList.add('active');
             if (issueBar) issueBar.style.display = 'none';
             if (zoomWrap) zoomWrap.style.visibility = 'visible';
+            syncZoomSlider();
             // current-vin-image-count removed
             const grid = document.getElementById('images-grid');
             if (grid) {
@@ -1895,11 +2079,95 @@
         }
     }
 
+    // Render all images of the currently-selected VIN as a thumbnail grid.
+    function render1ImgAllView(idx) {
+        if (idx < 0 || idx >= currentImg1VINs.length) return;
+        // Reuse existing selection logic for header VIN text, status badge, sidebar highlight
+        select1ImgVIN(idx);
+        const v    = currentImg1VINs[idx];
+        const grid = document.getElementById('img1-all-grid');
+        const head = document.getElementById('img1-all-head');
+        if (!v || !grid) return;
+        const urls = v.urls || [];
+        if (head) head.textContent = 'All images · ' + v.vin + ' · ' + urls.length + ' image' + (urls.length === 1 ? '' : 's');
+        // Apply the All-view's own zoom level (columns)
+        grid.style.gridTemplateColumns = 'repeat(' + ZOOM_COLS[allViewZoom - 1] + ', minmax(0, 1fr))';
+        grid.innerHTML = '';
+        if (!urls.length) {
+            grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;color:#94a3b8;font-size:13px;padding:40px 0;">No images found for this VIN.</div>';
+            return;
+        }
+        const frag = document.createDocumentFragment();
+        urls.forEach((url, i) => {
+            const tile = document.createElement('div');
+            tile.className = 'image-tile';
+            tile.style.cursor = 'zoom-in';
+
+            const numBadge = document.createElement('div');
+            numBadge.className = 'img-index';
+            numBadge.textContent = (i + 1);
+            tile.appendChild(numBadge);
+
+            const skel = document.createElement('div');
+            skel.className = 'img-skeleton';
+            skel.innerHTML = '<div class="spinner-blue" style="width:14px;height:14px;border-width:2px"></div>';
+            tile.appendChild(skel);
+
+            const img = document.createElement('img');
+            img.loading = 'lazy';
+            img.referrerPolicy = 'no-referrer';
+            img.decoding = 'async';
+            img.alt = '';
+            img.style.cssText = 'width:100%;height:100%;object-fit:contain;display:block;background:#f8fafc;';
+            const fallbacks = getFallbacks(url, 400, 72);
+            let step = 0;
+            img.addEventListener('load', () => skel.remove());
+            img.addEventListener('error', () => {
+                step++;
+                if (step < fallbacks.length) { img.src = fallbacks[step]; return; }
+                skel.remove();
+                tile.innerHTML += '<div style="position:absolute;inset:0;font-size:9px;color:#94a3b8;display:flex;align-items:center;justify-content:center;">No image</div>';
+            });
+            img.src = fallbacks[0];
+            tile.appendChild(img);
+
+            // Click to enlarge — request a higher-quality version for the lightbox
+            tile.addEventListener('click', () => openImg1Lightbox(getFallbacks(url, 900, 85)));
+            frag.appendChild(tile);
+        });
+        grid.appendChild(frag);
+    }
+
+    function openImg1Lightbox(fallbacks) {
+        const box = document.getElementById('img1-lightbox');
+        const img = document.getElementById('img1-lightbox-img');
+        if (!box || !img || !fallbacks || !fallbacks.length) return;
+        let step = 0;
+        img.onerror = () => { step++; if (step < fallbacks.length) img.src = fallbacks[step]; };
+        img.src = fallbacks[0];
+        box.style.display = 'flex';
+    }
+    function closeImg1Lightbox() {
+        const box = document.getElementById('img1-lightbox');
+        if (box) box.style.display = 'none';
+        const img = document.getElementById('img1-lightbox-img');
+        if (img) { img.onerror = null; img.src = ''; }
+    }
+
     function updateVinMetaBadges(v) {
         const rtEl = document.getElementById('current-vin-rooftop');
         const cdEl = document.getElementById('current-vin-condition');
         if (rtEl) { rtEl.classList.add('hidden'); }  // rooftop badge removed from VIN header
-        if (cdEl) cdEl.classList.add('hidden');  // condition badge removed from VIN header
+        if (cdEl) {
+            if (v && v.condition) {
+                cdEl.textContent = v.condition;
+                const isNew = v.condition.toLowerCase().includes('new');
+                cdEl.style.background = isNew ? '#dcfce7' : '#fef9c3';
+                cdEl.style.color      = isNew ? '#16a34a' : '#ca8a04';
+                cdEl.style.display    = '';
+                cdEl.classList.remove('hidden');
+            } else cdEl.classList.add('hidden');
+        }
     }
 
     function svShow(idx) {
@@ -1992,6 +2260,7 @@
             'sv-ha-btn': 'hero',
             'sv-p-btn':  'photo_na',
             'sv-u-btn':  'unsupported',
+            'sv-seq-btn': 'sequence',
         };
         Object.entries(allBtns).forEach(([id, val]) => {
             const btn = document.getElementById(id);
@@ -2051,22 +2320,11 @@
     function svSetIssue(newSt) {
         if (currentImg1Idx < 0) return;
         const v = currentImg1VINs[currentImg1Idx];
-        setImg1Review(currentImg1Team.teamId, v.vin, newSt, '', v.rooftop || '');
+        setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
         updateImg1ProgressBadge();
         updateTileIssueState(currentImg1Idx, newSt);
         svUpdateControls(newSt);
-        // Only re-render sidebar in grid view — in single view it's not needed
-        // and calling it after svUpdateControls can cause race conditions
-        if (img1ViewMode !== 'single') render1ImgSidebar();
-        // Update the header status badge immediately
-        const _badge = document.getElementById('current-vin-status-badge');
-        if (_badge) {
-            const _stLabel = stateLabel(newSt);
-            _badge.className = 'px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-wider ' +
-                (newSt === 'ok' ? 'bg-emerald-100 text-emerald-700' :
-                 newSt ? 'bg-orange-100 text-orange-700' : 'bg-slate-100 text-slate-600');
-            _badge.innerText = newSt === 'ok' ? 'OK' : _stLabel || 'In Review';
-        }
+        render1ImgSidebar();
     }
 
     function svToggleIssue(value) {
@@ -2558,7 +2816,7 @@
             }
 
             loadingMsg.textContent = "Restoring your progress…";
-            // sheet load removed
+            await loadProgressFromSheet(selectedEnterprise);
             renderDashboard();
             showPage('page-dashboard');
             requestAnimationFrame(() => requestAnimationFrame(() => {
@@ -3124,7 +3382,7 @@
             if (!nxt) break;
             const limit = offset === 1 ? nxt.urls.length : Math.min(nxt.urls.length, 6);
             nxt.urls.slice(0, limit).forEach(u => {
-                [getFallbacks(u, 400, 72), getFallbacks(u, 800, 82)].forEach(chain => {
+                [getFallbacks(u, 500, 75), getFallbacks(u, 800, 82)].forEach(chain => {
                     if (!_svPreloadCache.has(chain[0])) {
                         _svPreloadCache.add(chain[0]);
                         const p = new Image(); p.referrerPolicy = 'no-referrer'; p.decoding = 'async'; p.src = chain[0];
@@ -3364,16 +3622,17 @@
         if (st === 'hero')       return '#6366f1';
         if (st === 'photo_na')   return '#94a3b8';  // grey
         if (st === 'unsupported') return '#dc2626';  // red
+        if (st === 'sequence')   return '#0891b2';  // cyan
         return 'transparent';
     }
     function stateLabel(st) {
         const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Bad Input',
-                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA', unsupported:'Unsupported Vehicle', issue:'Bad Input' };
+                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA', unsupported:'Unsupported Vehicle', sequence:'Sequence', issue:'Bad Input' };
         return map[st] || '';
     }
     function stateBadgeText(st) {
         const map = { ok:'✓', raw:'R', stock:'S', issue:'I',
-                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA', photo_na:'P', unsupported:'U' };
+                      banner:'Bn', background:'Bg', quality:'Ql', hero:'HA', photo_na:'P', unsupported:'U', sequence:'Sq' };
         return map[st] || '';
     }
 
@@ -3401,12 +3660,11 @@
     function clearSubIssues(teamId, vin) {
         delete subIssues[_subKey(teamId, vin)];
     }
-    function setImg1Review(teamId, vin, status, comment, rooftopOverride) {
-        // Use explicit rooftop if passed, else derive from currentImg1Idx
-        const rooftop = rooftopOverride !== undefined ? rooftopOverride
-            : (currentImg1VINs?.[currentImg1Idx]?.vin === vin
-                ? (currentImg1VINs[currentImg1Idx].rooftop || '')
-                : getVinRooftop(vin));
+    function setImg1Review(teamId, vin, status, comment) {
+        // Use currentImg1Idx to identify which rooftop instance this VIN is
+        const rooftop = currentImg1VINs?.[currentImg1Idx]?.vin === vin
+            ? (currentImg1VINs[currentImg1Idx].rooftop || '')
+            : getVinRooftop(vin);
         const key     = img1ReviewKey(teamId, vin, rooftop);
         const vinKey  = rooftop ? vin + '|~|' + rooftop : vin;
         if (!img1Reviews[key]) img1Reviews[key] = {};
@@ -3443,8 +3701,11 @@
         // Show view toggle + progress bar; hide normal pill
         const vt = document.getElementById('img1-view-toggle');
         if (vt) { vt.style.display = 'flex'; }
+        // Hide the redundant top-bar zoom + Grid/Single controls (VIN-review only)
+        const _vrcHide = document.getElementById('vin-view-controls');
+        if (_vrcHide) { _vrcHide.classList.add('hidden'); _vrcHide.style.display = 'none'; }
         const pgBar = document.getElementById('img1-progress-bar');
-        if (pgBar) { pgBar.classList.remove('hidden'); pgBar.style.display = 'flex'; }
+        if (pgBar) pgBar.classList.replace('hidden', 'flex') || pgBar.classList.remove('hidden') || (pgBar.style.display='flex');
         const pgPill = document.getElementById('review-progress');
         if (pgPill) { pgPill.classList.add('hidden'); pgPill.style.display = 'none'; }
         // Ensure grid view active on entry
@@ -3585,7 +3846,7 @@
         const teamId = currentImg1Team?.teamId;
         const total  = currentImg1VINs.length;
         let ok = 0, raw = 0, stock = 0, internal = 0, pending = 0;
-        let banner = 0, bg = 0, quality = 0, hero = 0, photo_na_count = 0, unsupported_count = 0;
+        let banner = 0, bg = 0, quality = 0, hero = 0, photo_na_count = 0, unsupported_count = 0, sequence_count = 0;
 
         currentImg1VINs.forEach((v, idx) => {
             const st = getImg1Review(teamId, v.vin, idx);  // uses img1ReviewKey internally
@@ -3599,9 +3860,10 @@
             else if (st === 'hero')       hero++;
             else if (st === 'photo_na')   photo_na_count++;
             else if (st === 'unsupported') unsupported_count++;
+            else if (st === 'sequence')   sequence_count++;
             else                          pending++;
         });
-        const done = ok + raw + stock + internal + banner + bg + quality + hero + photo_na_count + unsupported_count;
+        const done = ok + raw + stock + internal + banner + bg + quality + hero + photo_na_count + unsupported_count + sequence_count;
 
         document.getElementById('review-progress').innerText = done + ' / ' + total + ' reviewed';
 
@@ -3619,17 +3881,19 @@
         if (rv) { rv.textContent = done + '/' + total; rv.classList.remove('hidden'); }
 
         setpill('pg-ok',       ok,       '✓ OK');
-        setpill('pg-raw',      raw,      'R');
-        setpill('pg-stock',    stock,    'S');
-        setpill('pg-internal', internal, 'I Issue');
+        setpill('pg-raw',      raw,      'Raw');
+        setpill('pg-stock',    stock,    'Stock');
+        setpill('pg-internal', internal, 'Bad Input');
         setpill('pg-banner',   banner,   'Banner');
-        setpill('pg-bg',       bg,       'BG');
+        setpill('pg-bg',       bg,       'Background');
         setpill('pg-quality',  quality,  'Quality');
-        setpill('pg-hero',     hero,     'Hero');
-        setpill('pg-unsupported', unsupported_count, 'Unsupported');
+        setpill('pg-hero',     hero,     'Hero Angle');
+        setpill('pg-photo',    photo_na_count, 'Photo NA');
+        setpill('pg-unsupported', unsupported_count, 'Unsupported Vehicle');
+        setpill('pg-sequence', sequence_count, 'Sequence');
         // pending pill removed
 
-        const anySub = banner + bg + quality + hero > 0;
+        const anySub = banner + bg + quality + hero + photo_na_count > 0;
         const sep = document.getElementById('pg-sub-sep');
         if (sep) sep.style.display = anySub ? '' : 'none';
     }
@@ -4283,13 +4547,24 @@
         // ── 1st Image mode shortcuts ──
         if (reviewMode === '1img') {
             if (inSearch) return;
+            // Esc closes the enlarge lightbox first (before falling through to view switch)
+            const _lb = document.getElementById('img1-lightbox');
+            if (e.key === 'Escape' && _lb && _lb.style.display === 'flex') {
+                e.preventDefault();
+                closeImg1Lightbox();
+                return;
+            }
+            // View toggle shortcuts: g = Grid, f = Single (full), a = All images
+            if (e.key === 'g' || e.key === 'G') { e.preventDefault(); setImg1View('grid'); return; }
+            if (e.key === 'f' || e.key === 'F') { e.preventDefault(); setImg1View('single'); return; }
+            if (e.key === 'a' || e.key === 'A') { e.preventDefault(); if (currentImg1Idx < 0) currentImg1Idx = 0; setImg1View('all'); return; }
             if (e.key === 'Enter' && currentImg1Idx >= 0) {
                 e.preventDefault();
                 toggle1ImgIssue(currentImg1Idx);
                 return;
             }
-            // Esc in single view → back to grid, restore zoom, scroll tile into view
-            if (e.key === 'Escape' && img1ViewMode === 'single') {
+            // Esc in single / all view → back to grid, restore zoom, scroll tile into view
+            if (e.key === 'Escape' && (img1ViewMode === 'single' || img1ViewMode === 'all')) {
                 e.preventDefault();
                 setImg1View('grid');
                 // Re-apply zoom after grid is visible
@@ -4317,19 +4592,21 @@
             if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
                 e.preventDefault();
                 if (img1ViewMode === 'single') svNav(1);
+                else if (img1ViewMode === 'all') { const n = Math.min(currentImg1Idx+1, currentImg1VINs.length-1); render1ImgAllView(n); }
                 else { const n = Math.min(currentImg1Idx+1, currentImg1VINs.length-1); select1ImgVIN(n); }
                 return;
             }
             if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
                 e.preventDefault();
                 if (img1ViewMode === 'single') svNav(-1);
+                else if (img1ViewMode === 'all') { const p = Math.max(currentImg1Idx-1, 0); render1ImgAllView(p); }
                 else { const p = Math.max(currentImg1Idx-1, 0); select1ImgVIN(p); }
                 return;
             }
             // r → Raw, s → Stock
             if ((e.key === 'r' || e.key === 'R') && currentImg1Idx >= 0) {
                 e.preventDefault();
-                if (img1ViewMode === 'single') svToggleIssue('raw');
+                if (img1ViewMode === 'single' || img1ViewMode === 'all') svToggleIssue('raw');
                 else {
                     const v = currentImg1VINs[currentImg1Idx];
                     const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
@@ -4343,7 +4620,7 @@
             }
             if ((e.key === 's' || e.key === 'S') && currentImg1Idx >= 0) {
                 e.preventDefault();
-                if (img1ViewMode === 'single') svToggleIssue('stock');
+                if (img1ViewMode === 'single' || img1ViewMode === 'all') svToggleIssue('stock');
                 else {
                     const v = currentImg1VINs[currentImg1Idx];
                     const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
@@ -4357,7 +4634,7 @@
             }
             if ((e.key === 'i' || e.key === 'I') && currentImg1Idx >= 0) {
                 e.preventDefault();
-                if (img1ViewMode === 'single') svToggleIssue('issue');
+                if (img1ViewMode === 'single' || img1ViewMode === 'all') svToggleIssue('issue');
                 else {
                     const v = currentImg1VINs[currentImg1Idx];
                     const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
@@ -4370,8 +4647,8 @@
                 return;
             }
             // Sub-issue shortcuts (single view only) — now all single-select
-            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero','p':'photo_na','P':'photo_na','u':'unsupported','U':'unsupported' };
-            if (img1ViewMode === 'single' && subShortcuts[e.key] && currentImg1Idx >= 0) {
+            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero','p':'photo_na','P':'photo_na','u':'unsupported','U':'unsupported','e':'sequence','E':'sequence' };
+            if ((img1ViewMode === 'single' || img1ViewMode === 'all') && subShortcuts[e.key] && currentImg1Idx >= 0) {
                 e.preventDefault();
                 svToggleIssue(subShortcuts[e.key]);
                 return;
