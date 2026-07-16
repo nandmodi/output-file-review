@@ -670,16 +670,13 @@
                             <span id="current-vin-condition" class="hidden text-[10px] font-semibold px-2 py-0.5 rounded"></span>
                             <!-- Issue buttons — only shown in single view -->
                             <div id="sv-issue-bar" class="hidden items-center space-x-1.5 ml-3 flex-wrap gap-y-1">
-                                <button id="sv-r-btn"  onclick="svToggleIssue('raw')"        title="r" class="sv-issue-btn-hdr">Raw <small style="opacity:.55;font-size:9px">(r)</small></button>
-                                <button id="sv-s-btn"  onclick="svToggleIssue('stock')"      title="s" class="sv-issue-btn-hdr">Stock <small style="opacity:.55;font-size:9px">(s)</small></button>
-                                <button id="sv-i-btn"  onclick="svToggleIssue('issue')"      title="i" class="sv-issue-btn-hdr">Bad Input <small style="opacity:.55;font-size:9px">(i)</small></button>
-                                <button id="sv-bn-btn" onclick="svToggleIssue('banner')"     title="o" class="sv-issue-btn-hdr">Banner <small style="opacity:.55;font-size:9px">(o)</small></button>
-                                <button id="sv-bg-btn" onclick="svToggleIssue('background')" title="b" class="sv-issue-btn-hdr">Background <small style="opacity:.55;font-size:9px">(b)</small></button>
-                                <button id="sv-qt-btn" onclick="svToggleIssue('quality')"    title="q" class="sv-issue-btn-hdr">Quality <small style="opacity:.55;font-size:9px">(q)</small></button>
-                                <button id="sv-ha-btn" onclick="svToggleIssue('hero')"       title="h" class="sv-issue-btn-hdr">Hero Angle <small style="opacity:.55;font-size:9px">(h)</small></button>
-                                <button id="sv-p-btn"  onclick="svToggleIssue('photo_na')"  title="p" class="sv-issue-btn-hdr">Photo NA <small style="opacity:.55;font-size:9px">(p)</small></button>
-                                <button id="sv-u-btn"  onclick="svToggleIssue('unsupported')" title="u" class="sv-issue-btn-hdr">Unsupported Vehicle <small style="opacity:.55;font-size:9px">(u)</small></button>
-                                <button id="sv-seq-btn" onclick="svToggleIssue('sequence')" title="e" class="sv-issue-btn-hdr">Sequence <small style="opacity:.55;font-size:9px">(e)</small></button>
+                                <button id="sv-car-btn"   onclick="svToggleIssue('car')"             title="1" class="sv-issue-btn-hdr">Car <small style="opacity:.55;font-size:9px">(1)</small></button>
+                                <button id="sv-pul-btn"   onclick="svToggleIssue('pickup_loader')"   title="2" class="sv-issue-btn-hdr">Pickup - Loader <small style="opacity:.55;font-size:9px">(2)</small></button>
+                                <button id="sv-punl-btn"  onclick="svToggleIssue('pickup_noloader')" title="3" class="sv-issue-btn-hdr">Pickup - w/o Loader <small style="opacity:.55;font-size:9px">(3)</small></button>
+                                <button id="sv-trl-btn"   onclick="svToggleIssue('truck_loader')"    title="4" class="sv-issue-btn-hdr">Truck - Loader <small style="opacity:.55;font-size:9px">(4)</small></button>
+                                <button id="sv-trnl-btn"  onclick="svToggleIssue('truck_noloader')"  title="5" class="sv-issue-btn-hdr">Truck - w/o Loader <small style="opacity:.55;font-size:9px">(5)</small></button>
+                                <button id="sv-vanl-btn"  onclick="svToggleIssue('van_loader')"      title="6" class="sv-issue-btn-hdr">Van - Loader <small style="opacity:.55;font-size:9px">(6)</small></button>
+                                <button id="sv-vannl-btn" onclick="svToggleIssue('van_noloader')"    title="7" class="sv-issue-btn-hdr">Van - w/o Loader <small style="opacity:.55;font-size:9px">(7)</small></button>
                                 <div class="w-px h-4 bg-slate-200 mx-0.5"></div>
                                 <button id="sv-ok-btn" onclick="svMarkOk()"
                                     class="px-2.5 py-1 rounded-md text-[11px] font-bold bg-emerald-500 hover:bg-emerald-600 text-white transition flex items-center space-x-1">
@@ -688,6 +685,8 @@
                                 </button>
                                 <button onclick="svClear()"
                                     class="px-2.5 py-1 rounded-md text-[11px] font-semibold text-slate-500 hover:bg-slate-100 border border-slate-200 transition">Clear</button>
+                                <input id="sv-comment" type="text" placeholder="Comment..." oninput="svOnComment(this.value)"
+                                    class="w-44 p-1 border border-slate-200 rounded-md text-[11px] outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-400 transition">
                                 <span id="sv-status" class="text-[11px] font-semibold ml-1"></span>
                             </div>
                         </div>
@@ -2167,6 +2166,10 @@
         const st  = getImg1Review(currentImg1Team?.teamId, v.vin, v.rooftop || '');
         const url = v.urls[0] || '';
 
+        // Load any saved comment for this VIN into the comment box
+        const _svCmtEl = document.getElementById('sv-comment');
+        if (_svCmtEl) _svCmtEl.value = getImg1Comment(currentImg1Team?.teamId, v.vin, v.rooftop || '') || '';
+
         document.getElementById('sv-vin').textContent     = v.vin;
         document.getElementById('sv-counter').textContent = (idx + 1) + ' / ' + currentImg1VINs.length;
         const _vpc = document.getElementById('vin-pos-counter');
@@ -2239,18 +2242,15 @@
         const okBtn    = document.getElementById('sv-ok-btn');
         const statusEl = document.getElementById('sv-status');
 
-        // All 7 issue buttons + OK — single select, all mutually exclusive
+        // All 7 vehicle-type buttons + OK — single select, all mutually exclusive
         const allBtns = {
-            'sv-r-btn':  'raw',
-            'sv-s-btn':  'stock',
-            'sv-i-btn':  'issue',
-            'sv-bn-btn': 'banner',
-            'sv-bg-btn': 'background',
-            'sv-qt-btn': 'quality',
-            'sv-ha-btn': 'hero',
-            'sv-p-btn':  'photo_na',
-            'sv-u-btn':  'unsupported',
-            'sv-seq-btn': 'sequence',
+            'sv-car-btn':   'car',
+            'sv-pul-btn':   'pickup_loader',
+            'sv-punl-btn':  'pickup_noloader',
+            'sv-trl-btn':   'truck_loader',
+            'sv-trnl-btn':  'truck_noloader',
+            'sv-vanl-btn':  'van_loader',
+            'sv-vannl-btn': 'van_noloader',
         };
         Object.entries(allBtns).forEach(([id, val]) => {
             const btn = document.getElementById(id);
@@ -2310,11 +2310,25 @@
     function svSetIssue(newSt) {
         if (currentImg1Idx < 0) return;
         const v = currentImg1VINs[currentImg1Idx];
-        setImg1Review(currentImg1Team.teamId, v.vin, newSt, '');
+        const cinput = document.getElementById('sv-comment');
+        const cmt = cinput ? cinput.value : (getImg1Comment(currentImg1Team.teamId, v.vin, v.rooftop || '') || '');
+        setImg1Review(currentImg1Team.teamId, v.vin, newSt, cmt);
         updateImg1ProgressBadge();
         updateTileIssueState(currentImg1Idx, newSt);
         svUpdateControls(newSt);
         render1ImgSidebar();
+    }
+
+    // Save the free-text comment for the current VIN (debounced so we don't spam the sheet sync)
+    let _svCommentTimer = null;
+    function svOnComment(val) {
+        if (currentImg1Idx < 0 || !currentImg1Team) return;
+        const v = currentImg1VINs[currentImg1Idx];
+        clearTimeout(_svCommentTimer);
+        _svCommentTimer = setTimeout(() => {
+            const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
+            setImg1Review(currentImg1Team.teamId, v.vin, cur, val);
+        }, 500);
     }
 
     function svToggleIssue(value) {
@@ -3605,6 +3619,15 @@
                (img1Reviews[key] && img1Reviews[key][vin]) || null;
     }
 
+    function getImg1Comment(teamId, vin, rooftopOrIdx) {
+        let rooftop = '';
+        if (typeof rooftopOrIdx === 'number')      rooftop = currentImg1VINs?.[rooftopOrIdx]?.rooftop || '';
+        else if (typeof rooftopOrIdx === 'string') rooftop = rooftopOrIdx;
+        else                                       rooftop = getVinRooftop(vin);
+        const key = img1ReviewKey(teamId, vin, rooftop);
+        return (img1Comments[key] && (img1Comments[key][vin + '|~|' + rooftop] || img1Comments[key][vin])) || '';
+    }
+
     // Helpers to work with raw/stock sub-states
     function isRaw(st)      { return st === 'raw'; }
     function isStock(st)    { return st === 'stock'; }
@@ -3612,6 +3635,15 @@
 
     function stateColor(st) {
         if (st === 'ok')         return '#10b981';
+        // Vehicle types
+        if (st === 'car')             return '#3b82f6';  // blue
+        if (st === 'pickup_loader')   return '#f97316';  // orange
+        if (st === 'pickup_noloader') return '#fb923c';  // light orange
+        if (st === 'truck_loader')    return '#8b5cf6';  // violet
+        if (st === 'truck_noloader')  return '#a78bfa';  // light violet
+        if (st === 'van_loader')      return '#0891b2';  // cyan
+        if (st === 'van_noloader')    return '#22d3ee';  // light cyan
+        // legacy issue states (kept for backward-compat with old saved data)
         if (st === 'raw')        return '#f97316';
         if (st === 'stock')      return '#3b82f6';
         if (st === 'issue')      return '#8b5cf6';
@@ -3625,12 +3657,18 @@
         return 'transparent';
     }
     function stateLabel(st) {
-        const map = { ok:'OK', raw:'Raw', stock:'Stock', issue:'Bad Input',
-                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA', unsupported:'Unsupported Vehicle', sequence:'Sequence', issue:'Bad Input' };
+        const map = { ok:'OK',
+                      car:'Car', pickup_loader:'Pickup - Loader', pickup_noloader:'Pickup - w/o Loader',
+                      truck_loader:'Truck - Loader', truck_noloader:'Truck - w/o Loader',
+                      van_loader:'Van - Loader', van_noloader:'Van - w/o Loader',
+                      raw:'Raw', stock:'Stock', issue:'Bad Input',
+                      banner:'Banner', background:'Background', quality:'Quality', hero:'Hero Angle', photo_na:'Photo NA', unsupported:'Unsupported Vehicle', sequence:'Sequence' };
         return map[st] || '';
     }
     function stateBadgeText(st) {
-        const map = { ok:'✓', raw:'R', stock:'S', issue:'I',
+        const map = { ok:'✓',
+                      car:'Car', pickup_loader:'PU-L', pickup_noloader:'PU', truck_loader:'TR-L', truck_noloader:'TR', van_loader:'Van-L', van_noloader:'Van',
+                      raw:'R', stock:'S', issue:'I',
                       banner:'Bn', background:'Bg', quality:'Ql', hero:'HA', photo_na:'P', unsupported:'U', sequence:'Sq' };
         return map[st] || '';
     }
@@ -4553,6 +4591,8 @@
                 closeImg1Lightbox();
                 return;
             }
+            // While typing in the comment box, don't fire single-view shortcuts (Esc still exits)
+            if (inInput && e.key !== 'Escape') return;
             // View toggle shortcuts: g = Grid, f = Single (full), a = All images
             if (e.key === 'g' || e.key === 'G') { e.preventDefault(); setImg1View('grid'); return; }
             if (e.key === 'f' || e.key === 'F') { e.preventDefault(); setImg1View('single'); return; }
@@ -4602,54 +4642,15 @@
                 else { const p = Math.max(currentImg1Idx-1, 0); select1ImgVIN(p); }
                 return;
             }
-            // r → Raw, s → Stock
-            if ((e.key === 'r' || e.key === 'R') && currentImg1Idx >= 0) {
+            // 1-7 → select vehicle type (mutually exclusive)
+            const vtKeys = {
+                '1':'car', '2':'pickup_loader', '3':'pickup_noloader',
+                '4':'truck_loader', '5':'truck_noloader',
+                '6':'van_loader', '7':'van_noloader'
+            };
+            if (vtKeys[e.key] && currentImg1Idx >= 0) {
                 e.preventDefault();
-                if (img1ViewMode === 'single' || img1ViewMode === 'all') svToggleIssue('raw');
-                else {
-                    const v = currentImg1VINs[currentImg1Idx];
-                    const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
-                    const ns = cur === 'raw' ? null : 'raw';
-                    setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
-                    updateImg1ProgressBadge();
-                    updateTileIssueState(currentImg1Idx, ns);
-                    render1ImgSidebar();
-                }
-                return;
-            }
-            if ((e.key === 's' || e.key === 'S') && currentImg1Idx >= 0) {
-                e.preventDefault();
-                if (img1ViewMode === 'single' || img1ViewMode === 'all') svToggleIssue('stock');
-                else {
-                    const v = currentImg1VINs[currentImg1Idx];
-                    const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
-                    const ns = cur === 'stock' ? null : 'stock';
-                    setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
-                    updateImg1ProgressBadge();
-                    updateTileIssueState(currentImg1Idx, ns);
-                    render1ImgSidebar();
-                }
-                return;
-            }
-            if ((e.key === 'i' || e.key === 'I') && currentImg1Idx >= 0) {
-                e.preventDefault();
-                if (img1ViewMode === 'single' || img1ViewMode === 'all') svToggleIssue('issue');
-                else {
-                    const v = currentImg1VINs[currentImg1Idx];
-                    const cur = getImg1Review(currentImg1Team.teamId, v.vin, v.rooftop || '');
-                    const ns = cur === 'issue' ? null : 'issue';
-                    setImg1Review(currentImg1Team.teamId, v.vin, ns, '');
-                    updateImg1ProgressBadge();
-                    updateTileIssueState(currentImg1Idx, ns);
-                    render1ImgSidebar();
-                }
-                return;
-            }
-            // Sub-issue shortcuts (single view only) — now all single-select
-            const subShortcuts = { 'o':'banner','O':'banner','b':'background','B':'background','q':'quality','Q':'quality','h':'hero','H':'hero','p':'photo_na','P':'photo_na','u':'unsupported','U':'unsupported','e':'sequence','E':'sequence' };
-            if ((img1ViewMode === 'single' || img1ViewMode === 'all') && subShortcuts[e.key] && currentImg1Idx >= 0) {
-                e.preventDefault();
-                svToggleIssue(subShortcuts[e.key]);
+                svToggleIssue(vtKeys[e.key]);
                 return;
             }
             return;
