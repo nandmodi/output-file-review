@@ -79,7 +79,7 @@
     <div class="bg-white rounded-2xl shadow-xl border border-slate-100 w-full max-w-lg p-8">
         <h1 class="text-xl font-bold text-slate-800 mb-1">Load a review file</h1>
         <p class="text-slate-500 text-[13px] mb-6 leading-relaxed">
-            Upload a CSV with one row per VIN. Each row shows its input and output image side by side for classification.
+            Upload a CSV with one row per VIN. Each row shows its input, AI, and output images side by side for classification.
         </p>
 
         <div id="drop-zone" class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition">
@@ -96,6 +96,7 @@
                 <span class="bg-slate-100 text-slate-700 font-mono px-2 py-1 rounded">VIN</span>
                 <span class="bg-slate-100 text-slate-500 font-mono px-2 py-1 rounded">rooftop <span class="text-slate-400">(optional)</span></span>
                 <span class="bg-slate-100 text-slate-700 font-mono px-2 py-1 rounded">input_url</span>
+                <span class="bg-slate-100 text-slate-700 font-mono px-2 py-1 rounded">ai_url</span>
                 <span class="bg-slate-100 text-slate-700 font-mono px-2 py-1 rounded">output_url</span>
             </div>
         </div>
@@ -140,6 +141,14 @@
             <div id="in-skel" class="absolute inset-0 flex items-center justify-center"><div class="spinner"></div></div>
             <div id="in-none" class="absolute inset-0 hidden flex-col items-center justify-center text-slate-500 text-[13px]">No input image</div>
             <img id="in-img" src="" referrerpolicy="no-referrer" decoding="async" class="max-w-full max-h-full object-contain cursor-zoom-in" style="opacity:0; transition:opacity .15s;">
+        </div>
+
+        <!-- AI pane -->
+        <div class="relative flex-1 min-h-0 flex items-center justify-center overflow-hidden border-t md:border-t-0 md:border-r border-slate-700">
+            <span class="pane-label" style="background:#7c3aed;">AI</span>
+            <div id="ai-skel" class="absolute inset-0 flex items-center justify-center"><div class="spinner"></div></div>
+            <div id="ai-none" class="absolute inset-0 hidden flex-col items-center justify-center text-slate-500 text-[13px]">No AI image</div>
+            <img id="ai-img" src="" referrerpolicy="no-referrer" decoding="async" class="max-w-full max-h-full object-contain cursor-zoom-in" style="opacity:0; transition:opacity .15s;">
         </div>
 
         <!-- OUTPUT pane -->
@@ -236,10 +245,12 @@ function loadCsvText(text, name) {
     const vinC = findCol(headers, ['vin','vin_number','vehicle_vin']);
     const rtC  = findCol(headers, ['rooftop','rooftop_name','dealer','dealership','dealer_name','store','location']);
     const inC  = findCol(headers, ['input_url','input','input_image','input_image_url','raw_url','raw','source_url','before_url','before']);
+    const aiC  = findCol(headers, ['ai_url','ai','ai_image','ai_image_url','ai_output','ai_output_url','ai_generated','generated_url','generated']);
     const outC = findCol(headers, ['output_url','output','output_image','output_image_url','result_url','processed_url','processed','after_url','after','final_url','final']);
 
     if (vinC === -1) return uploadError('No VIN column found. Add a column named "VIN".');
     if (inC  === -1) return uploadError('No input image column found. Add a column named "input_url".');
+    if (aiC  === -1) return uploadError('No AI image column found. Add a column named "ai_url".');
     if (outC === -1) return uploadError('No output image column found. Add a column named "output_url".');
 
     const parsed = [];
@@ -250,6 +261,7 @@ function loadCsvText(text, name) {
             vin,
             rooftop:   rtC  !== -1 ? (r[rtC] || '').trim() : '',
             inputUrl:  (r[inC]  || '').trim(),
+            aiUrl:     (r[aiC]  || '').trim(),
             outputUrl: (r[outC] || '').trim(),
         });
     }
@@ -331,8 +343,10 @@ function render() {
 
     // Images
     loadImage(document.getElementById('in-img'),  document.getElementById('in-skel'),  document.getElementById('in-none'),  r.inputUrl);
+    loadImage(document.getElementById('ai-img'),  document.getElementById('ai-skel'),  document.getElementById('ai-none'),  r.aiUrl);
     loadImage(document.getElementById('out-img'), document.getElementById('out-skel'), document.getElementById('out-none'), r.outputUrl);
     document.getElementById('in-img').onclick  = () => openLightbox(r.inputUrl);
+    document.getElementById('ai-img').onclick  = () => openLightbox(r.aiUrl);
     document.getElementById('out-img').onclick = () => openLightbox(r.outputUrl);
 
     // Type chips
@@ -351,8 +365,8 @@ function render() {
 
     // Preload neighbours
     for (let d=1; d<=2; d++) {
-        if (rows[idx+d]) { preload(rows[idx+d].inputUrl); preload(rows[idx+d].outputUrl); }
-        if (rows[idx-d]) { preload(rows[idx-d].inputUrl); preload(rows[idx-d].outputUrl); }
+        if (rows[idx+d]) { preload(rows[idx+d].inputUrl); preload(rows[idx+d].aiUrl); preload(rows[idx+d].outputUrl); }
+        if (rows[idx-d]) { preload(rows[idx-d].inputUrl); preload(rows[idx-d].aiUrl); preload(rows[idx-d].outputUrl); }
     }
 }
 
@@ -420,7 +434,7 @@ document.getElementById('lightbox').addEventListener('click', closeLightbox);
 // Export
 function csvCell(v) { const s = String(v == null ? '' : v); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; }
 function exportCSV() {
-    const header = ['#','VIN','Rooftop','Vehicle Type','Comment','Input URL','Output URL','Reviewed At'];
+    const header = ['#','VIN','Rooftop','Vehicle Type','Comment','Input URL','AI URL','Output URL','Reviewed At'];
     const lines = [header.join(',')];
     rows.forEach((r, i) => {
         const rev = reviews[i] || {};
@@ -431,6 +445,7 @@ function exportCSV() {
             csvCell(rev.type ? LABEL_BY_CODE[rev.type] : ''),
             csvCell(rev.comment || ''),
             csvCell(r.inputUrl),
+            csvCell(r.aiUrl),
             csvCell(r.outputUrl),
             csvCell(rev.at || ''),
         ].join(','));
