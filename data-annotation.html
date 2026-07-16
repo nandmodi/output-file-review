@@ -33,6 +33,18 @@
     }
     .type-chip.active { background:#eff6ff; border-color:var(--spyne); color:#1d4ed8; box-shadow:0 0 0 1px var(--spyne); }
     .type-chip.active .kbd { background:var(--spyne); color:#fff; }
+    .type-chip.ok.active { background:#ecfdf5; border-color:#10b981; color:#047857; box-shadow:0 0 0 1px #10b981; }
+    .type-chip.ok.active .kbd { background:#10b981; color:#fff; }
+
+    /* Top-bar summary pills */
+    .sum-pill {
+        display:inline-flex; align-items:center; gap:5px;
+        font-size:11px; font-weight:700; color:#334155;
+        background:#f8fafc; border:1px solid #e2e8f0; border-radius:9999px;
+        padding:2px 9px 2px 7px; white-space:nowrap;
+    }
+    .sum-pill .dot { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+    .sum-pill .n { color:#0f172a; }
 
     .nav-btn {
         width:40px; height:40px; border-radius:50%;
@@ -122,11 +134,14 @@
         </div>
         <div class="flex items-center space-x-3">
             <span id="progress-pill" class="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-full text-[11px] font-semibold"></span>
-            <button id="next-unrev" class="text-[11px] font-semibold text-slate-500 hover:text-blue-600 border border-slate-200 rounded-lg px-2.5 py-1 transition">Next unclassified</button>
+            <button id="next-unrev" class="text-[11px] font-semibold text-slate-500 hover:text-blue-600 border border-slate-200 rounded-lg px-2.5 py-1 transition">Next pending</button>
         </div>
     </div>
 
-    <!-- Image stage: INPUT | OUTPUT -->
+    <!-- Count summary -->
+    <div id="summary-bar" class="bg-white border-b border-slate-100 px-4 py-1.5 flex items-center flex-wrap gap-1.5 flex-shrink-0"></div>
+
+    <!-- Image stage: INPUT | AI | OUTPUT -->
     <div class="flex-1 min-h-0 relative bg-slate-900 flex flex-col md:flex-row">
         <div class="nav-btn absolute left-3 top-1/2 -translate-y-1/2 z-10" id="prev-btn" title="Previous (left arrow)">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
@@ -171,6 +186,7 @@
         </div>
         <div class="mt-1.5 text-[10px] text-slate-400 flex items-center gap-3 flex-wrap">
             <span><kbd class="hint">1</kbd>–<kbd class="hint">7</kbd> vehicle type</span>
+            <span><kbd class="hint">0</kbd> OK</span>
             <span><kbd class="hint">&larr;</kbd> <kbd class="hint">&rarr;</kbd> prev / next</span>
             <span><kbd class="hint">Enter</kbd> next</span>
             <span>click an image to zoom</span>
@@ -199,6 +215,24 @@ const TYPES = [
     { key:'7', code:'van_noloader',    label:'Van - w/o Loader' },
 ];
 const LABEL_BY_CODE = Object.fromEntries(TYPES.map(t => [t.code, t.label]));
+LABEL_BY_CODE.ok = 'OK';
+
+// Status colors + compact labels for the top-bar summary
+const STAT_COLOR = {
+    pending:'#f59e0b', ok:'#10b981',
+    car:'#3b82f6', pickup_loader:'#f97316', pickup_noloader:'#fb923c',
+    truck_loader:'#8b5cf6', truck_noloader:'#a78bfa', van_loader:'#0891b2', van_noloader:'#22d3ee'
+};
+const SHORT = {
+    pending:'Pending', ok:'OK',
+    car:'Car', pickup_loader:'PU · Loader', pickup_noloader:'PU · no Loader',
+    truck_loader:'Truck · Loader', truck_noloader:'Truck · no Loader', van_loader:'Van · Loader', van_noloader:'Van · no Loader'
+};
+const SUMMARY_ORDER = ['pending','ok','car','pickup_loader','pickup_noloader','truck_loader','truck_noloader','van_loader','van_noloader'];
+
+// Image sizing — request small resized webp for display, larger for zoom
+const DISPLAY_W = 900,  DISPLAY_Q = 72;
+const ZOOM_W    = 1600, ZOOM_Q    = 85;
 const STORAGE_PREFIX = 'spyne_io_review_';
 
 // State
@@ -296,23 +330,47 @@ function persist() { try { localStorage.setItem(storageKey, JSON.stringify(revie
 function restoreReviews() { try { reviews = JSON.parse(localStorage.getItem(storageKey) || '{}'); } catch(e){ reviews = {}; } }
 
 // Image loading with proxy fallback
-function fallbacks(url) {
-    if (!url) return [];
-    const stripped = url.replace(/^https?:\/\//,'');
-    return [url, 'https://wsrv.nl/?url=' + encodeURIComponent(stripped)];
+// Image loading — request a small resized WebP first so big dealer photos load fast.
+//  • Spyne / S3 / CloudFront  → Thumbor (media.spyneai.com) resize+webp, then wsrv, then direct
+//  • Anything else            → wsrv.nl resize+webp, then direct
+function isSpyneHosted(url) {
+    try { const h = new URL(url).hostname.toLowerCase();
+        return h.includes('spyne') || h.includes('amazonaws.com') || h.includes('cloudfront.net'); }
+    catch(e){ return false; }
 }
+function thumborUrl(u, w, q) { return 'https://media.spyneai.com/unsafe/' + w + 'x0/filters:format(webp):quality(' + q + ')/' + u; }
+function wsrvUrl(u, w, q)    { return 'https://wsrv.nl/?url=' + encodeURIComponent(u.replace(/^https?:\/\//,'')) + '&w=' + w + '&q=' + q + '&output=webp'; }
+
+function getFallbacks(url, w, q) {
+    if (!url) return [];
+    const seen = new Set(), chain = [];
+    const add = u => { if (u && !seen.has(u)) { seen.add(u); chain.push(u); } };
+    if (isSpyneHosted(url)) { add(thumborUrl(url, w, q)); add(wsrvUrl(url, w, q)); add(url); }
+    else                    { add(wsrvUrl(url, w, q));    add(url); }
+    return chain;
+}
+
+const _preloadCache = new Set();
+function preload(url) {
+    if (!url) return;
+    const first = getFallbacks(url, DISPLAY_W, DISPLAY_Q)[0];
+    if (!first || _preloadCache.has(first)) return;
+    _preloadCache.add(first);
+    const i = new Image(); i.referrerPolicy = 'no-referrer'; i.decoding = 'async'; i.src = first;
+}
+
 function loadImage(imgEl, skelEl, noneEl, url) {
     imgEl.onload = imgEl.onerror = null;
     imgEl.src = ''; imgEl.style.opacity = '0';
     noneEl.style.display = 'none';
     if (!url) { skelEl.style.display = 'none'; noneEl.style.display = 'flex'; return; }
-    const fb = fallbacks(url); let step = 0;
+    const fb = getFallbacks(url, DISPLAY_W, DISPLAY_Q); let step = 0;
     skelEl.style.display = 'flex';
+    imgEl.decoding = 'async';
     imgEl.onload  = () => { imgEl.style.opacity = '1'; skelEl.style.display = 'none'; };
     imgEl.onerror = () => { step++; if (step < fb.length) { imgEl.src = fb[step]; } else { skelEl.style.display = 'none'; noneEl.style.display = 'flex'; } };
     imgEl.src = fb[0];
 }
-function preload(url) { if (url) { const i = new Image(); i.referrerPolicy='no-referrer'; i.src = fallbacks(url)[0]; } }
 
 // Render
 function renderTypeBar() {
@@ -326,6 +384,15 @@ function renderTypeBar() {
         chip.addEventListener('click', () => selectType(t.code));
         bar.appendChild(chip);
     });
+    const div = document.createElement('div');
+    div.className = 'w-px h-5 bg-slate-200 mx-1';
+    bar.appendChild(div);
+    const ok = document.createElement('button');
+    ok.className = 'type-chip ok';
+    ok.dataset.code = 'ok';
+    ok.innerHTML = '<span class="kbd">0</span><span>OK</span>';
+    ok.addEventListener('click', () => selectType('ok'));
+    bar.appendChild(ok);
 }
 
 function render() {
@@ -358,21 +425,49 @@ function render() {
 
     // Status
     const st = document.getElementById('status');
-    if (rev.type) { st.textContent = '✓ ' + LABEL_BY_CODE[rev.type]; st.style.color = '#059669'; }
-    else          { st.textContent = 'Unclassified';                 st.style.color = '#f59e0b'; }
+    if (rev.type) { st.textContent = '✓ ' + LABEL_BY_CODE[rev.type]; st.style.color = (rev.type === 'ok') ? '#047857' : '#059669'; }
+    else          { st.textContent = 'Pending';                      st.style.color = '#f59e0b'; }
 
     updateProgress();
+    renderSummary();
 
-    // Preload neighbours
+    // Preload neighbours (more ahead than behind) for snappy navigation
+    for (let d=1; d<=4; d++) {
+        const nx = rows[idx+d]; if (nx) { preload(nx.inputUrl); preload(nx.aiUrl); preload(nx.outputUrl); }
+    }
     for (let d=1; d<=2; d++) {
-        if (rows[idx+d]) { preload(rows[idx+d].inputUrl); preload(rows[idx+d].aiUrl); preload(rows[idx+d].outputUrl); }
-        if (rows[idx-d]) { preload(rows[idx-d].inputUrl); preload(rows[idx-d].aiUrl); preload(rows[idx-d].outputUrl); }
+        const pv = rows[idx-d]; if (pv) { preload(pv.inputUrl); preload(pv.aiUrl); preload(pv.outputUrl); }
     }
 }
 
 function updateProgress() {
     const done = Object.values(reviews).filter(x => x && x.type).length;
-    document.getElementById('progress-pill').textContent = done + ' / ' + rows.length + ' classified';
+    document.getElementById('progress-pill').textContent = done + ' / ' + rows.length + ' reviewed';
+}
+
+function renderSummary() {
+    const counts = { pending:0, ok:0, car:0, pickup_loader:0, pickup_noloader:0, truck_loader:0, truck_noloader:0, van_loader:0, van_noloader:0 };
+    rows.forEach((_, i) => {
+        const t = reviews[i] && reviews[i].type;
+        if (t && counts.hasOwnProperty(t)) counts[t]++;
+        else counts.pending++;
+    });
+    const bar = document.getElementById('summary-bar');
+    bar.innerHTML = '';
+    const lbl = document.createElement('span');
+    lbl.className = 'text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1';
+    lbl.textContent = 'Summary';
+    bar.appendChild(lbl);
+    SUMMARY_ORDER.forEach(code => {
+        const n = counts[code];
+        if (n === 0 && code !== 'pending' && code !== 'ok') return;   // always show Pending + OK
+        const pill = document.createElement('span');
+        pill.className = 'sum-pill';
+        pill.title = LABEL_BY_CODE[code] || SHORT[code];
+        pill.innerHTML = '<span class="dot" style="background:' + STAT_COLOR[code] + '"></span>' +
+                         '<span>' + SHORT[code] + '</span><span class="n">' + n + '</span>';
+        bar.appendChild(pill);
+    });
 }
 
 // Actions
@@ -423,7 +518,7 @@ function openLightbox(url) {
     if (!url) return;
     const box = document.getElementById('lightbox');
     const img = document.getElementById('lb-img');
-    const fb = fallbacks(url); let step = 0;
+    const fb = getFallbacks(url, ZOOM_W, ZOOM_Q); let step = 0;
     img.onerror = () => { step++; if (step < fb.length) img.src = fb[step]; };
     img.src = fb[0];
     box.style.display = 'flex';
@@ -478,6 +573,7 @@ document.addEventListener('keydown', e => {
 
     if (['ArrowLeft','ArrowUp'].includes(e.key))   { e.preventDefault(); nav(-1); return; }
     if (['ArrowRight','ArrowDown','Enter'].includes(e.key)) { e.preventDefault(); nav(1); return; }
+    if (e.key === '0' || e.key === 'o' || e.key === 'O') { e.preventDefault(); selectType('ok'); return; }
     const t = TYPES.find(x => x.key === e.key);
     if (t) { e.preventDefault(); selectType(t.code); }
 });
